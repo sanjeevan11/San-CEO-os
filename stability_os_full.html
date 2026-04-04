@@ -1,0 +1,1821 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#08111f" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Stability OS" />
+  <title>Stability OS</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            navy: {950:'#040915',900:'#08111f',850:'#0c1727',800:'#101d31',750:'#172539',700:'#1d2f47'},
+            accent: {300:'#f8d987',400:'#f2c45a',500:'#e5ad34',600:'#c88c17'}
+          },
+          boxShadow: {
+            card: '0 12px 36px rgba(0,0,0,.32)',
+            glow: '0 0 0 1px rgba(229,173,52,.18), 0 10px 30px rgba(0,0,0,.35)'
+          }
+        }
+      }
+    }
+  </script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    :root{
+      --safe-top: env(safe-area-inset-top, 12px);
+      --safe-bottom: env(safe-area-inset-bottom, 12px);
+    }
+    html, body, #root { height:100%; }
+    body{
+      margin:0;
+      color:#edf2fb;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      overscroll-behavior-y:none;
+      background:
+        radial-gradient(circle at top left, rgba(229,173,52,.08), transparent 24%),
+        radial-gradient(circle at top right, rgba(45,212,191,.05), transparent 22%),
+        linear-gradient(180deg, #040915 0%, #08111f 30%, #091223 100%);
+    }
+    .glass{
+      background: rgba(16,29,49,.86);
+      border: 1px solid rgba(255,255,255,.08);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      box-shadow: 0 12px 36px rgba(0,0,0,.28);
+    }
+    .glass-soft{
+      background: rgba(11,22,39,.96);
+      border: 1px solid rgba(255,255,255,.08);
+    }
+    .top-safe{ padding-top: calc(var(--safe-top) + 12px); }
+    .bottom-safe{ padding-bottom: calc(var(--safe-bottom) + 12px); }
+    .content-pad{ padding-bottom: calc(106px + var(--safe-bottom)); }
+    .hide-scroll::-webkit-scrollbar{ display:none; }
+    .hide-scroll{ scrollbar-width:none; -ms-overflow-style:none; }
+    input, textarea, select { font-size:16px; }
+    .fade-up{ animation: fadeUp .2s ease-out; }
+    @keyframes fadeUp{
+      from{ opacity:.45; transform: translateY(8px); }
+      to{ opacity:1; transform: translateY(0); }
+    }
+    .pulse-dot{ animation: pulse 1.5s infinite; }
+    @keyframes pulse{
+      0%,100%{ opacity:.5; transform: scale(1); }
+      50%{ opacity:1; transform: scale(1.15); }
+    }
+    .tap{ -webkit-tap-highlight-color: transparent; }
+    code{ word-break: break-word; }
+  </style>
+  <link rel="manifest" href='data:application/manifest+json,{"name":"Stability OS","short_name":"Stability OS","display":"standalone","background_color":"#08111f","theme_color":"#08111f","start_url":"./"}'>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useMemo } = React;
+
+const APP_VERSION = 4;
+const LS = {
+  config: 'stability_os_config_v4',
+  data: 'stability_os_data_v4'
+};
+
+const uid = () => Math.random().toString(36).slice(2,10) + Date.now().toString(36).slice(-4);
+const isoToday = () => new Date().toISOString().slice(0,10);
+const todayObj = () => new Date(isoToday() + 'T00:00:00');
+const deepClone = (x) => JSON.parse(JSON.stringify(x));
+const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
+const asCurrency = (n) => '£' + Number(n || 0).toFixed(2);
+const reorder = (arr, from, to) => {
+  const next = [...arr];
+  const [moved] = next.splice(from, 1);
+  next.splice(to, 0, moved);
+  return next;
+};
+const prettifyDate = (v) => {
+  if (!v) return '—';
+  try { return new Date(v + (v.length === 10 ? 'T00:00:00' : '')).toLocaleDateString(undefined, { day:'numeric', month:'short', year:'numeric' }); }
+  catch { return v; }
+};
+const diffDays = (dateStr) => {
+  if (!dateStr) return 9999;
+  const target = new Date(dateStr + 'T00:00:00');
+  return Math.ceil((target - todayObj()) / 86400000);
+};
+
+const hourlyQuotes = {
+  dawn: [
+    "Win the first hour or the day starts negotiating against you.",
+    "Mood is irrelevant. Structure first, emotion second.",
+    "The morning MIT is the hinge of the whole system."
+  ],
+  day: [
+    "Pressure is not the enemy. Diffusion is.",
+    "Do the highest-leverage thing before you touch noise.",
+    "One brutal focused block beats six half-started efforts."
+  ],
+  evening: [
+    "No day closes incomplete. Convert today into tomorrow.",
+    "Review is not optional. Memory without structure becomes anxiety.",
+    "You do not earn shutdown until tomorrow is already loaded."
+  ]
+};
+
+function getHourlyQuote() {
+  const hour = new Date().getHours();
+  const bucket = hour < 10 ? 'dawn' : hour < 18 ? 'day' : 'evening';
+  const list = hourlyQuotes[bucket];
+  return list[hour % list.length];
+}
+
+const defaultConfig = {
+  version: APP_VERSION,
+  app: {
+    title: 'Stability OS',
+    subtitle: 'War-room command center',
+    mission: 'Protect downside, stay lawful, build stability, execute hard.',
+    focusStyle: 'Direct, skeptical, action-first, ruthless but sustainable.'
+  },
+  profile: {
+    strengths: 'Persistent, evidence-driven, resourceful, high pain tolerance, willing to self-direct.',
+    weaknesses: 'Overwhelm across multiple fronts, emotional drift, scattered execution, novelty-chasing, busywork, weak sleep discipline, emotional over-processing.',
+    supportStyle: 'Force prioritisation, reduce noise, lock onto MIT, block day closure without review + tomorrow plan, default to MIT-only mode when sleep is poor.'
+  },
+  userSettings: {
+    name: '',
+    setupComplete: false,
+    wakeTime: '06:00',
+    sleepTarget: 7,
+    weeklyReviewDay: 'Sunday',
+    weeklyReviewTime: '19:00',
+    emergencyFundTarget: 2000,
+    lanes: ['Legal', 'One ICP', 'One Delivery'],
+    modules: { challenge:true, aiCoach:true, healthWidgets:true, businessCRM:true, motivation:true }
+  },
+  challenge: {
+    goalName: '30 Day Stability Reset',
+    goalDays: 30,
+    currentDay: 1,
+    startedAt: isoToday(),
+    endRequiresReview: true
+  },
+  tabs: [
+    { id:'today', name:'Today', archived:false },
+    { id:'legal', name:'Legal', archived:false },
+    { id:'money', name:'Money', archived:false },
+    { id:'business', name:'Business', archived:false },
+    { id:'builder', name:'Builder', archived:false }
+  ],
+  today: {
+    mitLabels: {
+      primary: 'Primary MIT',
+      secondary: 'Secondary MIT',
+      deep: 'Deep Block',
+      admin: 'Admin / Evidence'
+    },
+    ruleSets: [{
+      id:'default',
+      name:'Default Rule Set',
+      doRules: [
+        { id:uid(), text:'Drink 3L water', weight:1 },
+        { id:uid(), text:'Complete one deep work block', weight:2 },
+        { id:uid(), text:'Finish day review + tomorrow plan', weight:2 },
+        { id:uid(), text:'Protect legal/admin slot', weight:1 }
+      ],
+      dontRules: [
+        { id:uid(), text:'No random scrolling', weight:2 },
+        { id:uid(), text:'No alcohol', weight:2 },
+        { id:uid(), text:'No busywork before MIT', weight:2 }
+      ]
+    }],
+    activeRuleSetId: 'default',
+    scheduleBlocks: [
+      { id:uid(), name:'Wake + Reset', start:'06:00', end:'06:30' },
+      { id:uid(), name:'Primary MIT', start:'06:30', end:'08:00' },
+      { id:uid(), name:'Secondary MIT', start:'08:15', end:'09:15' },
+      { id:uid(), name:'Admin / Evidence', start:'11:00', end:'11:30' },
+      { id:uid(), name:'Deep Block', start:'15:00', end:'17:00' },
+      { id:uid(), name:'Shutdown', start:'20:30', end:'21:00' }
+    ],
+    scoreWeights: {
+      primaryMit: 20,
+      secondaryMit: 10,
+      deepBlock: 15,
+      adminBlock: 10,
+      review: 15,
+      nextPlan: 15,
+      rules: 15
+    },
+    widgets: {
+      progress: true,
+      score: true,
+      streak: true,
+      quote: true,
+      mission: true,
+      coreExecution: true,
+      focusTimer: true,
+      rules: true,
+      schedule: true,
+      journal: true,
+      health: true,
+      ai: true,
+      history: true
+    },
+    morningQuestions: [
+      'What must go right today?',
+      'What is the real bottleneck?',
+      'What will I refuse to waste time on?'
+    ],
+    eveningQuestions: [
+      'What moved the needle today?',
+      'Where did I drift or hesitate?',
+      'What must tomorrow start with?'
+    ]
+  },
+  health: {
+    widgets: [
+      { id:'sleep', name:'Sleep Hours', type:'number' },
+      { id:'meds', name:'Meds Taken', type:'checkbox' },
+      { id:'pain', name:'Pain', type:'rating' },
+      { id:'mood', name:'Mood', type:'rating' },
+      { id:'walk', name:'Walk / Workout', type:'checkbox' },
+      { id:'alcohol', name:'Alcohol', type:'checkbox' },
+      { id:'appointments', name:'Appointments', type:'text' }
+    ],
+    badDayRules: {
+      sleepBelow: 6,
+      moodAtOrBelow: 2,
+      painAtOrAbove: 4,
+      consecutiveBadDaysBanner: 3
+    }
+  },
+  legal: {
+    matterTypes: ['ET', 'County Court', 'NRM', 'Immigration', 'Police', 'Regulator'],
+    priorities: ['Critical', 'High', 'Medium', 'Low'],
+    statuses: ['Open', 'Drafting', 'Waiting', 'Filed', 'Closed'],
+    exhibitStatuses: ['need', 'drafted', 'final', 'filed'],
+    correspondenceStatuses: ['No reply', 'Waiting', 'Responded', 'Closed'],
+    riskThresholds: { criticalDays: 7 }
+  },
+  money: {
+    categories: ['Food', 'Travel', 'Phone', 'Health', 'Legal', 'Business', 'Essentials', 'Other'],
+    thresholds: { lowCash: 150, weeklySpendWarn: 120 }
+  },
+  business: {
+    stages: ['New', 'Contacted', 'Discovery', 'Proposal', 'Awaiting Deposit', 'Ready to Build', 'Build', 'Live', 'Lost'],
+    gatingRule: {
+      buildStage: 'Build',
+      requiresDeposit: true,
+      requiresScope: true
+    }
+  },
+  quickCapture: {
+    types: [
+      {
+        id:'deadline',
+        name:'Deadline',
+        target:'legal.deadlines',
+        fields:[
+          { name:'title', label:'Title', type:'text' },
+          { name:'matterType', label:'Matter Type', type:'select', optionsFrom:'legal.matterTypes' },
+          { name:'dueDate', label:'Due Date', type:'date' },
+          { name:'priority', label:'Priority', type:'select', optionsFrom:'legal.priorities' },
+          { name:'status', label:'Status', type:'select', optionsFrom:'legal.statuses' },
+          { name:'notes', label:'Notes', type:'textarea' }
+        ]
+      },
+      {
+        id:'exhibit',
+        name:'Exhibit',
+        target:'legal.exhibits',
+        fields:[
+          { name:'code', label:'Exhibit Code', type:'text' },
+          { name:'documentDate', label:'Document Date', type:'date' },
+          { name:'category', label:'Category', type:'text' },
+          { name:'description', label:'Short Description', type:'textarea' },
+          { name:'relevance', label:'Relevance', type:'textarea' },
+          { name:'filename', label:'Filename', type:'text' },
+          { name:'source', label:'Source', type:'text' },
+          { name:'status', label:'Status', type:'select', optionsFrom:'legal.exhibitStatuses' }
+        ]
+      },
+      {
+        id:'expense',
+        name:'Expense',
+        target:'money.expenses',
+        fields:[
+          { name:'date', label:'Date', type:'date' },
+          { name:'category', label:'Category', type:'select', optionsFrom:'money.categories' },
+          { name:'amount', label:'Amount', type:'currency' },
+          { name:'notes', label:'Notes', type:'textarea' }
+        ]
+      },
+      {
+        id:'lead',
+        name:'Lead',
+        target:'business.leads',
+        fields:[
+          { name:'name', label:'Name', type:'text' },
+          { name:'company', label:'Company', type:'text' },
+          { name:'icp', label:'ICP', type:'text' },
+          { name:'source', label:'Source', type:'text' },
+          { name:'stage', label:'Stage', type:'select', optionsFrom:'business.stages' },
+          { name:'quoted', label:'Quoted?', type:'checkbox' },
+          { name:'depositPaid', label:'Deposit paid?', type:'checkbox' },
+          { name:'scopeSigned', label:'Scope signed?', type:'checkbox' },
+          { name:'nextFollowUp', label:'Next follow-up', type:'date' },
+          { name:'caseStudyPotential', label:'Case study potential', type:'checkbox' },
+          { name:'mrrValue', label:'MRR value', type:'currency' },
+          { name:'notes', label:'Notes', type:'textarea' }
+        ]
+      }
+    ]
+  },
+  ai: {
+    enabled: true,
+    endpoint: 'https://openrouter.ai/api/v1/chat/completions',
+    model: 'qwen/qwen3.6-plus:free',
+    apiKey: '',
+    siteUrl: '',
+    siteName: 'Stability OS',
+    systemMode: 'Relentless operator coach with focus on discipline, downside protection, and execution.'
+  }
+};
+
+const defaultData = {
+  legal: {
+    deadlines: [
+      { id:uid(), title:'Review upcoming filing bundle', matterType:'ET', dueDate:isoToday(), priority:'High', status:'Open', notes:'Tighten chronology and missing exhibits.' }
+    ],
+    chronology: [
+      { id:uid(), date:isoToday(), event:'Drafted key chronology update', matterType:'ET', source:'Self note', notes:'Need to attach 2 exhibits.', linkedExhibit:'' }
+    ],
+    exhibits: [
+      { id:uid(), code:'EX-001', documentDate:isoToday(), category:'Medical', description:'Initial supporting document', relevance:'Supports chronology', filename:'20260404_EX001.pdf', source:'Local file', status:'drafted' }
+    ],
+    correspondence: [
+      { id:uid(), who:'Tribunal / solicitor / regulator', matterType:'ET', dateSent:isoToday(), subject:'Status follow-up', replyDue:isoToday(), responseStatus:'Waiting', notes:'Check response tomorrow.' }
+    ]
+  },
+  money: {
+    cashOnHand: 120,
+    income: [{ id:uid(), source:'Support payment', amount:49, date:isoToday(), recurring:true }],
+    bills: [{ id:uid(), name:'Phone', amount:15, dueDate:isoToday(), essential:true, paid:false }],
+    expenses: [{ id:uid(), date:isoToday(), category:'Food', amount:6.5, notes:'Basic groceries' }]
+  },
+  business: {
+    leads: [
+      { id:uid(), name:'Sample Lead', company:'Demo Studio', icp:'Photographer', source:'Outbound', stage:'Discovery', quoted:true, depositPaid:false, scopeSigned:false, nextFollowUp:isoToday(), caseStudyPotential:true, mrrValue:450, notes:'Needs structured follow-up.' }
+    ]
+  },
+  today: {
+    dailyLogs: {
+      [isoToday()]: {
+        primaryMit:'',
+        secondaryMit:'',
+        deepBlock:'',
+        adminBlock:'',
+        wip:['Legal', 'One ICP', 'One Delivery'],
+        sleepHours:0,
+        mitOnlyMode:false,
+        timerPreset:25,
+        timerRunning:false,
+        rulesState:{},
+        journalMorning:{},
+        journalEvening:{},
+        review:'',
+        nextDayPlan:'',
+        health:{ sleep:0, meds:false, pain:2, mood:3, walk:false, alcohol:false, appointments:'' },
+        aiLog:[],
+        completedAt:null
+      }
+    },
+    history:[]
+  }
+};
+
+function safeRead(key, fallback){
+  try{
+    const raw = localStorage.getItem(key);
+    if(!raw) return deepClone(fallback);
+    const parsed = JSON.parse(raw);
+    return parsed ?? deepClone(fallback);
+  } catch {
+    return deepClone(fallback);
+  }
+}
+function safeWrite(key, value){ localStorage.setItem(key, JSON.stringify(value)); }
+function usePersistentState(key, fallback){
+  const [value, setValue] = useState(() => safeRead(key, fallback));
+  useEffect(() => { safeWrite(key, value); }, [key, value]);
+  return [value, setValue];
+}
+function resolveOptions(config, optionsFrom){
+  if(!optionsFrom) return [];
+  const [group, name] = optionsFrom.split('.');
+  return (config[group] && config[group][name]) ? config[group][name] : [];
+}
+function getRuleSet(config){
+  return config.today.ruleSets.find(r => r.id === config.today.activeRuleSetId) || config.today.ruleSets[0];
+}
+
+function Card({title, right, children, className=''}) {
+  return (
+    <div className={`glass rounded-3xl p-4 ${className}`}>
+      {(title || right) && (
+        <div className="flex items-center justify-between mb-3">
+          <div className="text-sm font-semibold tracking-wide text-slate-200">{title}</div>
+          <div>{right}</div>
+        </div>
+      )}
+      {children}
+    </div>
+  );
+}
+function SmallStat({label, value, accent=false, sub=''}) {
+  return (
+    <div className="glass-soft rounded-3xl p-4 min-h-[92px] flex flex-col justify-center">
+      <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400">{label}</div>
+      <div className={`text-4xl font-bold mt-1 ${accent ? 'text-accent-500' : 'text-white'}`}>{value}</div>
+      {sub ? <div className="text-xs text-slate-500 mt-1">{sub}</div> : null}
+    </div>
+  );
+}
+function Input({label, value, onChange, type='text', placeholder='', step}) {
+  return (
+    <label className="block">
+      {label ? <div className="text-xs text-slate-400 mb-1">{label}</div> : null}
+      <input
+        type={type}
+        value={value ?? ''}
+        step={step}
+        placeholder={placeholder}
+        onChange={e => onChange(e.target.value)}
+        className="w-full rounded-2xl border border-white/10 bg-navy-850 px-4 py-3 text-white outline-none focus:border-accent-500"
+      />
+    </label>
+  );
+}
+function TextArea({label, value, onChange, placeholder='', rows=3}) {
+  return (
+    <label className="block">
+      {label ? <div className="text-xs text-slate-400 mb-1">{label}</div> : null}
+      <textarea
+        rows={rows}
+        value={value ?? ''}
+        placeholder={placeholder}
+        onChange={e => onChange(e.target.value)}
+        className="w-full rounded-2xl border border-white/10 bg-navy-850 px-4 py-3 text-white outline-none focus:border-accent-500"
+      />
+    </label>
+  );
+}
+function Select({label, value, onChange, options=[]}) {
+  return (
+    <label className="block">
+      {label ? <div className="text-xs text-slate-400 mb-1">{label}</div> : null}
+      <select
+        value={value ?? ''}
+        onChange={e => onChange(e.target.value)}
+        className="w-full rounded-2xl border border-white/10 bg-navy-850 px-4 py-3 text-white outline-none focus:border-accent-500"
+      >
+        <option value="">Select…</option>
+        {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+      </select>
+    </label>
+  );
+}
+function Toggle({label, checked, onChange}) {
+  return (
+    <button onClick={onChange} className="w-full flex items-center justify-between rounded-2xl border border-white/10 bg-navy-850 px-4 py-3 text-left tap">
+      <span className="text-sm text-white">{label}</span>
+      <span className={`inline-flex h-7 w-12 items-center rounded-full transition ${checked ? 'bg-accent-500 justify-end' : 'bg-slate-600 justify-start'} px-1`}>
+        <span className="h-5 w-5 rounded-full bg-white"></span>
+      </span>
+    </button>
+  );
+}
+function Badge({children, tone='default'}) {
+  const map = {
+    default:'bg-white/5 text-slate-300 border-white/10',
+    good:'bg-teal-500/10 text-teal-300 border-teal-400/20',
+    warn:'bg-amber-500/10 text-amber-300 border-amber-400/20',
+    bad:'bg-red-500/10 text-red-300 border-red-400/20'
+  };
+  return <span className={`rounded-full border px-2.5 py-1 text-[11px] ${map[tone] || map.default}`}>{children}</span>;
+}
+function ArrayManager({title, items, onChange, placeholder='Add item'}) {
+  const [draft, setDraft] = useState('');
+  const add = () => {
+    if(!draft.trim()) return;
+    onChange([...(items || []), draft.trim()]);
+    setDraft('');
+  };
+  return (
+    <Card title={title}>
+      <div className="space-y-2">
+        {(items || []).map((item, i) => (
+          <div key={i} className="flex items-center gap-2">
+            <input
+              value={item}
+              onChange={e => {
+                const next = [...items];
+                next[i] = e.target.value;
+                onChange(next);
+              }}
+              className="flex-1 rounded-2xl border border-white/10 bg-navy-850 px-3 py-2 text-sm text-white"
+            />
+            <button onClick={() => i > 0 && onChange(reorder(items, i, i - 1))} className="rounded-2xl bg-white/5 px-3 py-2 text-xs tap">↑</button>
+            <button onClick={() => i < items.length - 1 && onChange(reorder(items, i, i + 1))} className="rounded-2xl bg-white/5 px-3 py-2 text-xs tap">↓</button>
+            <button onClick={() => onChange(items.filter((_, idx) => idx !== i))} className="rounded-2xl bg-red-500/10 px-3 py-2 text-xs text-red-300 tap">Del</button>
+          </div>
+        ))}
+        <div className="flex gap-2">
+          <input value={draft} onChange={e => setDraft(e.target.value)} placeholder={placeholder} className="flex-1 rounded-2xl border border-white/10 bg-navy-850 px-3 py-2 text-sm text-white" />
+          <button onClick={add} className="rounded-2xl bg-accent-500 px-4 py-2 text-sm font-semibold text-navy-950 tap">Add</button>
+        </div>
+      </div>
+    </Card>
+  );
+}
+function QuickForm({config, typeDef, value, onChange}) {
+  if(!typeDef) return null;
+  const setField = (name, val) => onChange({...value, [name]: val});
+  return (
+    <div className="space-y-3">
+      {typeDef.fields.map(field => {
+        const options = field.optionsFrom ? resolveOptions(config, field.optionsFrom) : (field.options || []);
+        if(field.type === 'textarea') return <TextArea key={field.name} label={field.label} value={value[field.name] || ''} onChange={v => setField(field.name, v)} />;
+        if(field.type === 'select') return <Select key={field.name} label={field.label} value={value[field.name] || ''} onChange={v => setField(field.name, v)} options={options} />;
+        if(field.type === 'checkbox') return <Toggle key={field.name} label={field.label} checked={!!value[field.name]} onChange={() => setField(field.name, !value[field.name])} />;
+        if(field.type === 'rating') return <Select key={field.name} label={field.label} value={String(value[field.name] ?? '')} onChange={v => setField(field.name, Number(v))} options={['1', '2', '3', '4', '5']} />;
+        if(field.type === 'currency') return <Input key={field.name} label={field.label} value={value[field.name] ?? ''} type="number" step="0.01" onChange={v => setField(field.name, Number(v))} />;
+        return <Input key={field.name} label={field.label} value={value[field.name] ?? ''} type={field.type || 'text'} onChange={v => setField(field.name, v)} />;
+      })}
+    </div>
+  );
+}
+
+function App() {
+  const [config, setConfig] = usePersistentState(LS.config, defaultConfig);
+  const [data, setData] = usePersistentState(LS.data, defaultData);
+
+  const [activeTab, setActiveTab] = useState('today');
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showQuick, setShowQuick] = useState(false);
+  const [quickType, setQuickType] = useState('deadline');
+  const [quickValue, setQuickValue] = useState({ date: isoToday() });
+  const [builderSection, setBuilderSection] = useState('app');
+  const [timerSeconds, setTimerSeconds] = useState(25 * 60);
+  const [installNoteDismissed, setInstallNoteDismissed] = useState(false);
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiResult, setAiResult] = useState('');
+
+  const todayKey = isoToday();
+  const todaysLog = data.today.dailyLogs[todayKey] || defaultData.today.dailyLogs[isoToday()];
+  const ruleSet = getRuleSet(config);
+  const visibleTabs = config.tabs.filter(t => !t.archived);
+  const currentDay = config.challenge.currentDay;
+  const goalProgress = clamp((currentDay / Math.max(config.challenge.goalDays, 1)) * 100, 0, 100);
+
+  useEffect(() => {
+    if (!data.today.dailyLogs[todayKey]) {
+      setData(prev => ({
+        ...prev,
+        today: {
+          ...prev.today,
+          dailyLogs: { ...prev.today.dailyLogs, [todayKey]: deepClone(defaultData.today.dailyLogs[isoToday()]) }
+        }
+      }));
+    }
+  }, [todayKey]);
+
+  useEffect(() => {
+    if (todaysLog && todaysLog.timerRunning) {
+      const timer = setInterval(() => {
+        setTimerSeconds(s => {
+          if (s <= 1) {
+            setData(prev => ({
+              ...prev,
+              today: {
+                ...prev.today,
+                dailyLogs: {
+                  ...prev.today.dailyLogs,
+                  [todayKey]: { ...prev.today.dailyLogs[todayKey], timerRunning:false }
+                }
+              }
+            }));
+            return 0;
+          }
+          return s - 1;
+        });
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [todaysLog?.timerRunning, todayKey]);
+
+  useEffect(() => {
+    const preset = todaysLog?.timerPreset || 25;
+    if (!todaysLog?.timerRunning) setTimerSeconds(preset * 60);
+  }, [todaysLog?.timerPreset]);
+
+  useEffect(() => {
+    if (Number(todaysLog.sleepHours || 0) < 6 && !todaysLog.mitOnlyMode) {
+      updateToday({ mitOnlyMode:true });
+    }
+  }, [todaysLog.sleepHours]);
+
+  const updateToday = (patch) => {
+    setData(prev => ({
+      ...prev,
+      today: {
+        ...prev.today,
+        dailyLogs: {
+          ...prev.today.dailyLogs,
+          [todayKey]: { ...prev.today.dailyLogs[todayKey], ...patch }
+        }
+      }
+    }));
+  };
+  const setHealthField = (name, value) => updateToday({ health: { ...todaysLog.health, [name]: value } });
+
+  const ruleState = todaysLog.rulesState || {};
+  const allRules = [
+    ...ruleSet.doRules.map(r => ({...r, kind:'do'})),
+    ...ruleSet.dontRules.map(r => ({...r, kind:'dont'}))
+  ];
+  const checkedRulesWeight = allRules.reduce((acc, rule) => acc + (ruleState[rule.id] ? Number(rule.weight || 1) : 0), 0);
+  const totalRulesWeight = Math.max(1, allRules.reduce((acc, rule) => acc + Number(rule.weight || 1), 0));
+
+  const todayScore = useMemo(() => {
+    const w = config.today.scoreWeights;
+    let score = 0;
+    if (todaysLog.primaryMit?.trim()) score += Number(w.primaryMit || 0);
+    if (todaysLog.secondaryMit?.trim()) score += Number(w.secondaryMit || 0);
+    if (todaysLog.deepBlock?.trim()) score += Number(w.deepBlock || 0);
+    if (todaysLog.adminBlock?.trim()) score += Number(w.adminBlock || 0);
+    if (todaysLog.review?.trim()) score += Number(w.review || 0);
+    if (todaysLog.nextDayPlan?.trim()) score += Number(w.nextPlan || 0);
+    score += Math.round((checkedRulesWeight / totalRulesWeight) * Number(w.rules || 0));
+    return clamp(Math.round(score), 0, 100);
+  }, [todaysLog, ruleState, config]);
+
+  const streak = useMemo(() => {
+    const hist = data.today.history || [];
+    let count = 0;
+    for (let i = hist.length - 1; i >= 0; i--) {
+      if (hist[i].score >= 70) count += 1;
+      else break;
+    }
+    return count;
+  }, [data.today.history]);
+
+  const badDayCount = useMemo(() => {
+    const hist = (data.today.history || []).slice(-10).map(x => x.health || {});
+    const current = todaysLog.health || {};
+    const all = [...hist, { ...current, sleep: todaysLog.sleepHours }];
+    const threshold = config.health.badDayRules;
+    let consecutive = 0;
+    for (let i = all.length - 1; i >= 0; i--) {
+      const item = all[i];
+      const bad =
+        (Number(item.sleep || 0) < Number(threshold.sleepBelow)) ||
+        (Number(item.mood || 5) <= Number(threshold.moodAtOrBelow)) ||
+        (Number(item.pain || 1) >= Number(threshold.painAtOrAbove)) ||
+        !!item.alcohol;
+      if (bad) consecutive += 1;
+      else break;
+    }
+    return consecutive;
+  }, [data.today.history, todaysLog.health, todaysLog.sleepHours, config]);
+
+  const mattersDueSoon = data.legal.deadlines.filter(d => diffDays(d.dueDate) <= Number(config.legal.riskThresholds.criticalDays || 7) && !['Filed', 'Closed'].includes(d.status));
+  const unanswered = data.legal.correspondence.filter(c => ['No reply', 'Waiting'].includes(c.responseStatus));
+  const missingExhibits = data.legal.exhibits.filter(e => e.status === 'need');
+  const legalTop3 = [...data.legal.deadlines].sort((a,b) => (a.dueDate || '').localeCompare(b.dueDate || '')).slice(0,3);
+
+  const essentialBills = data.money.bills.filter(b => b.essential);
+  const monthlyEssentials = essentialBills.reduce((a,b) => a + Number(b.amount || 0), 0);
+  const spendThisWeek = data.money.expenses.filter(x => {
+    if (!x.date) return false;
+    const diff = Math.floor((todayObj() - new Date(x.date + 'T00:00:00')) / 86400000);
+    return diff >= 0 && diff < 7;
+  }).reduce((a,b) => a + Number(b.amount || 0), 0);
+  const runwayDays = monthlyEssentials > 0 ? Math.floor((Number(data.money.cashOnHand || 0) / monthlyEssentials) * 30) : 0;
+  const emergencyPct = clamp((Number(data.money.cashOnHand || 0) / Number(config.userSettings.emergencyFundTarget || 2000)) * 100, 0, 999);
+
+  const stageCounts = config.business.stages.reduce((acc, stage) => ({ ...acc, [stage]: data.business.leads.filter(l => l.stage === stage).length }), {});
+  const followUpsDue = data.business.leads.filter(l => l.nextFollowUp && l.nextFollowUp <= todayKey && !['Lost', 'Live'].includes(l.stage));
+  const caseStudyCount = data.business.leads.filter(l => l.caseStudyPotential).length;
+  const mrr = data.business.leads.filter(l => ['Live', 'Build', 'Ready to Build'].includes(l.stage)).reduce((a,b) => a + Number(b.mrrValue || 0), 0);
+
+  const currentTabName = visibleTabs.find(t => t.id === activeTab)?.name || 'Today';
+  const visibleWidgets = config.today.widgets;
+  const quickDef = config.quickCapture.types.find(t => t.id === quickType);
+
+  const appSummary = [
+    `Mission: ${config.app.mission}`,
+    `Profile strengths: ${config.profile.strengths}`,
+    `Profile weaknesses: ${config.profile.weaknesses}`,
+    `Support style: ${config.profile.supportStyle}`,
+    `Current goal: ${config.challenge.goalName} Day ${config.challenge.currentDay}/${config.challenge.goalDays}`,
+    `Today score: ${todayScore}`,
+    `Primary MIT: ${todaysLog.primaryMit || 'none'}`,
+    `Secondary MIT: ${todaysLog.secondaryMit || 'none'}`,
+    `Deep block: ${todaysLog.deepBlock || 'none'}`,
+    `Admin block: ${todaysLog.adminBlock || 'none'}`,
+    `Due soon legal items: ${mattersDueSoon.map(x => x.title).join('; ') || 'none'}`,
+    `Follow-ups due: ${followUpsDue.map(x => x.company || x.name).join('; ') || 'none'}`,
+    `Cash on hand: ${data.money.cashOnHand}`
+  ].join('\n');
+
+  async function askAI(mode) {
+    if (!config.ai.enabled) {
+      setAiResult('AI is disabled in Builder > AI Settings.');
+      return;
+    }
+    if (!config.ai.apiKey) {
+      setAiResult('No API key saved. Add your OpenRouter key inside Builder > AI Settings. Keep it out of the public HTML.');
+      return;
+    }
+    setAiBusy(true);
+    setAiResult('');
+    const prompts = {
+      motivation: 'Give a ruthless but sustainable motivational push for the next 2 hours. No fluff. Force focus, discipline, and execution.',
+      next: 'Based on the context, give the single highest-leverage next action right now, why it matters, and what to ignore for the next 90 minutes.',
+      tomorrow: `Using today context and this journal review:\n${todaysLog.review || 'No review yet.'}\nDraft tomorrow plan with one MIT, one secondary MIT, one deep block, one admin block, and one rule to enforce.`,
+      legal: 'Turn the legal context into top 5 precise next actions. Separate hard deadlines, evidence gaps, and correspondence follow-ups.',
+      business: 'Draft a concise business follow-up message for the most urgent lead and give one revenue-focused next action.',
+      journal: `Synthesize today's journal and health state into: (1) the real problem, (2) one correction for tomorrow, (3) one warning. Morning: ${JSON.stringify(todaysLog.journalMorning)} Evening: ${JSON.stringify(todaysLog.journalEvening)}`,
+      custom: aiPrompt || 'Help me execute better today.'
+    };
+
+    try {
+      const body = {
+        model: config.ai.model,
+        messages: [
+          { role:'system', content:`${config.ai.systemMode}\nUse this operating context.\n${appSummary}` },
+          { role:'user', content: prompts[mode] || aiPrompt || 'Help me execute better today.' }
+        ]
+      };
+      const res = await fetch(config.ai.endpoint, {
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+          'Authorization': `Bearer ${config.ai.apiKey}`,
+          ...(config.ai.siteUrl ? { 'HTTP-Referer': config.ai.siteUrl } : {}),
+          ...(config.ai.siteName ? { 'X-Title': config.ai.siteName } : {})
+        },
+        body: JSON.stringify(body)
+      });
+      const json = await res.json();
+      const text = json?.choices?.[0]?.message?.content || json?.error?.message || 'No AI response.';
+      setAiResult(text);
+      updateToday({
+        aiLog: [{ id:uid(), mode, text, at:new Date().toISOString() }, ...(todaysLog.aiLog || [])].slice(0, 20)
+      });
+    } catch (e) {
+      setAiResult('AI request failed. Check API key, model, endpoint, and network.');
+    } finally {
+      setAiBusy(false);
+    }
+  }
+
+  function exportBackup() {
+    const payload = { exportedAt:new Date().toISOString(), config, data };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type:'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'stability_os_backup.json';
+    a.click();
+  }
+  function importBackup(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const json = JSON.parse(reader.result);
+        if (json.config && json.data) {
+          setConfig(json.config);
+          setData(json.data);
+          alert('Backup imported.');
+        } else {
+          alert('Invalid backup file.');
+        }
+      } catch {
+        alert('Could not parse backup file.');
+      }
+    };
+    reader.readAsText(file);
+  }
+  function wipeAll() {
+    if (!confirm('Wipe all app data? This cannot be undone.')) return;
+    setConfig(deepClone(defaultConfig));
+    setData(deepClone(defaultData));
+  }
+  function resetDemo() {
+    if (!confirm('Reset data to demo state?')) return;
+    setData(deepClone(defaultData));
+  }
+
+  function saveQuickCapture() {
+    const typeDef = config.quickCapture.types.find(t => t.id === quickType);
+    if (!typeDef) return;
+    const payload = { id:uid(), ...quickValue };
+    setData(prev => {
+      const next = deepClone(prev);
+      if (typeDef.target === 'legal.deadlines') next.legal.deadlines.unshift(payload);
+      if (typeDef.target === 'legal.exhibits') next.legal.exhibits.unshift(payload);
+      if (typeDef.target === 'money.expenses') next.money.expenses.unshift(payload);
+      if (typeDef.target === 'business.leads') next.business.leads.unshift(payload);
+      return next;
+    });
+    setQuickValue({ date:todayKey });
+    setShowQuick(false);
+  }
+
+  function endDay() {
+    if (config.challenge.endRequiresReview && (!todaysLog.review?.trim() || !todaysLog.nextDayPlan?.trim())) {
+      alert('End of day is blocked until you complete the review and tomorrow plan.');
+      return;
+    }
+    const snapshot = {
+      id:uid(),
+      date:todayKey,
+      score:todayScore,
+      challengeDay:config.challenge.currentDay,
+      review:todaysLog.review,
+      nextDayPlan:todaysLog.nextDayPlan,
+      primaryMit:todaysLog.primaryMit,
+      secondaryMit:todaysLog.secondaryMit,
+      health:{ ...todaysLog.health, sleep:todaysLog.sleepHours }
+    };
+    setData(prev => ({
+      ...prev,
+      today: {
+        ...prev.today,
+        history:[...prev.today.history, snapshot],
+        dailyLogs:{
+          ...prev.today.dailyLogs,
+          [todayKey]: { ...prev.today.dailyLogs[todayKey], completedAt:new Date().toISOString(), timerRunning:false }
+        }
+      }
+    }));
+    setConfig(prev => ({
+      ...prev,
+      challenge:{ ...prev.challenge, currentDay: prev.challenge.currentDay + 1 }
+    }));
+    alert('Day closed and archived.');
+  }
+
+  const results = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return [];
+    const out = [];
+    const pushIf = (items, type, tab, getTitle, getDate) => {
+      items.forEach(item => {
+        const hay = JSON.stringify(item).toLowerCase();
+        if (hay.includes(q)) {
+          out.push({
+            id:uid(),
+            type,
+            tab,
+            title:getTitle(item),
+            date:getDate ? getDate(item) : '',
+            item
+          });
+        }
+      });
+    };
+    pushIf(data.today.history || [], 'History', 'today', x => x.review || x.primaryMit || 'History item', x => x.date);
+    pushIf(Object.values(data.today.dailyLogs || {}), 'Daily Log', 'today', x => x.primaryMit || x.secondaryMit || 'Daily log', _ => todayKey);
+    pushIf(data.legal.deadlines, 'Deadline', 'legal', x => x.title, x => x.dueDate);
+    pushIf(data.legal.exhibits, 'Exhibit', 'legal', x => x.code + ' ' + (x.description || ''), x => x.documentDate);
+    pushIf(data.legal.chronology, 'Chronology', 'legal', x => x.event, x => x.date);
+    pushIf(data.legal.correspondence, 'Correspondence', 'legal', x => x.subject, x => x.dateSent);
+    pushIf(data.money.bills, 'Bill', 'money', x => x.name, x => x.dueDate);
+    pushIf(data.money.expenses, 'Expense', 'money', x => x.category + ' ' + (x.notes || ''), x => x.date);
+    pushIf(data.business.leads, 'Lead', 'business', x => (x.company || x.name) + ' / ' + x.stage, x => x.nextFollowUp);
+    return out.slice(0, 40);
+  }, [searchQuery, data]);
+
+  function updateLeadStage(leadId, stage) {
+    setData(prev => {
+      const next = deepClone(prev);
+      next.business.leads = next.business.leads.map(lead => {
+        if (lead.id !== leadId) return lead;
+        if (
+          stage === config.business.gatingRule.buildStage &&
+          config.business.gatingRule.requiresDeposit &&
+          (!lead.depositPaid || !lead.scopeSigned)
+        ) {
+          alert('Build stage blocked. Deposit paid and scope signed are both required.');
+          return lead;
+        }
+        return { ...lead, stage };
+      });
+      return next;
+    });
+  }
+
+  function editRule(setId, kind, ruleId, key, value) {
+    setConfig(prev => {
+      const next = deepClone(prev);
+      const rs = next.today.ruleSets.find(r => r.id === setId);
+      const arr = kind === 'do' ? rs.doRules : rs.dontRules;
+      const item = arr.find(r => r.id === ruleId);
+      item[key] = value;
+      return next;
+    });
+  }
+  function addRule(setId, kind) {
+    const text = prompt('Rule text');
+    if (!text) return;
+    setConfig(prev => {
+      const next = deepClone(prev);
+      const rs = next.today.ruleSets.find(r => r.id === setId);
+      if (kind === 'do') rs.doRules.push({ id:uid(), text, weight:1 });
+      else rs.dontRules.push({ id:uid(), text, weight:1 });
+      return next;
+    });
+  }
+
+  function renderToday() {
+    return (
+      <div className="space-y-4 fade-up">
+        <div className="flex items-start justify-between">
+          <div>
+            <div className="text-3xl font-bold tracking-tight">{config.app.title}</div>
+            <div className="mt-1 text-slate-400">{new Date().toLocaleDateString(undefined, { weekday:'long', day:'numeric', month:'short' })}</div>
+          </div>
+          <div className="text-right">
+            <div className="text-xs uppercase tracking-[0.18em] text-slate-500">Goal</div>
+            <div className="text-sm text-accent-400">{config.challenge.goalName}</div>
+          </div>
+        </div>
+
+        {badDayCount >= Number(config.health.badDayRules.consecutiveBadDaysBanner) && (
+          <Card className="border-red-400/20">
+            <div className="text-sm text-red-300 font-semibold">Warning: {badDayCount} consecutive bad-day signals.</div>
+            <div className="text-xs text-slate-400 mt-1">Use MIT-only mode. Avoid heavy decisions. Protect sleep and downside.</div>
+          </Card>
+        )}
+
+        {(visibleWidgets.score || visibleWidgets.streak) && (
+          <div className="grid grid-cols-2 gap-3">
+            {visibleWidgets.score && <SmallStat label="Score" value={todayScore} accent />}
+            {visibleWidgets.streak && <SmallStat label="Streak" value={streak} sub="70+ score days" />}
+          </div>
+        )}
+
+        {visibleWidgets.progress && (
+          <Card title="Progress Dashboard">
+            <div className="space-y-3">
+              <div>
+                <div className="flex justify-between text-xs text-slate-400"><span>Goal day progress</span><span>Day {currentDay}/{config.challenge.goalDays}</span></div>
+                <div className="mt-2 h-3 rounded-full bg-white/5 overflow-hidden"><div className="h-full bg-accent-500" style={{ width:`${goalProgress}%` }}></div></div>
+              </div>
+              <div>
+                <div className="flex justify-between text-xs text-slate-400"><span>Today completion</span><span>{todayScore}%</span></div>
+                <div className="mt-2 h-3 rounded-full bg-white/5 overflow-hidden"><div className="h-full bg-teal-400" style={{ width:`${todayScore}%` }}></div></div>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {visibleWidgets.quote && (
+          <Card title="Hourly Operating Quote" right={<Badge tone="warn">{new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</Badge>}>
+            <div className="text-sm italic text-slate-200">{getHourlyQuote()}</div>
+          </Card>
+        )}
+
+        {visibleWidgets.mission && (
+          <Card title="Mission / Mode">
+            <div className="text-sm text-slate-200">{config.app.mission}</div>
+            <div className="text-xs text-slate-500 mt-2">{config.profile.supportStyle}</div>
+          </Card>
+        )}
+
+        {visibleWidgets.coreExecution && (
+          <Card title="Core Execution">
+            <div className="grid gap-3">
+              <Input label={config.today.mitLabels.primary} value={todaysLog.primaryMit} onChange={v => updateToday({ primaryMit:v })} placeholder="Define the one thing that matters most." />
+              <Input label={config.today.mitLabels.secondary} value={todaysLog.secondaryMit} onChange={v => updateToday({ secondaryMit:v })} placeholder="Useful, but not above the MIT." />
+              <Input label={config.today.mitLabels.deep} value={todaysLog.deepBlock} onChange={v => updateToday({ deepBlock:v })} placeholder="Deep work target" />
+              <Input label={config.today.mitLabels.admin} value={todaysLog.adminBlock} onChange={v => updateToday({ adminBlock:v })} placeholder="Admin or evidence block" />
+
+              <div className="grid grid-cols-2 gap-3">
+                <Input label="Sleep hours" type="number" step="0.5" value={todaysLog.sleepHours} onChange={v => updateToday({ sleepHours:Number(v) })} />
+                <Toggle label="MIT-only mode" checked={!!todaysLog.mitOnlyMode} onChange={() => updateToday({ mitOnlyMode:!todaysLog.mitOnlyMode })} />
+              </div>
+
+              <Card className="bg-transparent">
+                <div className="text-xs uppercase tracking-[0.18em] text-slate-500">WIP-3</div>
+                <div className="mt-2 grid grid-cols-3 gap-2">
+                  {todaysLog.wip.map((lane, i) => (
+                    <div key={i} className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-center text-sm">{lane}</div>
+                  ))}
+                </div>
+              </Card>
+
+              <Card title="What Matters Now">
+                <div className="text-sm text-slate-200">
+                  {todaysLog.mitOnlyMode
+                    ? `${config.today.mitLabels.primary}: ${todaysLog.primaryMit || 'Set the MIT now.'}`
+                    : mattersDueSoon[0]?.title || followUpsDue[0]?.company || todaysLog.primaryMit || 'Define the MIT and execute it before drift begins.'}
+                </div>
+              </Card>
+            </div>
+          </Card>
+        )}
+
+        {visibleWidgets.focusTimer && (
+          <Card title="Deep Block Focus">
+            <div className="text-center">
+              <div className="text-6xl font-light tracking-tight">{String(Math.floor(timerSeconds / 60)).padStart(2,'0')}:{String(timerSeconds % 60).padStart(2,'0')}</div>
+              <div className="mt-4 flex justify-center gap-2">
+                {[25,50,90].map(n => (
+                  <button
+                    key={n}
+                    onClick={() => { updateToday({ timerPreset:n, timerRunning:false }); setTimerSeconds(n * 60); }}
+                    className={`rounded-full px-4 py-2 text-sm tap ${todaysLog.timerPreset === n ? 'bg-accent-500 text-navy-950' : 'bg-white/5 text-slate-300'}`}
+                  >{n}m</button>
+                ))}
+              </div>
+              <div className="mt-4 flex justify-center gap-2">
+                <button onClick={() => updateToday({ timerRunning:!todaysLog.timerRunning })} className="rounded-2xl bg-accent-500 px-8 py-3 font-semibold text-navy-950 tap">
+                  {todaysLog.timerRunning ? 'Pause' : 'Start'}
+                </button>
+                <button onClick={() => { updateToday({ timerRunning:false }); setTimerSeconds((todaysLog.timerPreset || 25) * 60); }} className="rounded-2xl bg-white/10 px-5 py-3 tap">Reset</button>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {visibleWidgets.rules && (
+          <Card title="Operating Rules">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <div className="mb-2 text-sm font-semibold text-teal-300">DO</div>
+                <div className="space-y-2">
+                  {ruleSet.doRules.map(rule => (
+                    <button
+                      key={rule.id}
+                      onClick={() => updateToday({ rulesState:{ ...ruleState, [rule.id]: !ruleState[rule.id] } })}
+                      className="w-full flex items-center gap-3 rounded-2xl border border-white/10 bg-navy-850 px-3 py-3 text-left tap"
+                    >
+                      <span className={`inline-flex h-5 w-5 items-center justify-center rounded border ${ruleState[rule.id] ? 'border-teal-400 bg-teal-400/20 text-teal-300' : 'border-white/20'}`}>{ruleState[rule.id] ? '✓' : ''}</span>
+                      <span className="flex-1 text-sm">{rule.text}</span>
+                      <span className="text-xs text-slate-500">w{rule.weight}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <div className="mb-2 text-sm font-semibold text-red-300">DON'T</div>
+                <div className="space-y-2">
+                  {ruleSet.dontRules.map(rule => (
+                    <button
+                      key={rule.id}
+                      onClick={() => updateToday({ rulesState:{ ...ruleState, [rule.id]: !ruleState[rule.id] } })}
+                      className="w-full flex items-center gap-3 rounded-2xl border border-white/10 bg-navy-850 px-3 py-3 text-left tap"
+                    >
+                      <span className={`inline-flex h-5 w-5 items-center justify-center rounded border ${ruleState[rule.id] ? 'border-red-400 bg-red-400/20 text-red-300' : 'border-white/20'}`}>{ruleState[rule.id] ? '✓' : ''}</span>
+                      <span className="flex-1 text-sm">{rule.text}</span>
+                      <span className="text-xs text-slate-500">w{rule.weight}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {visibleWidgets.schedule && (
+          <Card title="Schedule / Timeline">
+            <div className="space-y-2">
+              {config.today.scheduleBlocks.map(block => (
+                <div key={block.id} className="flex items-center gap-3 rounded-2xl bg-white/5 px-3 py-3">
+                  <div className="w-28 text-xs text-slate-400">{block.start}–{block.end}</div>
+                  <div className="h-2 w-2 rounded-full bg-accent-500 pulse-dot"></div>
+                  <div className="text-sm">{block.name}</div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
+
+        {visibleWidgets.health && config.userSettings.modules.healthWidgets && (
+          <Card title="Health / Capacity">
+            <div className="grid gap-3">
+              {config.health.widgets.map(widget => {
+                const key = widget.id;
+                if (widget.type === 'checkbox') return <Toggle key={key} label={widget.name} checked={!!todaysLog.health[key]} onChange={() => setHealthField(key, !todaysLog.health[key])} />;
+                if (widget.type === 'rating') return <Select key={key} label={widget.name} value={String(todaysLog.health[key] ?? '')} onChange={v => setHealthField(key, Number(v))} options={['1','2','3','4','5']} />;
+                if (widget.type === 'number') return <Input key={key} label={widget.name} type="number" step="0.5" value={todaysLog.health[key] ?? ''} onChange={v => setHealthField(key, Number(v))} />;
+                return <Input key={key} label={widget.name} value={todaysLog.health[key] ?? ''} onChange={v => setHealthField(key, v)} />;
+              })}
+            </div>
+          </Card>
+        )}
+
+        {visibleWidgets.journal && (
+          <Card title="Power Journal">
+            <div className="space-y-4">
+              <div>
+                <div className="mb-2 text-sm font-semibold text-slate-200">Morning</div>
+                <div className="space-y-3">
+                  {config.today.morningQuestions.map((q, idx) => (
+                    <TextArea key={idx} label={q} value={todaysLog.journalMorning[idx] || ''} onChange={v => updateToday({ journalMorning:{ ...todaysLog.journalMorning, [idx]:v } })} rows={2} />
+                  ))}
+                </div>
+              </div>
+              <div>
+                <div className="mb-2 text-sm font-semibold text-slate-200">Evening</div>
+                <div className="space-y-3">
+                  {config.today.eveningQuestions.map((q, idx) => (
+                    <TextArea key={idx} label={q} value={todaysLog.journalEvening[idx] || ''} onChange={v => updateToday({ journalEvening:{ ...todaysLog.journalEvening, [idx]:v } })} rows={2} />
+                  ))}
+                </div>
+              </div>
+              <TextArea label="Day Review" value={todaysLog.review} onChange={v => updateToday({ review:v })} placeholder="What moved the needle? Where did you drift?" />
+              <TextArea label="Tomorrow Plan" value={todaysLog.nextDayPlan} onChange={v => updateToday({ nextDayPlan:v })} placeholder="No day closes without tomorrow's plan." />
+              <div className="flex gap-2">
+                <button onClick={endDay} className="flex-1 rounded-2xl bg-accent-500 px-4 py-3 font-semibold text-navy-950 tap">Close Day</button>
+                <button onClick={() => askAI('tomorrow')} className="rounded-2xl bg-white/10 px-4 py-3 text-sm tap">AI Tomorrow Plan</button>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {visibleWidgets.ai && config.userSettings.modules.aiCoach && (
+          <Card title="AI Coach">
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                <button onClick={() => askAI('motivation')} className="rounded-2xl bg-white/5 px-3 py-3 text-sm tap">Ruthless Focus</button>
+                <button onClick={() => askAI('next')} className="rounded-2xl bg-white/5 px-3 py-3 text-sm tap">Next Action</button>
+                <button onClick={() => askAI('legal')} className="rounded-2xl bg-white/5 px-3 py-3 text-sm tap">Legal Next Steps</button>
+                <button onClick={() => askAI('business')} className="rounded-2xl bg-white/5 px-3 py-3 text-sm tap">Business Draft</button>
+                <button onClick={() => askAI('journal')} className="col-span-2 rounded-2xl bg-white/5 px-3 py-3 text-sm tap">Journal Synthesis</button>
+              </div>
+              <TextArea label="Custom AI prompt" value={aiPrompt} onChange={setAiPrompt} rows={3} placeholder="Ask for a schedule, hard coaching, summary, or draft." />
+              <button onClick={() => askAI('custom')} className="w-full rounded-2xl bg-accent-500 px-4 py-3 font-semibold text-navy-950 tap">{aiBusy ? 'Working…' : 'Run AI'}</button>
+              <div className="rounded-2xl border border-white/10 bg-navy-850 p-4 text-sm text-slate-200 whitespace-pre-wrap min-h-[96px]">
+                {aiResult || 'AI output will appear here. Save your API key inside Builder > AI Settings on your own device.'}
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {visibleWidgets.history && (
+          <Card title="Recent Performance">
+            <div className="space-y-2">
+              {(data.today.history || []).slice(-5).reverse().map(item => (
+                <div key={item.id} className="rounded-2xl bg-white/5 px-3 py-3">
+                  <div className="flex justify-between">
+                    <div className="text-sm font-medium">Day {item.challengeDay} · {prettifyDate(item.date)}</div>
+                    <Badge tone={item.score >= 70 ? 'good' : item.score >= 50 ? 'warn' : 'bad'}>{item.score}%</Badge>
+                  </div>
+                  <div className="mt-1 text-xs text-slate-400">{item.review || 'No review saved.'}</div>
+                </div>
+              ))}
+              {(data.today.history || []).length === 0 && <div className="text-sm text-slate-500">No completed days yet.</div>}
+            </div>
+          </Card>
+        )}
+      </div>
+    );
+  }
+
+  function renderLegal() {
+    return (
+      <div className="space-y-4 fade-up">
+        <Card title="Legal Dashboard Summary" right={<Badge tone={mattersDueSoon.length ? 'warn' : 'good'}>{mattersDueSoon.length} due soon</Badge>}>
+          <div className="grid grid-cols-2 gap-3">
+            <SmallStat label="Deadlines" value={data.legal.deadlines.length} />
+            <SmallStat label="Exhibits" value={data.legal.exhibits.length} />
+            <SmallStat label="Unanswered" value={unanswered.length} />
+            <SmallStat label="Missing" value={missingExhibits.length} />
+          </div>
+        </Card>
+
+        <Card title="Risk Flags">
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between"><span>Critical soon / overdue</span><Badge tone={mattersDueSoon.length ? 'warn' : 'good'}>{mattersDueSoon.length}</Badge></div>
+            <div className="flex justify-between"><span>Missing exhibits</span><Badge tone={missingExhibits.length ? 'warn' : 'good'}>{missingExhibits.length}</Badge></div>
+            <div className="flex justify-between"><span>Unanswered correspondence</span><Badge tone={unanswered.length ? 'warn' : 'good'}>{unanswered.length}</Badge></div>
+          </div>
+        </Card>
+
+        <Card title="Top 3 Legal Actions">
+          <div className="space-y-2">
+            {legalTop3.map(item => (
+              <div key={item.id} className="rounded-2xl bg-white/5 px-3 py-3">
+                <div className="flex justify-between gap-2">
+                  <div className="text-sm">{item.title}</div>
+                  <Badge tone={item.priority === 'Critical' ? 'bad' : item.priority === 'High' ? 'warn' : 'default'}>{item.priority}</Badge>
+                </div>
+                <div className="mt-1 text-xs text-slate-400">{item.matterType} · due {prettifyDate(item.dueDate)}</div>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        <Card title="Deadlines">
+          <div className="space-y-2">
+            {data.legal.deadlines.map(item => (
+              <div key={item.id} className="rounded-2xl bg-white/5 px-3 py-3">
+                <div className="flex justify-between gap-2">
+                  <div className="font-medium text-sm">{item.title}</div>
+                  <Badge>{item.status}</Badge>
+                </div>
+                <div className="mt-1 text-xs text-slate-400">{item.matterType} · {prettifyDate(item.dueDate)} · {item.priority}</div>
+                {item.notes ? <div className="mt-2 text-xs text-slate-300">{item.notes}</div> : null}
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        <Card title="Chronology">
+          <div className="space-y-2">
+            {data.legal.chronology.map(item => (
+              <div key={item.id} className="rounded-2xl bg-white/5 px-3 py-3">
+                <div className="font-medium text-sm">{item.event}</div>
+                <div className="mt-1 text-xs text-slate-400">{prettifyDate(item.date)} · {item.matterType} · {item.source}</div>
+                {item.notes ? <div className="mt-2 text-xs text-slate-300">{item.notes}</div> : null}
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        <Card title="Exhibits">
+          <div className="space-y-2">
+            {data.legal.exhibits.map(item => (
+              <div key={item.id} className="rounded-2xl bg-white/5 px-3 py-3">
+                <div className="flex justify-between gap-2">
+                  <div className="font-medium text-sm">{item.code} · {item.description}</div>
+                  <Badge>{item.status}</Badge>
+                </div>
+                <div className="mt-1 text-xs text-slate-400">{item.category} · {prettifyDate(item.documentDate)} · {item.filename}</div>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        <Card title="Correspondence">
+          <div className="space-y-2">
+            {data.legal.correspondence.map(item => (
+              <div key={item.id} className="rounded-2xl bg-white/5 px-3 py-3">
+                <div className="font-medium text-sm">{item.subject}</div>
+                <div className="mt-1 text-xs text-slate-400">{item.who} · {item.matterType} · sent {prettifyDate(item.dateSent)} · due {prettifyDate(item.replyDue)}</div>
+                <div className="mt-1">
+                  <Badge tone={['No reply', 'Waiting'].includes(item.responseStatus) ? 'warn' : 'good'}>{item.responseStatus}</Badge>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  function renderMoney() {
+    return (
+      <div className="space-y-4 fade-up">
+        <Card title="Money Dashboard">
+          <div className="grid grid-cols-2 gap-3">
+            <SmallStat label="Cash" value={asCurrency(data.money.cashOnHand)} accent />
+            <SmallStat label="Runway" value={runwayDays} sub="days" />
+            <SmallStat label="Essentials" value={asCurrency(monthlyEssentials)} sub="monthly" />
+            <SmallStat label="Weekly spend" value={asCurrency(spendThisWeek)} />
+          </div>
+          <div className="mt-4">
+            <div className="flex justify-between text-xs text-slate-400"><span>Emergency fund progress</span><span>{Math.round(emergencyPct)}%</span></div>
+            <div className="mt-2 h-3 rounded-full bg-white/5 overflow-hidden"><div className="h-full bg-accent-500" style={{ width:`${Math.min(emergencyPct, 100)}%` }}></div></div>
+          </div>
+        </Card>
+
+        <Card title="Cash + Targets">
+          <div className="grid gap-3">
+            <Input label="Cash on hand" type="number" step="0.01" value={data.money.cashOnHand} onChange={v => setData(prev => ({ ...prev, money:{ ...prev.money, cashOnHand:Number(v) } }))} />
+            <Input label="Emergency fund target" type="number" step="1" value={config.userSettings.emergencyFundTarget} onChange={v => setConfig(prev => ({ ...prev, userSettings:{ ...prev.userSettings, emergencyFundTarget:Number(v) } }))} />
+          </div>
+        </Card>
+
+        <Card title="Bills">
+          <div className="space-y-2">
+            {data.money.bills.map(item => (
+              <div key={item.id} className="rounded-2xl bg-white/5 px-3 py-3">
+                <div className="flex justify-between gap-2">
+                  <div className="font-medium text-sm">{item.name}</div>
+                  <Badge tone={item.paid ? 'good' : item.essential ? 'warn' : 'default'}>{item.paid ? 'Paid' : 'Due'}</Badge>
+                </div>
+                <div className="mt-1 text-xs text-slate-400">{asCurrency(item.amount)} · due {prettifyDate(item.dueDate)} · {item.essential ? 'Essential' : 'Optional'}</div>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        <Card title="Expenses">
+          <div className="space-y-2">
+            {data.money.expenses.map(item => (
+              <div key={item.id} className="rounded-2xl bg-white/5 px-3 py-3">
+                <div className="flex justify-between gap-2">
+                  <div className="font-medium text-sm">{item.category}</div>
+                  <div className="text-sm">{asCurrency(item.amount)}</div>
+                </div>
+                <div className="mt-1 text-xs text-slate-400">{prettifyDate(item.date)} · {item.notes || '—'}</div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  function renderBusiness() {
+    return (
+      <div className="space-y-4 fade-up">
+        <Card title="Business Dashboard">
+          <div className="grid grid-cols-2 gap-3">
+            <SmallStat label="Leads" value={data.business.leads.length} />
+            <SmallStat label="Follow-ups due" value={followUpsDue.length} />
+            <SmallStat label="Case studies" value={caseStudyCount} />
+            <SmallStat label="MRR" value={asCurrency(mrr)} accent />
+          </div>
+        </Card>
+
+        <Card title="Pipeline by Stage">
+          <div className="space-y-2">
+            {config.business.stages.map(stage => {
+              const count = stageCounts[stage] || 0;
+              const pct = data.business.leads.length ? (count / data.business.leads.length) * 100 : 0;
+              return (
+                <div key={stage}>
+                  <div className="flex justify-between text-xs text-slate-400"><span>{stage}</span><span>{count}</span></div>
+                  <div className="mt-1 h-2 rounded-full bg-white/5 overflow-hidden"><div className="h-full bg-accent-500" style={{ width:`${pct}%` }}></div></div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+
+        <Card title="Urgent Follow-ups">
+          <div className="space-y-2">
+            {followUpsDue.map(item => (
+              <div key={item.id} className="rounded-2xl bg-white/5 px-3 py-3">
+                <div className="flex justify-between gap-2">
+                  <div className="font-medium text-sm">{item.company || item.name}</div>
+                  <Badge tone="warn">{prettifyDate(item.nextFollowUp)}</Badge>
+                </div>
+                <div className="mt-1 text-xs text-slate-400">{item.stage} · {item.icp} · {asCurrency(item.mrrValue || 0)}</div>
+              </div>
+            ))}
+            {followUpsDue.length === 0 && <div className="text-sm text-slate-500">No follow-ups due today.</div>}
+          </div>
+        </Card>
+
+        <Card title="Lead CRM">
+          <div className="space-y-3">
+            {data.business.leads.map(item => (
+              <div key={item.id} className="rounded-3xl bg-white/5 p-4">
+                <div className="flex justify-between gap-2">
+                  <div>
+                    <div className="font-medium">{item.company || item.name}</div>
+                    <div className="text-xs text-slate-400">{item.icp} · {item.source}</div>
+                  </div>
+                  <Badge tone={item.stage === 'Live' ? 'good' : item.stage === 'Lost' ? 'bad' : 'default'}>{item.stage}</Badge>
+                </div>
+
+                <div className="mt-3 grid gap-3">
+                  <Select label="Stage" value={item.stage} onChange={v => updateLeadStage(item.id, v)} options={config.business.stages} />
+                  <div className="grid grid-cols-2 gap-2">
+                    <Toggle label="Quoted" checked={!!item.quoted} onChange={() => setData(prev => ({ ...prev, business:{ ...prev.business, leads: prev.business.leads.map(l => l.id === item.id ? { ...l, quoted:!l.quoted } : l) } }))} />
+                    <Toggle label="Deposit paid" checked={!!item.depositPaid} onChange={() => setData(prev => ({ ...prev, business:{ ...prev.business, leads: prev.business.leads.map(l => l.id === item.id ? { ...l, depositPaid:!l.depositPaid } : l) } }))} />
+                    <Toggle label="Scope signed" checked={!!item.scopeSigned} onChange={() => setData(prev => ({ ...prev, business:{ ...prev.business, leads: prev.business.leads.map(l => l.id === item.id ? { ...l, scopeSigned:!l.scopeSigned } : l) } }))} />
+                    <Toggle label="Case study potential" checked={!!item.caseStudyPotential} onChange={() => setData(prev => ({ ...prev, business:{ ...prev.business, leads: prev.business.leads.map(l => l.id === item.id ? { ...l, caseStudyPotential:!l.caseStudyPotential } : l) } }))} />
+                  </div>
+                  <Input label="Next follow-up" type="date" value={item.nextFollowUp} onChange={v => setData(prev => ({ ...prev, business:{ ...prev.business, leads: prev.business.leads.map(l => l.id === item.id ? { ...l, nextFollowUp:v } : l) } }))} />
+                  <Input label="MRR value" type="number" step="0.01" value={item.mrrValue} onChange={v => setData(prev => ({ ...prev, business:{ ...prev.business, leads: prev.business.leads.map(l => l.id === item.id ? { ...l, mrrValue:Number(v) } : l) } }))} />
+                  <TextArea label="Notes" value={item.notes || ''} onChange={v => setData(prev => ({ ...prev, business:{ ...prev.business, leads: prev.business.leads.map(l => l.id === item.id ? { ...l, notes:v } : l) } }))} rows={2} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  function renderBuilder() {
+    return (
+      <div className="space-y-4 fade-up">
+        <Card title="Builder / Customize Mode" right={<Badge>Config-driven</Badge>}>
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              ['app','App'],
+              ['tabs','Tabs'],
+              ['rules','Rules'],
+              ['workflow','Workflow'],
+              ['today','Today'],
+              ['ai','AI'],
+              ['data','Data']
+            ].map(([id, label]) => (
+              <button key={id} onClick={() => setBuilderSection(id)} className={`rounded-2xl px-3 py-3 text-sm tap ${builderSection === id ? 'bg-accent-500 text-navy-950' : 'bg-white/5 text-slate-300'}`}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </Card>
+
+        {builderSection === 'app' && (
+          <>
+            <Card title="App Settings">
+              <div className="grid gap-3">
+                <Input label="App title" value={config.app.title} onChange={v => setConfig(prev => ({ ...prev, app:{ ...prev.app, title:v } }))} />
+                <Input label="Subtitle" value={config.app.subtitle} onChange={v => setConfig(prev => ({ ...prev, app:{ ...prev.app, subtitle:v } }))} />
+                <Input label="Mission" value={config.app.mission} onChange={v => setConfig(prev => ({ ...prev, app:{ ...prev.app, mission:v } }))} />
+                <Input label="Focus style" value={config.app.focusStyle} onChange={v => setConfig(prev => ({ ...prev, app:{ ...prev.app, focusStyle:v } }))} />
+                <Input label="Your name" value={config.userSettings.name} onChange={v => setConfig(prev => ({ ...prev, userSettings:{ ...prev.userSettings, name:v } }))} />
+                <Input label="Wake time" type="time" value={config.userSettings.wakeTime} onChange={v => setConfig(prev => ({ ...prev, userSettings:{ ...prev.userSettings, wakeTime:v } }))} />
+                <Input label="Sleep target" type="number" step="0.5" value={config.userSettings.sleepTarget} onChange={v => setConfig(prev => ({ ...prev, userSettings:{ ...prev.userSettings, sleepTarget:Number(v) } }))} />
+                <Input label="Weekly review day" value={config.userSettings.weeklyReviewDay} onChange={v => setConfig(prev => ({ ...prev, userSettings:{ ...prev.userSettings, weeklyReviewDay:v } }))} />
+                <Input label="Weekly review time" type="time" value={config.userSettings.weeklyReviewTime} onChange={v => setConfig(prev => ({ ...prev, userSettings:{ ...prev.userSettings, weeklyReviewTime:v } }))} />
+                <Input label="Emergency fund target" type="number" value={config.userSettings.emergencyFundTarget} onChange={v => setConfig(prev => ({ ...prev, userSettings:{ ...prev.userSettings, emergencyFundTarget:Number(v) } }))} />
+                <TextArea label="Strengths" value={config.profile.strengths} onChange={v => setConfig(prev => ({ ...prev, profile:{ ...prev.profile, strengths:v } }))} rows={3} />
+                <TextArea label="Weaknesses / choke points" value={config.profile.weaknesses} onChange={v => setConfig(prev => ({ ...prev, profile:{ ...prev.profile, weaknesses:v } }))} rows={3} />
+                <TextArea label="Support style" value={config.profile.supportStyle} onChange={v => setConfig(prev => ({ ...prev, profile:{ ...prev.profile, supportStyle:v } }))} rows={3} />
+                <Toggle label="Challenge tracking enabled" checked={!!config.userSettings.modules.challenge} onChange={() => setConfig(prev => ({ ...prev, userSettings:{ ...prev.userSettings, modules:{ ...prev.userSettings.modules, challenge:!prev.userSettings.modules.challenge } } }))} />
+                <Toggle label="AI coach enabled" checked={!!config.userSettings.modules.aiCoach} onChange={() => setConfig(prev => ({ ...prev, userSettings:{ ...prev.userSettings, modules:{ ...prev.userSettings.modules, aiCoach:!prev.userSettings.modules.aiCoach } } }))} />
+                <Toggle label="Health widgets enabled" checked={!!config.userSettings.modules.healthWidgets} onChange={() => setConfig(prev => ({ ...prev, userSettings:{ ...prev.userSettings, modules:{ ...prev.userSettings.modules, healthWidgets:!prev.userSettings.modules.healthWidgets } } }))} />
+                <Toggle label="Business CRM enabled" checked={!!config.userSettings.modules.businessCRM} onChange={() => setConfig(prev => ({ ...prev, userSettings:{ ...prev.userSettings, modules:{ ...prev.userSettings.modules, businessCRM:!prev.userSettings.modules.businessCRM } } }))} />
+              </div>
+            </Card>
+
+            <Card title="Challenge / Goal">
+              <div className="grid gap-3">
+                <Input label="Goal name" value={config.challenge.goalName} onChange={v => setConfig(prev => ({ ...prev, challenge:{ ...prev.challenge, goalName:v } }))} />
+                <Input label="Goal days" type="number" value={config.challenge.goalDays} onChange={v => setConfig(prev => ({ ...prev, challenge:{ ...prev.challenge, goalDays:Number(v) } }))} />
+                <Input label="Current day" type="number" value={config.challenge.currentDay} onChange={v => setConfig(prev => ({ ...prev, challenge:{ ...prev.challenge, currentDay:Number(v) } }))} />
+                <Toggle label="End day requires review + tomorrow plan" checked={!!config.challenge.endRequiresReview} onChange={() => setConfig(prev => ({ ...prev, challenge:{ ...prev.challenge, endRequiresReview:!prev.challenge.endRequiresReview } }))} />
+              </div>
+            </Card>
+          </>
+        )}
+
+        {builderSection === 'tabs' && (
+          <Card title="Tab Manager">
+            <div className="space-y-2">
+              {config.tabs.map((tab, i) => (
+                <div key={tab.id} className="flex items-center gap-2">
+                  <input value={tab.name} onChange={e => setConfig(prev => {
+                    const next = deepClone(prev);
+                    next.tabs[i].name = e.target.value;
+                    return next;
+                  })} className="flex-1 rounded-2xl border border-white/10 bg-navy-850 px-3 py-2 text-sm text-white" />
+                  <button onClick={() => i > 0 && setConfig(prev => ({ ...prev, tabs: reorder(prev.tabs, i, i - 1) }))} className="rounded-2xl bg-white/5 px-3 py-2 text-xs tap">↑</button>
+                  <button onClick={() => i < config.tabs.length - 1 && setConfig(prev => ({ ...prev, tabs: reorder(prev.tabs, i, i + 1) }))} className="rounded-2xl bg-white/5 px-3 py-2 text-xs tap">↓</button>
+                  <button onClick={() => setConfig(prev => {
+                    const next = deepClone(prev);
+                    next.tabs[i].archived = !next.tabs[i].archived;
+                    return next;
+                  })} className="rounded-2xl bg-white/5 px-3 py-2 text-xs tap">{tab.archived ? 'Restore' : 'Archive'}</button>
+                </div>
+              ))}
+              <button onClick={() => {
+                const name = prompt('New tab name');
+                if (!name) return;
+                setConfig(prev => ({ ...prev, tabs:[...prev.tabs, { id:uid(), name, archived:false }] }));
+              }} className="rounded-2xl bg-accent-500 px-4 py-2 text-sm font-semibold text-navy-950 tap">Add custom tab</button>
+            </div>
+          </Card>
+        )}
+
+        {builderSection === 'rules' && (
+          <Card title="Rule Manager">
+            <div className="space-y-4">
+              {config.today.ruleSets.map(rs => (
+                <div key={rs.id} className="rounded-3xl bg-white/5 p-4">
+                  <div className="mb-3 flex items-center justify-between">
+                    <input value={rs.name} onChange={e => setConfig(prev => {
+                      const next = deepClone(prev);
+                      next.today.ruleSets = next.today.ruleSets.map(r => r.id === rs.id ? { ...r, name:e.target.value } : r);
+                      return next;
+                    })} className="rounded-2xl border border-white/10 bg-navy-850 px-3 py-2 text-sm text-white" />
+                    <div className="flex gap-2">
+                      <button onClick={() => setConfig(prev => ({ ...prev, today:{ ...prev.today, activeRuleSetId:rs.id } }))} className={`rounded-2xl px-3 py-2 text-xs tap ${config.today.activeRuleSetId === rs.id ? 'bg-accent-500 text-navy-950' : 'bg-white/5'}`}>Active</button>
+                      <button onClick={() => {
+                        if (config.today.ruleSets.length === 1) {
+                          alert('At least one rule set is required.');
+                          return;
+                        }
+                        setConfig(prev => {
+                          const next = deepClone(prev);
+                          next.today.ruleSets = next.today.ruleSets.filter(r => r.id !== rs.id);
+                          if (next.today.activeRuleSetId === rs.id) next.today.activeRuleSetId = next.today.ruleSets[0].id;
+                          return next;
+                        });
+                      }} className="rounded-2xl bg-red-500/10 px-3 py-2 text-xs text-red-300 tap">Delete</button>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div>
+                      <div className="mb-2 text-sm font-semibold text-teal-300">DO</div>
+                      <div className="space-y-2">
+                        {rs.doRules.map(rule => (
+                          <div key={rule.id} className="grid grid-cols-[1fr_70px_60px] gap-2">
+                            <input value={rule.text} onChange={e => editRule(rs.id, 'do', rule.id, 'text', e.target.value)} className="rounded-2xl border border-white/10 bg-navy-850 px-3 py-2 text-sm text-white" />
+                            <input value={rule.weight} type="number" onChange={e => editRule(rs.id, 'do', rule.id, 'weight', Number(e.target.value))} className="rounded-2xl border border-white/10 bg-navy-850 px-3 py-2 text-sm text-white" />
+                            <button onClick={() => setConfig(prev => {
+                              const next = deepClone(prev);
+                              const tgt = next.today.ruleSets.find(r => r.id === rs.id);
+                              tgt.doRules = tgt.doRules.filter(x => x.id !== rule.id);
+                              return next;
+                            })} className="rounded-2xl bg-red-500/10 px-3 py-2 text-xs text-red-300 tap">Del</button>
+                          </div>
+                        ))}
+                        <button onClick={() => addRule(rs.id, 'do')} className="rounded-2xl bg-white/5 px-3 py-2 text-sm tap">Add DO rule</button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="mb-2 text-sm font-semibold text-red-300">DON'T</div>
+                      <div className="space-y-2">
+                        {rs.dontRules.map(rule => (
+                          <div key={rule.id} className="grid grid-cols-[1fr_70px_60px] gap-2">
+                            <input value={rule.text} onChange={e => editRule(rs.id, 'dont', rule.id, 'text', e.target.value)} className="rounded-2xl border border-white/10 bg-navy-850 px-3 py-2 text-sm text-white" />
+                            <input value={rule.weight} type="number" onChange={e => editRule(rs.id, 'dont', rule.id, 'weight', Number(e.target.value))} className="rounded-2xl border border-white/10 bg-navy-850 px-3 py-2 text-sm text-white" />
+                            <button onClick={() => setConfig(prev => {
+                              const next = deepClone(prev);
+                              const tgt = next.today.ruleSets.find(r => r.id === rs.id);
+                              tgt.dontRules = tgt.dontRules.filter(x => x.id !== rule.id);
+                              return next;
+                            })} className="rounded-2xl bg-red-500/10 px-3 py-2 text-xs text-red-300 tap">Del</button>
+                          </div>
+                        ))}
+                        <button onClick={() => addRule(rs.id, 'dont')} className="rounded-2xl bg-white/5 px-3 py-2 text-sm tap">Add DON'T rule</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              <button onClick={() => {
+                const name = prompt('Rule set name');
+                if (!name) return;
+                setConfig(prev => ({
+                  ...prev,
+                  today:{ ...prev.today, ruleSets:[...prev.today.ruleSets, { id:uid(), name, doRules:[], dontRules:[] }] }
+                }));
+              }} className="rounded-2xl bg-accent-500 px-4 py-2 text-sm font-semibold text-navy-950 tap">New rule set</button>
+            </div>
+          </Card>
+        )}
+
+        {builderSection === 'workflow' && (
+          <>
+            <ArrayManager title="Legal matter types" items={config.legal.matterTypes} onChange={v => setConfig(prev => ({ ...prev, legal:{ ...prev.legal, matterTypes:v } }))} />
+            <ArrayManager title="Business stages" items={config.business.stages} onChange={v => setConfig(prev => ({ ...prev, business:{ ...prev.business, stages:v } }))} />
+            <ArrayManager title="Money categories" items={config.money.categories} onChange={v => setConfig(prev => ({ ...prev, money:{ ...prev.money, categories:v } }))} />
+            <ArrayManager title="Morning questions" items={config.today.morningQuestions} onChange={v => setConfig(prev => ({ ...prev, today:{ ...prev.today, morningQuestions:v } }))} />
+            <ArrayManager title="Evening questions" items={config.today.eveningQuestions} onChange={v => setConfig(prev => ({ ...prev, today:{ ...prev.today, eveningQuestions:v } }))} />
+          </>
+        )}
+
+        {builderSection === 'today' && (
+          <>
+            <Card title="Today modules">
+              <div className="grid gap-2">
+                {Object.keys(config.today.widgets).map(k => (
+                  <Toggle key={k} label={k} checked={!!config.today.widgets[k]} onChange={() => setConfig(prev => ({ ...prev, today:{ ...prev.today, widgets:{ ...prev.today.widgets, [k]: !prev.today.widgets[k] } } }))} />
+                ))}
+              </div>
+            </Card>
+
+            <Card title="MIT labels + score weights">
+              <div className="grid gap-3">
+                <Input label="Primary MIT label" value={config.today.mitLabels.primary} onChange={v => setConfig(prev => ({ ...prev, today:{ ...prev.today, mitLabels:{ ...prev.today.mitLabels, primary:v } } }))} />
+                <Input label="Secondary MIT label" value={config.today.mitLabels.secondary} onChange={v => setConfig(prev => ({ ...prev, today:{ ...prev.today, mitLabels:{ ...prev.today.mitLabels, secondary:v } } }))} />
+                <Input label="Deep label" value={config.today.mitLabels.deep} onChange={v => setConfig(prev => ({ ...prev, today:{ ...prev.today, mitLabels:{ ...prev.today.mitLabels, deep:v } } }))} />
+                <Input label="Admin label" value={config.today.mitLabels.admin} onChange={v => setConfig(prev => ({ ...prev, today:{ ...prev.today, mitLabels:{ ...prev.today.mitLabels, admin:v } } }))} />
+                {Object.entries(config.today.scoreWeights).map(([k, v]) => (
+                  <Input key={k} label={`Weight: ${k}`} type="number" value={v} onChange={val => setConfig(prev => ({ ...prev, today:{ ...prev.today, scoreWeights:{ ...prev.today.scoreWeights, [k]: Number(val) } } }))} />
+                ))}
+              </div>
+            </Card>
+
+            <Card title="Schedule blocks">
+              <div className="space-y-2">
+                {config.today.scheduleBlocks.map((block, i) => (
+                  <div key={block.id} className="grid grid-cols-[1fr_88px_88px_60px] gap-2">
+                    <input value={block.name} onChange={e => setConfig(prev => {
+                      const next = deepClone(prev);
+                      next.today.scheduleBlocks[i].name = e.target.value;
+                      return next;
+                    })} className="rounded-2xl border border-white/10 bg-navy-850 px-3 py-2 text-sm text-white" />
+                    <input type="time" value={block.start} onChange={e => setConfig(prev => {
+                      const next = deepClone(prev);
+                      next.today.scheduleBlocks[i].start = e.target.value;
+                      return next;
+                    })} className="rounded-2xl border border-white/10 bg-navy-850 px-3 py-2 text-sm text-white" />
+                    <input type="time" value={block.end} onChange={e => setConfig(prev => {
+                      const next = deepClone(prev);
+                      next.today.scheduleBlocks[i].end = e.target.value;
+                      return next;
+                    })} className="rounded-2xl border border-white/10 bg-navy-850 px-3 py-2 text-sm text-white" />
+                    <button onClick={() => setConfig(prev => {
+                      const next = deepClone(prev);
+                      next.today.scheduleBlocks = next.today.scheduleBlocks.filter((_, idx) => idx !== i);
+                      return next;
+                    })} className="rounded-2xl bg-red-500/10 px-3 py-2 text-xs text-red-300 tap">Del</button>
+                  </div>
+                ))}
+                <button onClick={() => setConfig(prev => ({ ...prev, today:{ ...prev.today, scheduleBlocks:[...prev.today.scheduleBlocks, { id:uid(), name:'New Block', start:'09:00', end:'10:00' }] } }))} className="rounded-2xl bg-accent-500 px-4 py-2 text-sm font-semibold text-navy-950 tap">Add block</button>
+              </div>
+            </Card>
+          </>
+        )}
+
+        {builderSection === 'ai' && (
+          <Card title="AI Settings">
+            <div className="grid gap-3">
+              <Toggle label="Enable AI" checked={!!config.ai.enabled} onChange={() => setConfig(prev => ({ ...prev, ai:{ ...prev.ai, enabled:!prev.ai.enabled } }))} />
+              <Input label="Endpoint" value={config.ai.endpoint} onChange={v => setConfig(prev => ({ ...prev, ai:{ ...prev.ai, endpoint:v } }))} />
+              <Input label="Model" value={config.ai.model} onChange={v => setConfig(prev => ({ ...prev, ai:{ ...prev.ai, model:v } }))} />
+              <Input label="API key (saved locally in this browser only)" value={config.ai.apiKey} onChange={v => setConfig(prev => ({ ...prev, ai:{ ...prev.ai, apiKey:v } }))} />
+              <Input label="Site URL (optional)" value={config.ai.siteUrl} onChange={v => setConfig(prev => ({ ...prev, ai:{ ...prev.ai, siteUrl:v } }))} />
+              <Input label="Site name" value={config.ai.siteName} onChange={v => setConfig(prev => ({ ...prev, ai:{ ...prev.ai, siteName:v } }))} />
+              <TextArea label="System mode" value={config.ai.systemMode} onChange={v => setConfig(prev => ({ ...prev, ai:{ ...prev.ai, systemMode:v } }))} rows={4} />
+              <div className="rounded-2xl border border-amber-400/20 bg-amber-500/10 p-3 text-xs text-amber-200">
+                Security note: do not commit your API key into GitHub Pages source. Save it only inside the app on your own device after deployment.
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {builderSection === 'data' && (
+          <>
+            <Card title="Data Tools">
+              <div className="grid gap-3">
+                <button onClick={exportBackup} className="rounded-2xl bg-accent-500 px-4 py-3 font-semibold text-navy-950 tap">Export full backup</button>
+                <label className="rounded-2xl bg-white/5 px-4 py-3 text-sm cursor-pointer">
+                  Import backup
+                  <input type="file" accept="application/json" className="hidden" onChange={e => importBackup(e.target.files[0])} />
+                </label>
+                <button onClick={resetDemo} className="rounded-2xl bg-white/5 px-4 py-3 text-sm tap">Reset demo data only</button>
+                <button onClick={wipeAll} className="rounded-2xl bg-red-500/10 px-4 py-3 text-sm text-red-300 tap">Full wipe</button>
+              </div>
+            </Card>
+
+            <Card title="Advanced Config JSON">
+              <TextArea value={JSON.stringify(config, null, 2)} onChange={v => { try { setConfig(JSON.parse(v)); } catch {} }} rows={18} />
+              <div className="mt-2 text-xs text-slate-500">Advanced users can edit the entire config here. Invalid JSON is ignored.</div>
+            </Card>
+          </>
+        )}
+      </div>
+    );
+  }
+
+  const onboardingNeeded = !config.userSettings.setupComplete;
+
+  return (
+    <div className="mx-auto flex h-full max-w-md flex-col">
+      <div className="top-safe px-4 pb-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-xs uppercase tracking-[0.2em] text-slate-500">War-Room OS</div>
+            <div className="text-lg font-semibold">{currentTabName}</div>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={() => setShowSearch(true)} className="rounded-2xl bg-white/5 px-3 py-2 text-sm tap">Search</button>
+            <button onClick={() => setShowQuick(true)} className="rounded-2xl bg-white/5 px-3 py-2 text-sm tap">Capture</button>
+          </div>
+        </div>
+      </div>
+
+      {!installNoteDismissed && (
+        <div className="mx-4 mb-3 rounded-2xl border border-white/10 bg-white/5 p-3 text-xs text-slate-300">
+          Host this file on GitHub Pages as <code>index.html</code>. This single-file version is app-like and persistent. For a true install prompt and offline cache, a separate manifest and service worker are normally used.
+          <button onClick={() => setInstallNoteDismissed(true)} className="ml-2 text-accent-400 tap">Hide</button>
+        </div>
+      )}
+
+      <div className="flex-1 overflow-y-auto hide-scroll px-4 content-pad">
+        {activeTab === 'today' && renderToday()}
+        {activeTab === 'legal' && renderLegal()}
+        {activeTab === 'money' && renderMoney()}
+        {activeTab === 'business' && renderBusiness()}
+        {activeTab === 'builder' && renderBuilder()}
+        {!['today','legal','money','business','builder'].includes(activeTab) && (
+          <Card title="Custom Tab">
+            <div className="text-sm text-slate-400">This custom tab exists in navigation. Add modules via Builder or repurpose it later.</div>
+          </Card>
+        )}
+      </div>
+
+      <div className="fixed bottom-0 left-0 right-0 z-40">
+        <div className="mx-auto max-w-md px-3 pb-[calc(10px+var(--safe-bottom))]">
+          <div className="glass rounded-t-3xl rounded-b-none px-2 py-2 shadow-card">
+            <div className="grid grid-cols-5 gap-1">
+              {visibleTabs.slice(0,5).map(tab => (
+                <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`rounded-2xl px-2 py-3 text-xs font-medium tap ${activeTab === tab.id ? 'bg-accent-500 text-navy-950' : 'text-slate-400'}`}>
+                  {tab.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {showQuick && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/55 p-3">
+          <div className="glass max-h-[92vh] w-full max-w-md overflow-y-auto rounded-3xl p-4">
+            <div className="flex items-center justify-between">
+              <div className="text-lg font-semibold">Quick Capture</div>
+              <button onClick={() => setShowQuick(false)} className="rounded-full bg-white/5 px-3 py-2 tap">×</button>
+            </div>
+            <div className="mt-3">
+              <Select label="Capture type" value={quickType} onChange={v => { setQuickType(v); setQuickValue({ date:todayKey }); }} options={config.quickCapture.types.map(t => t.id)} />
+              <div className="mt-2 text-xs text-slate-500">{quickDef?.name}</div>
+            </div>
+            <div className="mt-4">
+              <QuickForm config={config} typeDef={quickDef} value={quickValue} onChange={setQuickValue} />
+            </div>
+            <div className="mt-4 flex gap-2">
+              <button onClick={saveQuickCapture} className="flex-1 rounded-2xl bg-accent-500 px-4 py-3 font-semibold text-navy-950 tap">Save</button>
+              <button onClick={() => setShowQuick(false)} className="rounded-2xl bg-white/10 px-4 py-3 tap">Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showSearch && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/55 p-3 pt-10">
+          <div className="glass max-h-[92vh] w-full max-w-md overflow-y-auto rounded-3xl p-4">
+            <div className="flex items-center justify-between">
+              <div className="text-lg font-semibold">Global Search</div>
+              <button onClick={() => setShowSearch(false)} className="rounded-full bg-white/5 px-3 py-2 tap">×</button>
+            </div>
+            <div className="mt-3">
+              <Input value={searchQuery} onChange={setSearchQuery} placeholder="Search tasks, legal items, expenses, leads, notes…" />
+            </div>
+            <div className="mt-4 space-y-2">
+              {results.map(res => (
+                <button key={res.id} onClick={() => { setActiveTab(res.tab); setShowSearch(false); }} className="w-full rounded-2xl bg-white/5 px-3 py-3 text-left tap">
+                  <div className="flex justify-between gap-2">
+                    <div className="text-sm font-medium">{res.title}</div>
+                    <Badge>{res.type}</Badge>
+                  </div>
+                  <div className="mt-1 text-xs text-slate-400">{prettifyDate(res.date)} · open in {res.tab}</div>
+                </button>
+              ))}
+              {!results.length && searchQuery && <div className="text-sm text-slate-500">No results.</div>}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {onboardingNeeded && (
+        <div className="fixed inset-0 z-[70] flex items-start justify-center overflow-y-auto bg-black/70 p-3 pt-8">
+          <div className="glass w-full max-w-md rounded-3xl p-4">
+            <div className="text-lg font-semibold">First-Time Setup</div>
+            <div className="mt-1 text-sm text-slate-400">Set the defaults. Everything remains editable in Builder.</div>
+            <div className="mt-4 grid gap-3">
+              <Input label="Your name" value={config.userSettings.name} onChange={v => setConfig(prev => ({ ...prev, userSettings:{ ...prev.userSettings, name:v } }))} />
+              <Input label="App title" value={config.app.title} onChange={v => setConfig(prev => ({ ...prev, app:{ ...prev.app, title:v } }))} />
+              <Input label="Wake time" type="time" value={config.userSettings.wakeTime} onChange={v => setConfig(prev => ({ ...prev, userSettings:{ ...prev.userSettings, wakeTime:v } }))} />
+              <Input label="Sleep target" type="number" step="0.5" value={config.userSettings.sleepTarget} onChange={v => setConfig(prev => ({ ...prev, userSettings:{ ...prev.userSettings, sleepTarget:Number(v) } }))} />
+              <Input label="Weekly review day" value={config.userSettings.weeklyReviewDay} onChange={v => setConfig(prev => ({ ...prev, userSettings:{ ...prev.userSettings, weeklyReviewDay:v } }))} />
+              <Input label="Weekly review time" type="time" value={config.userSettings.weeklyReviewTime} onChange={v => setConfig(prev => ({ ...prev, userSettings:{ ...prev.userSettings, weeklyReviewTime:v } }))} />
+              <Input label="Emergency fund target" type="number" value={config.userSettings.emergencyFundTarget} onChange={v => setConfig(prev => ({ ...prev, userSettings:{ ...prev.userSettings, emergencyFundTarget:Number(v) } }))} />
+              <Input label="Goal name" value={config.challenge.goalName} onChange={v => setConfig(prev => ({ ...prev, challenge:{ ...prev.challenge, goalName:v } }))} />
+              <Input label="Goal days" type="number" value={config.challenge.goalDays} onChange={v => setConfig(prev => ({ ...prev, challenge:{ ...prev.challenge, goalDays:Number(v) } }))} />
+              <Toggle label="Enable AI coach" checked={!!config.userSettings.modules.aiCoach} onChange={() => setConfig(prev => ({ ...prev, userSettings:{ ...prev.userSettings, modules:{ ...prev.userSettings.modules, aiCoach:!prev.userSettings.modules.aiCoach } } }))} />
+              <Toggle label="Enable health widgets" checked={!!config.userSettings.modules.healthWidgets} onChange={() => setConfig(prev => ({ ...prev, userSettings:{ ...prev.userSettings, modules:{ ...prev.userSettings.modules, healthWidgets:!prev.userSettings.modules.healthWidgets } } }))} />
+              <Toggle label="Enable business CRM" checked={!!config.userSettings.modules.businessCRM} onChange={() => setConfig(prev => ({ ...prev, userSettings:{ ...prev.userSettings, modules:{ ...prev.userSettings.modules, businessCRM:!prev.userSettings.modules.businessCRM } } }))} />
+              <button onClick={() => setConfig(prev => ({ ...prev, userSettings:{ ...prev.userSettings, setupComplete:true } }))} className="mt-2 rounded-2xl bg-accent-500 px-4 py-3 font-semibold text-navy-950 tap">Start OS</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
