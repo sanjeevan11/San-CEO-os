@@ -58,7 +58,7 @@
     }
     .top-safe{ padding-top: calc(var(--safe-top) + 12px); }
     .bottom-safe{ padding-bottom: calc(var(--safe-bottom) + 12px); }
-    .content-pad{ padding-bottom: calc(188px + var(--safe-bottom)); }
+    .content-pad{ padding-bottom: calc(106px + var(--safe-bottom)); }
     .hide-scroll::-webkit-scrollbar{ display:none; }
     .hide-scroll{ scrollbar-width:none; -ms-overflow-style:none; }
     input, textarea, select { font-size:16px; }
@@ -72,50 +72,10 @@
       0%,100%{ opacity:.5; transform: scale(1); }
       50%{ opacity:1; transform: scale(1.15); }
     }
-    .tap{ -webkit-tap-highlight-color: transparent; touch-action: manipulation; pointer-events: auto; }
-    .scene-shell{ position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden; }
-    .scene-image{
-      position:absolute; inset:-8%;
-      background-size: cover; background-position:center;
-      transform: scale(1.06);
-      animation: kenburns 34s ease-in-out infinite alternate;
-      transition: opacity .8s ease;
-      will-change: transform, opacity;
-      opacity:.75;
-    }
-    .scene-overlay{
-      position:absolute; inset:0;
-      background:
-        linear-gradient(180deg, rgba(3,8,20,.52) 0%, rgba(3,8,20,.74) 45%, rgba(2,6,14,.92) 100%),
-        radial-gradient(circle at top right, rgba(229,173,52,.12), transparent 38%);
-    }
-    .scene-quote{
-      position:absolute; inset:auto 0 calc(106px + var(--safe-bottom)) 0;
-      display:flex; justify-content:center; padding:0 20px;
-      pointer-events:none;
-    }
-    .scene-quote > div{
-      max-width:440px; width:100%;
-      border:1px solid rgba(255,255,255,.12);
-      background:rgba(5,11,21,.5);
-      backdrop-filter: blur(8px);
-      border-radius:16px;
-      padding:10px 12px;
-      color:#d4dced;
-      font-size:12px;
-    }
-    @keyframes kenburns{
-      from{ transform: scale(1.03) translate3d(0,0,0); }
-      to{ transform: scale(1.11) translate3d(-1.2%, -1.8%, 0); }
-    }
-    @media (prefers-reduced-motion: reduce){
-      .scene-image{ animation:none; transform:scale(1.03); }
-    }
+    .tap{ -webkit-tap-highlight-color: transparent; }
     code{ word-break: break-word; }
   </style>
-  <link rel="manifest" href="./manifest.json">
-  <link rel="icon" href="./icons/icon-192.svg" type="image/svg+xml">
-  <link rel="apple-touch-icon" href="./icons/icon-192.svg">
+  <link rel="manifest" href='data:application/manifest+json,{"name":"Stability OS","short_name":"Stability OS","display":"standalone","background_color":"#08111f","theme_color":"#08111f","start_url":"./"}'>
 </head>
 <body>
 <div id="root"></div>
@@ -123,21 +83,10 @@
 <script type="text/babel">
 const { useState, useEffect, useMemo } = React;
 
-const APP_VERSION = 9;
+const APP_VERSION = 4;
 const LS = {
-  config: 'stability_os_config_v9',
-  data: 'stability_os_data_v9',
-  legacyConfig: 'stability_os_config_v8',
-  legacyData: 'stability_os_data_v8',
-  olderConfig: 'stability_os_config_v7',
-  olderData: 'stability_os_data_v7',
-  oldestConfig: 'stability_os_config_v6',
-  oldestData: 'stability_os_data_v6',
-  ancientConfig: 'stability_os_config_v5',
-  ancientData: 'stability_os_data_v5',
-  primordialConfig: 'stability_os_config_v4',
-  primordialData: 'stability_os_data_v4',
-  installNoticeDismissed: 'stability_os_install_notice_dismissed_v1'
+  config: 'stability_os_config_v4',
+  data: 'stability_os_data_v4'
 };
 
 const uid = () => Math.random().toString(36).slice(2,10) + Date.now().toString(36).slice(-4);
@@ -161,83 +110,6 @@ const diffDays = (dateStr) => {
   if (!dateStr) return 9999;
   const target = new Date(dateStr + 'T00:00:00');
   return Math.ceil((target - todayObj()) / 86400000);
-};
-
-// Optional native companion extension point (Android WebView/TWA bridge placeholder)
-const nativeBridge = {
-  isAvailable() {
-    return typeof window !== 'undefined' && !!(window.StabilityNative || window.AndroidBridge);
-  },
-  async getUsageStats() {
-    try {
-      if (window.StabilityNative?.getUsageStats) return await window.StabilityNative.getUsageStats();
-      if (window.AndroidBridge?.getUsageStats) return JSON.parse(window.AndroidBridge.getUsageStats());
-    } catch {}
-    return { supported:false, source:'web-only', data:[] };
-  },
-  async postEvent(eventName, payload={}) {
-    try {
-      if (window.StabilityNative?.postMessage) return await window.StabilityNative.postMessage(eventName, payload);
-      if (window.AndroidBridge?.postMessage) return window.AndroidBridge.postMessage(JSON.stringify({ eventName, payload }));
-    } catch {}
-    return { ok:false, reason:'native_bridge_unavailable' };
-  },
-  async getHealthSignals() {
-    try {
-      if (window.StabilityNative?.getHealthSignals) return await window.StabilityNative.getHealthSignals();
-      if (window.AndroidBridge?.getHealthSignals) return JSON.parse(window.AndroidBridge.getHealthSignals());
-    } catch {}
-    return { supported:false, source:'web-only', data:{} };
-  }
-};
-
-const scenePacks = {
-  dawn_sunrise: { id:'dawn_sunrise', label:'Dawn Sunrise', src:'./scenes/dawn_sunrise.svg' },
-  mountain_focus: { id:'mountain_focus', label:'Mountain Focus', src:'./scenes/mountain_focus.svg' },
-  forest_path: { id:'forest_path', label:'Forest Path', src:'./scenes/forest_path.svg' },
-  storm_pressure: { id:'storm_pressure', label:'Storm Pressure', src:'./scenes/storm_pressure.svg' },
-  calm_recovery: { id:'calm_recovery', label:'Calm Recovery', src:'./scenes/calm_recovery.svg' },
-  city_night_shutdown: { id:'city_night_shutdown', label:'City Night Shutdown', src:'./scenes/city_night_shutdown.svg' },
-  desk_focus: { id:'desk_focus', label:'Desk Focus', src:'./scenes/desk_focus.svg' }
-};
-
-const quoteLibrary = {
-  morning_start: [
-    'No negotiation this morning. Start before emotion starts arguing.',
-    'Wake, define MIT, execute. Clarity is your first win.'
-  ],
-  focus: [
-    'Depth first. Noise later.',
-    'One clean block beats all scattered effort.'
-  ],
-  legal_pressure: [
-    'Deadlines do not wait for mood. Move the case now.',
-    'Evidence, chronology, follow-up. Precision over panic.'
-  ],
-  revenue_push: [
-    'Send the follow-up before you optimize the wording.',
-    'Pipeline grows from actions sent, not drafts hoarded.'
-  ],
-  recovery: [
-    'Reduce scope, keep standards.',
-    'Protect energy, finish one meaningful block.'
-  ],
-  anti_drift: [
-    'Capture the idea. Return to the mission.',
-    'Meta-work is not execution. Ship the hard task.'
-  ],
-  shutdown: [
-    'Close the loop tonight so tomorrow starts warm.',
-    'Review. Plan. Sleep. Repeat without drama.'
-  ],
-  consistency: [
-    'Identity is evidence repeated.',
-    'Small disciplined days beat intense chaos days.'
-  ],
-  identity: [
-    'You are not trying—you are operating.',
-    'Discipline is your protection layer.'
-  ]
 };
 
 const hourlyQuotes = {
@@ -298,12 +170,9 @@ const defaultConfig = {
   },
   tabs: [
     { id:'today', name:'Today', archived:false },
-    { id:'inbox', name:'Inbox', archived:false },
-    { id:'command', name:'Command', archived:false },
     { id:'legal', name:'Legal', archived:false },
     { id:'money', name:'Money', archived:false },
     { id:'business', name:'Business', archived:false },
-    { id:'history', name:'History', archived:false },
     { id:'builder', name:'Builder', archived:false }
   ],
   today: {
@@ -313,45 +182,19 @@ const defaultConfig = {
       deep: 'Deep Block',
       admin: 'Admin / Evidence'
     },
-    taskTypes: ['primary_mit', 'secondary_mit', 'deep_block', 'admin_evidence', 'extra'],
-    taskPriorities: ['critical', 'high', 'medium', 'low'],
-    defaultTaskPriority: 'medium',
-    hardGates: {
-      requireReviewToClose: true,
-      primaryMitRuleCap: 55,
-      deepBlockRuleCap: 65,
-      primaryMitRuleText: 'Write Primary MIT before anything else',
-      deepBlockRuleText: 'Complete one 90-minute MIT block',
-      reviewRuleText: 'Complete day-end review with next-day plan'
-    },
     ruleSets: [{
       id:'default',
-      name:'San Core Operating Rules',
+      name:'Default Rule Set',
       doRules: [
-        { id:uid(), text:'Wake up at 5:30am', weight:8 },
-        { id:uid(), text:'Water first 400ml', weight:4 },
-        { id:uid(), text:'Meditation 20 min', weight:8 },
-        { id:uid(), text:'Visualisation 5 min', weight:4 },
-        { id:uid(), text:'Write Primary MIT before anything else', weight:12 },
-        { id:uid(), text:'Complete one 90-minute MIT block', weight:18 },
-        { id:uid(), text:'Complete one secondary work block', weight:10 },
-        { id:uid(), text:'Protect admin / evidence window', weight:10 },
-        { id:uid(), text:'Produce one proof of progress', weight:8 },
-        { id:uid(), text:'Update the system: binder / chronology / tracker / CRM / task board', weight:8 },
-        { id:uid(), text:'Do one body action: walk, stretch, workout, or breathwork', weight:5 },
-        { id:uid(), text:'Complete day-end review with next-day plan', weight:5 }
+        { id:uid(), text:'Drink 3L water', weight:1 },
+        { id:uid(), text:'Complete one deep work block', weight:2 },
+        { id:uid(), text:'Finish day review + tomorrow plan', weight:2 },
+        { id:uid(), text:'Protect legal/admin slot', weight:1 }
       ],
       dontRules: [
-        { id:uid(), text:'Phone before Primary MIT', weight:-10 },
-        { id:uid(), text:'Social media / reels / shorts', weight:-10 },
-        { id:uid(), text:'Sugars', weight:-5 },
-        { id:uid(), text:'AI chatting without a defined output', weight:-5 },
-        { id:uid(), text:'Legal avoidance on a legal day', weight:-15 },
-        { id:uid(), text:'New side project / fresh idea build during execution blocks', weight:-10 },
-        { id:uid(), text:'Researching non-essential things off the main track', weight:-8 },
-        { id:uid(), text:'Unplanned nap', weight:-7 },
-        { id:uid(), text:'WIP above 3', weight:-10 },
-        { id:uid(), text:'Low-value admin before the hard task', weight:-10 }
+        { id:uid(), text:'No random scrolling', weight:2 },
+        { id:uid(), text:'No alcohol', weight:2 },
+        { id:uid(), text:'No busywork before MIT', weight:2 }
       ]
     }],
     activeRuleSetId: 'default',
@@ -363,12 +206,21 @@ const defaultConfig = {
       { id:uid(), name:'Deep Block', start:'15:00', end:'17:00' },
       { id:uid(), name:'Shutdown', start:'20:30', end:'21:00' }
     ],
+    scoreWeights: {
+      primaryMit: 20,
+      secondaryMit: 10,
+      deepBlock: 15,
+      adminBlock: 10,
+      review: 15,
+      nextPlan: 15,
+      rules: 15
+    },
     widgets: {
       progress: true,
       score: true,
       streak: true,
-      quote: false,
-      mission: false,
+      quote: true,
+      mission: true,
       coreExecution: true,
       focusTimer: true,
       rules: true,
@@ -407,16 +259,11 @@ const defaultConfig = {
     }
   },
   legal: {
-    matterTypes: ['Visa', 'ET', 'County Court', 'SAR / ICO / GDPR', 'Police / CID', 'NRM / Asylum / Support', 'Other'],
+    matterTypes: ['ET', 'County Court', 'NRM', 'Immigration', 'Police', 'Regulator'],
     priorities: ['Critical', 'High', 'Medium', 'Low'],
     statuses: ['Open', 'Drafting', 'Waiting', 'Filed', 'Closed'],
-    taskTypes: ['Draft document', 'Send email', 'Follow up', 'Hearing prep', 'Evidence review', 'Exhibit naming', 'SAR chase', 'Call', 'Appointment', 'Submission', 'Complaint', 'Internal note', 'Other'],
-    taskStatuses: ['Open', 'Waiting', 'Drafting', 'Sent', 'Blocked', 'Completed', 'Archived'],
-    deadlineTypes: ['Hearing', 'Filing', 'Follow-up', 'Appointment', 'Internal target'],
     exhibitStatuses: ['need', 'drafted', 'final', 'filed'],
     correspondenceStatuses: ['No reply', 'Waiting', 'Responded', 'Closed'],
-    correspondenceTypes: ['email', 'phone', 'letter', 'portal', 'internal note'],
-    contactCategories: ['Solicitor', 'Barrister', 'Court', 'Tribunal', 'Home Office', 'Police', 'Support service', 'Other'],
     riskThresholds: { criticalDays: 7 }
   },
   money: {
@@ -501,53 +348,13 @@ const defaultConfig = {
     siteUrl: '',
     siteName: 'Stability OS',
     systemMode: 'Relentless operator coach with focus on discipline, downside protection, and execution.'
-  },
-  kernel: {
-    modes: ['Normal','MIT-Only','Legal-Critical','Revenue Push','Recovery'],
-    states: ['Locked In','Drifting','Overloaded','Deadline Pressure','Recovery Needed','Waiting Heavy','Learning Focus','Revenue Push'],
-    inboxTags: ['legal','day_progress','tomorrow_plan','business','waiting_for','errand','idea','note'],
-    commandChips: ['What matters now?','Build tomorrow','Legal next 5','Draft follow-up','Parse note','Weekly review','Why did I drift?','Summarize matter'],
-    proofCategories: ['Binder update','Exhibit named','Timeline entry added','Draft email created','Submission prepared','Case note written','Outreach sent','SOP created','Module completed','Quiz completed','CRM updated','Other'],
-    napPresets:[10,20,25],
-    driftThresholds:{ openLoops:6, killerBreaks:3, contextSwitches:5 },
-    runbooks:[
-      { id:uid(), name:'Bad Sleep Day', trigger:'Sleep < 6h', checklist:['MIT-only mode','One legal maintenance task','Short deep block'], recommendedMode:'Recovery', ignore:'New projects', exitCondition:'MIT completed + review done' },
-      { id:uid(), name:'MIT-Only Rescue', trigger:'Drift detected before noon', checklist:['Write MIT','Start 25m timer','Block distractions'], recommendedMode:'MIT-Only', ignore:'Builder tweaks', exitCondition:'One 90m MIT block complete' },
-      { id:uid(), name:'Legal Deadline in 72 Hours', trigger:'Hard legal date <= 3 days', checklist:['Confirm deadline','Create 3 actions','Prepare evidence'], recommendedMode:'Legal-Critical', ignore:'Low-value admin', exitCondition:'Submission/hearing pack ready' },
-      { id:uid(), name:'No-Reply Escalation', trigger:'Waiting item overdue', checklist:['Send chase','Escalate channel','Log consequence'], recommendedMode:'Legal-Critical', ignore:'New idea intake', exitCondition:'Reply received or escalation complete' },
-      { id:uid(), name:'Hearing Prep', trigger:'Hearing upcoming', checklist:['Chronology review','Exhibit names checked','Questions rehearsed'], recommendedMode:'Legal-Critical', ignore:'Non-essential research', exitCondition:'Prep checklist complete' },
-      { id:uid(), name:'Weekly Review', trigger:'Weekly review window', checklist:['Review history','Identify bottleneck','Set one tightened rule'], recommendedMode:'Normal', ignore:'Feature building', exitCondition:'Weekly board saved' },
-      { id:uid(), name:'Recovery After Drift Day', trigger:'Score < 50 previous day', checklist:['Reduce scope','Complete one proof item','Early shutdown'], recommendedMode:'Recovery', ignore:'Opportunity queue expansion', exitCondition:'Score >= 65 with clean closure' },
-      { id:uid(), name:'Revenue Push Day', trigger:'Revenue follow-ups overdue', checklist:['Top 3 follow-ups','Send one proposal','Log pipeline proof'], recommendedMode:'Revenue Push', ignore:'Low-yield legal browsing', exitCondition:'Revenue actions sent' },
-      { id:uid(), name:'Day-End Closure', trigger:'Before close day', checklist:['Review completed','Tomorrow checklist built','Proof logged'], recommendedMode:'Normal', ignore:'New capture sprawl', exitCondition:'Day archived successfully' }
-    ],
-    blockerTypes:['waiting on other person','missing document','missing decision','low energy','unclear next step','missing time','dependency not done'],
-    confidenceThresholds:{ high:0.85, medium:0.6 },
-    rankingWeights:{ urgency:4, leverage:4, riskReduction:3, unlock:3, modeBoost:2, dueProximity:3, domainPriority:2, loopReduction:2 }
-    ,
-    scene: {
-      enabled:true,
-      quoteOverlay:true,
-      motionIntensity:'subtle',
-      backgroundIntensity:'medium',
-      quoteSource:'local',
-      sceneMode:'auto',
-      manualScene:'desk_focus',
-      reducedMotionFallback:true,
-      lowDataMode:false,
-      screens:{ today:true, morningBrief:true, shutdown:true, splash:true, historyDetail:true, legal:false, builder:false }
-    },
-    bodyActionTypes:['walk','workout','stretch','breathwork','rest day'],
-    leakTypes:['sugar','social_media','ai_drift','side_project_drift','random_research','unplanned_nap','late_shutdown','multitasking','phone_before_mit'],
-    learningStatuses:['not started','touched','practiced','revised','tested','strong','weak under pressure'],
-    jobStages:['saved','applied','follow-up due','interview prep','interviewed','rejected','offer','paused']
   }
 };
 
 const defaultData = {
   legal: {
     deadlines: [
-      { id:uid(), title:'Review upcoming filing bundle', matterType:'ET', dueDate:isoToday(), priority:'High', status:'Open', type:'Filing', notes:'Tighten chronology and missing exhibits.', archived:false }
+      { id:uid(), title:'Review upcoming filing bundle', matterType:'ET', dueDate:isoToday(), priority:'High', status:'Open', notes:'Tighten chronology and missing exhibits.' }
     ],
     chronology: [
       { id:uid(), date:isoToday(), event:'Drafted key chronology update', matterType:'ET', source:'Self note', notes:'Need to attach 2 exhibits.', linkedExhibit:'' }
@@ -556,13 +363,7 @@ const defaultData = {
       { id:uid(), code:'EX-001', documentDate:isoToday(), category:'Medical', description:'Initial supporting document', relevance:'Supports chronology', filename:'20260404_EX001.pdf', source:'Local file', status:'drafted' }
     ],
     correspondence: [
-      { id:uid(), who:'Tribunal / solicitor / regulator', organisation:'Tribunal', matterType:'ET', dateSent:isoToday(), subject:'Status follow-up', replyDue:isoToday(), responseStatus:'Waiting', communicationType:'email', linkedTaskIds:[], notes:'Check response tomorrow.' }
-    ],
-    legalTasks: [
-      { id:uid(), title:'Prepare ET chronology addendum', matterType:'ET', subMatter:'Core claim', taskType:'Draft document', priority:'High', status:'Open', dueDate:isoToday(), followUpDate:'', linkedContact:'', notes:'Align with latest exhibit references.', relatedDeadlineId:'', relatedCorrespondenceId:'', completed:false, archived:false, createdAt:new Date().toISOString(), updatedAt:new Date().toISOString() }
-    ],
-    contacts: [
-      { id:uid(), name:'Case Contact', organisation:'ET Admin', category:'Tribunal', email:'', phone:'', notes:'Primary tribunal desk', matterTypes:['ET'] }
+      { id:uid(), who:'Tribunal / solicitor / regulator', matterType:'ET', dateSent:isoToday(), subject:'Status follow-up', replyDue:isoToday(), responseStatus:'Waiting', notes:'Check response tomorrow.' }
     ]
   },
   money: {
@@ -592,342 +393,15 @@ const defaultData = {
         journalMorning:{},
         journalEvening:{},
         review:'',
-        tomorrowChecklist:[],
-        plannedTasks:[],
+        nextDayPlan:'',
         health:{ sleep:0, meds:false, pain:2, mood:3, walk:false, alcohol:false, appointments:'' },
         aiLog:[],
-        aiPlanFallback:'',
-        aiDailyLogInput:'',
-        aiDailyLogParsed:null,
-        aiDailyLogRawOutput:'',
-        detectedWorkBlocks:[],
-        learningMinutesTotal:0,
-        parseSourceType:'manual_entry',
-        daySummary:'',
-        wins:[],
-        weaknesses:[],
-        lesson:'',
-        intakeMergeMode:'append',
         completedAt:null
       }
     },
     history:[]
-  },
-  kernel: {
-    version:1,
-    mode:'Normal',
-    inferredState:'Locked In',
-    modeRecommendation:'Normal',
-    modeReason:'',
-    objects:{ matters:[], actions:[], deadlines:[], waiting:[], artifacts:[], contacts:[], sessions:[], risks:[], decisions:[], ideas:[] },
-    promiseLedger:[],
-    resumeSnapshots:[],
-    waitingItems:[],
-    parkingLot:[],
-    opportunityQueue:[],
-    competenceMap:[
-      { id:uid(), topic:'Power BI', touched:false, practiced:false, revised:false, tested:false, strong:false, canExplain:false, weakUnderPressure:true, notes:'' },
-      { id:uid(), topic:'DAX', touched:false, practiced:false, revised:false, tested:false, strong:false, canExplain:false, weakUnderPressure:true, notes:'' },
-      { id:uid(), topic:'Semantic Models', touched:false, practiced:false, revised:false, tested:false, strong:false, canExplain:false, weakUnderPressure:true, notes:'' },
-      { id:uid(), topic:'SQL / T-SQL', touched:false, practiced:false, revised:false, tested:false, strong:false, canExplain:false, weakUnderPressure:true, notes:'' },
-      { id:uid(), topic:'Data Analytics Job Readiness', touched:false, practiced:false, revised:false, tested:false, strong:false, canExplain:false, weakUnderPressure:true, notes:'' },
-      { id:uid(), topic:'Other', touched:false, practiced:false, revised:false, tested:false, strong:false, canExplain:false, weakUnderPressure:true, notes:'' }
-    ],
-    supportNetwork:[],
-    runbookHistory:[],
-    weeklyReviews:[],
-    commandHistory:[],
-    inbox:{ rawDraft:'', parsedPreview:null, needsReview:[], processed:[], auditTrail:[], lastApplyUndo:null },
-    lifeAdmin:{ appointments:[], documents:[], errands:[] },
-    templates:[],
-    riskRegister:[
-      { id:uid(), title:'Missed legal deadline risk', domain:'legal', severity:'high', likelihood:'medium', reviewDate:isoToday(), owner:'self', mitigation:'Daily legal dashboard + next actions', status:'active', linkedActionId:'' }
-    ],
-    familyStability:{ weeklyProtectiveAction:'', urgentRisk:'', nextEssentialAction:'', notes:'' },
-    napLogs:[],
-    proofs:[],
-    bodyOps:{
-      daily:{},
-      signals:[],
-      trends:[]
-    },
-    leakDefense:{
-      records:[],
-      patterns:[]
-    },
-    learningOps:{
-      units:[
-        { id:uid(), track:'Power BI', topic:'Core Fundamentals', status:'touched', linkedSessionIds:[], linkedQuizIds:[], proofItem:'', confidence:2, nextReviseDate:'', notes:'' }
-      ]
-    },
-    jobHunt:{
-      applications:[]
-    },
-    supportOps:{
-      appointments:[],
-      actions:[],
-      documents:[]
-    },
-    memoryStack:{
-      profileMemory:[],
-      matterMemory:[],
-      dailyMemory:[],
-      weeklyMemory:[],
-      patternMemory:[],
-      playbookMemory:[],
-      preferenceMemory:[]
-    }
   }
 };
-
-function makeEmptyDailyLog() {
-  return {
-    primaryMit:'',
-    secondaryMit:'',
-    deepBlock:'',
-    adminBlock:'',
-    wip:['Legal', 'One ICP', 'One Delivery'],
-    sleepHours:0,
-    mitOnlyMode:false,
-    timerPreset:25,
-    timerRunning:false,
-    rulesState:{},
-    journalMorning:{},
-    journalEvening:{},
-    review:'',
-    tomorrowChecklist:[],
-    plannedTasks:[],
-    health:{ sleep:0, meds:false, pain:2, mood:3, walk:false, alcohol:false, appointments:'' },
-    aiLog:[],
-    aiPlanFallback:'',
-    aiDailyLogInput:'',
-    aiDailyLogParsed:null,
-    aiDailyLogRawOutput:'',
-    detectedWorkBlocks:[],
-    learningMinutesTotal:0,
-    parseSourceType:'manual_entry',
-    daySummary:'',
-    wins:[],
-    weaknesses:[],
-    lesson:'',
-    intakeMergeMode:'append',
-    completedAt:null
-  };
-}
-
-function importSeedHistoryEntries() {
-  return [
-    {
-      id:uid(),
-      date:'Historical Day 1',
-      challengeDay:1,
-      score:43,
-      imported:true,
-      importedBatch:'day1-4-reconstruction-v1',
-      summary:'First controlled reset day with real study blocks and review cadence.',
-      wins:['First serious controlled day', 'Real study blocks', 'Review + quiz included', 'Psychological shift toward execution'],
-      weaknesses:['Snoozed wake-up', 'Focus leaks', 'Social/news/AI leakage', 'Deep hours still light'],
-      review:'Promising start, not yet proof. Structure was visible but leakage remained.',
-      studyMinutes:200,
-      legacyStrictScore:{ value:6, outOf:14, interpretation:'promising start, not yet proof' },
-      tags:['snooze', 'context-switching', 'ai-urge', 'news-leak', 'review-complete'],
-      notes:'Wake 05:58 after snooze, no social media until noon, ~3h20 total study+review, day closed with review + next-day planning.'
-    },
-    {
-      id:uid(),
-      date:'Historical Day 2',
-      challengeDay:2,
-      score:36,
-      imported:true,
-      importedBatch:'day1-4-reconstruction-v1',
-      summary:'Salvage day: disrupted morning but still delivered 3 hours learning.',
-      wins:['Avoided zero day', '3 hours Power BI learning', 'Admin contained to windows', 'Book summary done'],
-      weaknesses:['Late start', 'Weak morning control', 'Distracted learning quality', 'Some social + AI task-switching'],
-      review:'Salvage day with output, but quality and timing were weak.',
-      studyMinutes:180,
-      legacyStrictScore:{ value:5, outOf:14, interpretation:'salvage day' },
-      tags:['late-start', 'salvage-day', 'focus-quality-low', 'admin-contained', 'social-low-not-zero'],
-      notes:'Wake 06:00 after snooze; doctor appointment disrupted morning; social under ~15m plus some YouTube while eating.'
-    },
-    {
-      id:uid(),
-      date:'Historical Day 3',
-      challengeDay:3,
-      score:71,
-      imported:true,
-      importedBatch:'day1-4-reconstruction-v1',
-      summary:'First genuinely solid day with no social media and module completion.',
-      wins:['Wake target hit', 'Morning ritual happened', 'No social media', 'Completed full semantic model module', 'Quiz/flashcards used'],
-      weaknesses:['Snooze still present', 'Ritual done in bed', 'Multitasking softened second half', 'Mental fade late evening'],
-      review:'First clearly strong execution day and best day so far.',
-      studyMinutes:260,
-      legacyStrictScore:{ value:10, outOf:14, interpretation:'first genuinely solid day' },
-      tags:['best-day-so-far', 'no-social-media', 'module-complete', 'retrieval-practice', 'evening-fade'],
-      notes:'Alarm 05:15, wake 05:30 after snooze, ~2h50 learning + 40m review by 15:40, plus later blocks and reading.'
-    },
-    {
-      id:uid(),
-      date:'Historical Day 4',
-      challengeDay:4,
-      score:64,
-      imported:true,
-      importedBatch:'day1-4-reconstruction-v1',
-      summary:'Decent day with strong retrieval insight, weakened by nap and sugar leakage.',
-      wins:['No social media', 'Morning ritual done', 'Recovered to complete real work', 'Strong retrieval/memory refresh', 'Deep-work insight captured'],
-      weaknesses:['90-minute unplanned nap', 'Sluggish focus', 'Sugar leakage', 'Late-night shutdown risk'],
-      review:'Decent day with meaningful insight; discipline broke around nap and sugar.',
-      studyMinutes:225,
-      legacyStrictScore:{ value:9, outOf:14, interpretation:'decent day with strong insight, weakened by nap and sugar' },
-      tags:['nap-risk', 'sugar-leakage', 'retrieval-practice', 'no-social-media', 'deep-work-insight'],
-      notes:'Wake 05:30 after snooze, no phone, 3h15 Power BI + 30m review, day closed with review and tomorrow planning.'
-    },
-    {
-      id:uid(),
-      date:'Historical Day 5',
-      challengeDay:5,
-      score:57,
-      imported:true,
-      importedBatch:'day5-manual-backfill-v1',
-      summary:'Real work day with strong total study volume, but weakened by snoozing, side-project drift, cricket break, and unrelated tab switching.',
-      wins:['Morning ritual completed','Multiple Power BI returns after breaks','Total learning/review reached about 5h05m','Retrieval practice / semantic model quiz continued','Day ended with review and tomorrow planning','Water intake improved'],
-      weaknesses:['Woke at 6:15 after snoozing','Missed clean 90-minute MIT block','Drifted into building a self-improvement app during execution time','Cricket break weakened momentum','Some unrelated searching / tab switching','Late shutdown risk'],
-      lesson:'The bottleneck was not effort. It was drift between blocks.',
-      studyMinutes:305,
-      legacyStrictScore:{ value:8, outOf:14, interpretation:'execution volume high but discipline leakage reduced score' },
-      details:['Wake 6:15 after snoozing','Visualisation done','Meditation done','First block 50 mins at 6:59am','400ml water in first hour','Second block 30 mins at 8:35am','Side-track: self-improvement app building via Codex','Another 30 min Power BI block at 10:34am','Another 400ml water','20 mins semantic model quiz at 12:10pm','30 mins Power BI at 12:45pm','50 mins Power BI at 3:50pm','Cricket break around 5:30pm','60 mins Power BI later with distractions','Final 35 mins semantic model quiz/relearning at 11:33pm','Review and tomorrow planning completed'],
-      tags:['snooze','side_project_drift','cricket_break','tab_switching','retrieval_practice','late_shutdown_risk'],
-      parseSourceType:'manual_backfill',
-      detectedWorkBlocks:[
-        { time:'06:59', durationMin:50, activityType:'learning', topic:'Power BI', notes:'' },
-        { time:'08:35', durationMin:30, activityType:'learning', topic:'Power BI', notes:'' },
-        { time:'10:34', durationMin:30, activityType:'learning', topic:'Power BI', notes:'' },
-        { time:'12:10', durationMin:20, activityType:'quiz', topic:'Semantic model mock scenarios', notes:'' },
-        { time:'12:45', durationMin:30, activityType:'learning', topic:'Power BI', notes:'' },
-        { time:'15:50', durationMin:50, activityType:'learning', topic:'Power BI', notes:'' },
-        { time:'later', durationMin:60, activityType:'learning', topic:'Power BI', notes:'with distractions' },
-        { time:'23:33', durationMin:35, activityType:'quiz', topic:'Semantic model relearning', notes:'' }
-      ],
-      notes:'Manual backfill imported from free-text timeline and strict scoring snapshot.'
-    }
-  ];
-}
-
-function migrateConfigData(rawConfig, rawData) {
-  const nextConfig = deepClone(rawConfig || defaultConfig);
-  const nextData = deepClone(rawData || defaultData);
-
-  if (!nextConfig.today.taskTypes) nextConfig.today.taskTypes = [...defaultConfig.today.taskTypes];
-  if (!nextConfig.today.taskPriorities) nextConfig.today.taskPriorities = [...defaultConfig.today.taskPriorities];
-  if (!nextConfig.today.defaultTaskPriority) nextConfig.today.defaultTaskPriority = defaultConfig.today.defaultTaskPriority;
-  if (!nextConfig.today.hardGates) nextConfig.today.hardGates = deepClone(defaultConfig.today.hardGates);
-  if (!Array.isArray(nextConfig.legal.matterTypes) || !nextConfig.legal.matterTypes.length) nextConfig.legal.matterTypes = [...defaultConfig.legal.matterTypes];
-  if (!Array.isArray(nextConfig.legal.taskTypes)) nextConfig.legal.taskTypes = [...defaultConfig.legal.taskTypes];
-  if (!Array.isArray(nextConfig.legal.taskStatuses)) nextConfig.legal.taskStatuses = [...defaultConfig.legal.taskStatuses];
-  if (!Array.isArray(nextConfig.legal.deadlineTypes)) nextConfig.legal.deadlineTypes = [...defaultConfig.legal.deadlineTypes];
-  if (!Array.isArray(nextConfig.legal.correspondenceTypes)) nextConfig.legal.correspondenceTypes = [...defaultConfig.legal.correspondenceTypes];
-  if (!Array.isArray(nextConfig.legal.contactCategories)) nextConfig.legal.contactCategories = [...defaultConfig.legal.contactCategories];
-
-  if (!nextConfig.today.ruleSets?.length || nextConfig.today.ruleSets[0].name !== 'San Core Operating Rules') {
-    nextConfig.today.ruleSets = deepClone(defaultConfig.today.ruleSets);
-    nextConfig.today.activeRuleSetId = 'default';
-  }
-
-  nextConfig.version = APP_VERSION;
-
-  const logs = nextData.today?.dailyLogs || {};
-  Object.keys(logs).forEach(k => {
-    logs[k] = { ...makeEmptyDailyLog(), ...logs[k] };
-    if (!Array.isArray(logs[k].tomorrowChecklist)) logs[k].tomorrowChecklist = [];
-    if (!Array.isArray(logs[k].plannedTasks)) logs[k].plannedTasks = [];
-  });
-
-  if (!nextData.legal) nextData.legal = {};
-  if (!Array.isArray(nextData.legal.legalTasks)) nextData.legal.legalTasks = [];
-  if (!Array.isArray(nextData.legal.contacts)) nextData.legal.contacts = [];
-  if (!Array.isArray(nextData.legal.deadlines)) nextData.legal.deadlines = [];
-  if (!Array.isArray(nextData.legal.correspondence)) nextData.legal.correspondence = [];
-  if (!nextData.today) nextData.today = { dailyLogs:{}, history:[] };
-  if (!Array.isArray(nextData.today.history)) nextData.today.history = [];
-
-  const historyDays = new Set(nextData.today.history.map(item => Number(item.challengeDay)));
-  const missingImport = [1,2,3,4,5].some(d => !historyDays.has(d));
-  if (missingImport) {
-    const seeds = importSeedHistoryEntries().filter(item => !historyDays.has(item.challengeDay));
-    nextData.today.history = [...seeds, ...nextData.today.history].sort((a,b) => Number(a.challengeDay||999) - Number(b.challengeDay||999));
-    if ((nextConfig.challenge.currentDay || 1) < 5) nextConfig.challenge.currentDay = 5;
-  }
-
-  if (!nextConfig.kernel) nextConfig.kernel = deepClone(defaultConfig.kernel);
-  if (!Array.isArray(nextConfig.kernel.modes) || !nextConfig.kernel.modes.length) nextConfig.kernel.modes = [...defaultConfig.kernel.modes];
-  if (!Array.isArray(nextConfig.kernel.states) || !nextConfig.kernel.states.length) nextConfig.kernel.states = [...defaultConfig.kernel.states];
-  if (!Array.isArray(nextConfig.kernel.inboxTags) || !nextConfig.kernel.inboxTags.length) nextConfig.kernel.inboxTags = [...defaultConfig.kernel.inboxTags];
-  if (!Array.isArray(nextConfig.kernel.commandChips) || !nextConfig.kernel.commandChips.length) nextConfig.kernel.commandChips = [...defaultConfig.kernel.commandChips];
-  if (!Array.isArray(nextConfig.kernel.runbooks) || !nextConfig.kernel.runbooks.length) nextConfig.kernel.runbooks = deepClone(defaultConfig.kernel.runbooks);
-  if (!nextConfig.kernel.scene) nextConfig.kernel.scene = deepClone(defaultConfig.kernel.scene);
-
-  if (!nextData.kernel) nextData.kernel = deepClone(defaultData.kernel);
-  if (!nextData.kernel.objects) nextData.kernel.objects = deepClone(defaultData.kernel.objects);
-  ['matters','actions','deadlines','waiting','artifacts','contacts','sessions','risks','decisions','ideas'].forEach(k => {
-    if (!Array.isArray(nextData.kernel.objects[k])) nextData.kernel.objects[k] = [];
-  });
-  if (!Array.isArray(nextData.kernel.promiseLedger)) nextData.kernel.promiseLedger = [];
-  if (!Array.isArray(nextData.kernel.resumeSnapshots)) nextData.kernel.resumeSnapshots = [];
-  if (!Array.isArray(nextData.kernel.waitingItems)) nextData.kernel.waitingItems = [];
-  if (!Array.isArray(nextData.kernel.parkingLot)) nextData.kernel.parkingLot = [];
-  if (!Array.isArray(nextData.kernel.opportunityQueue)) nextData.kernel.opportunityQueue = [];
-  if (!Array.isArray(nextData.kernel.competenceMap) || !nextData.kernel.competenceMap.length) nextData.kernel.competenceMap = deepClone(defaultData.kernel.competenceMap);
-  if (!Array.isArray(nextData.kernel.supportNetwork)) nextData.kernel.supportNetwork = [];
-  if (!Array.isArray(nextData.kernel.runbookHistory)) nextData.kernel.runbookHistory = [];
-  if (!Array.isArray(nextData.kernel.weeklyReviews)) nextData.kernel.weeklyReviews = [];
-  if (!Array.isArray(nextData.kernel.commandHistory)) nextData.kernel.commandHistory = [];
-  if (!nextData.kernel.inbox) nextData.kernel.inbox = deepClone(defaultData.kernel.inbox);
-  if (!Array.isArray(nextData.kernel.inbox.needsReview)) nextData.kernel.inbox.needsReview = [];
-  if (!Array.isArray(nextData.kernel.inbox.processed)) nextData.kernel.inbox.processed = [];
-  if (!Array.isArray(nextData.kernel.inbox.auditTrail)) nextData.kernel.inbox.auditTrail = [];
-  if (!nextData.kernel.lifeAdmin) nextData.kernel.lifeAdmin = deepClone(defaultData.kernel.lifeAdmin);
-  if (!Array.isArray(nextData.kernel.lifeAdmin.appointments)) nextData.kernel.lifeAdmin.appointments = [];
-  if (!Array.isArray(nextData.kernel.lifeAdmin.documents)) nextData.kernel.lifeAdmin.documents = [];
-  if (!Array.isArray(nextData.kernel.lifeAdmin.errands)) nextData.kernel.lifeAdmin.errands = [];
-  if (!Array.isArray(nextData.kernel.templates)) nextData.kernel.templates = [];
-  if (!Array.isArray(nextData.kernel.riskRegister)) nextData.kernel.riskRegister = deepClone(defaultData.kernel.riskRegister);
-  if (!nextData.kernel.familyStability) nextData.kernel.familyStability = deepClone(defaultData.kernel.familyStability);
-  if (!Array.isArray(nextData.kernel.napLogs)) nextData.kernel.napLogs = [];
-  if (!Array.isArray(nextData.kernel.proofs)) nextData.kernel.proofs = [];
-  if (!nextData.kernel.bodyOps) nextData.kernel.bodyOps = deepClone(defaultData.kernel.bodyOps);
-  if (!nextData.kernel.bodyOps.daily) nextData.kernel.bodyOps.daily = {};
-  if (!Array.isArray(nextData.kernel.bodyOps.signals)) nextData.kernel.bodyOps.signals = [];
-  if (!Array.isArray(nextData.kernel.bodyOps.trends)) nextData.kernel.bodyOps.trends = [];
-  if (!nextData.kernel.leakDefense) nextData.kernel.leakDefense = deepClone(defaultData.kernel.leakDefense);
-  if (!Array.isArray(nextData.kernel.leakDefense.records)) nextData.kernel.leakDefense.records = [];
-  if (!Array.isArray(nextData.kernel.leakDefense.patterns)) nextData.kernel.leakDefense.patterns = [];
-  if (!nextData.kernel.learningOps) nextData.kernel.learningOps = deepClone(defaultData.kernel.learningOps);
-  if (!Array.isArray(nextData.kernel.learningOps.units)) nextData.kernel.learningOps.units = [];
-  if (!nextData.kernel.jobHunt) nextData.kernel.jobHunt = deepClone(defaultData.kernel.jobHunt);
-  if (!Array.isArray(nextData.kernel.jobHunt.applications)) nextData.kernel.jobHunt.applications = [];
-  if (!nextData.kernel.supportOps) nextData.kernel.supportOps = deepClone(defaultData.kernel.supportOps);
-  if (!Array.isArray(nextData.kernel.supportOps.appointments)) nextData.kernel.supportOps.appointments = [];
-  if (!Array.isArray(nextData.kernel.supportOps.actions)) nextData.kernel.supportOps.actions = [];
-  if (!Array.isArray(nextData.kernel.supportOps.documents)) nextData.kernel.supportOps.documents = [];
-  if (!nextData.kernel.memoryStack) nextData.kernel.memoryStack = deepClone(defaultData.kernel.memoryStack);
-
-  if (!nextData.kernel.objects.actions.length) {
-    nextData.kernel.objects.actions = (nextData.legal.legalTasks || []).map(t => ({ id:t.id || uid(), title:t.title || 'Legal action', domain:'legal', matterType:t.matterType || 'Other', dueDate:t.dueDate || '', priority:t.priority || 'medium', status:t.status || (t.completed ? 'Completed' : 'Open'), blocked:false, blockerType:'', blockedBy:'', unblockAction:'', unblockByDate:'', source:'legal_task', linkedRefId:t.id, createdAt:t.createdAt || new Date().toISOString(), updatedAt:t.updatedAt || new Date().toISOString() }));
-  }
-  if (!nextData.kernel.objects.deadlines.length) {
-    nextData.kernel.objects.deadlines = (nextData.legal.deadlines || []).map(d => ({ id:d.id || uid(), title:d.title || 'Deadline', domain:'legal', matterType:d.matterType || 'Other', date:d.dueDate || '', priority:d.priority || 'medium', type:d.type || 'Filing', notes:d.notes || '', source:'legal_deadline', linkedRefId:d.id }));
-  }
-  if (!nextData.kernel.objects.contacts.length) {
-    nextData.kernel.objects.contacts = (nextData.legal.contacts || []).map(c => ({ id:c.id || uid(), name:c.name || '', organisation:c.organisation || '', category:c.category || 'Other', matterTypes:c.matterTypes || [], email:c.email || '', phone:c.phone || '', notes:c.notes || '', source:'legal_contact', linkedRefId:c.id }));
-  }
-
-  return { config: nextConfig, data: nextData };
-}
-
-function readInitialState() {
-  const configRaw = safeRead(LS.config, safeRead(LS.legacyConfig, safeRead(LS.olderConfig, safeRead(LS.oldestConfig, safeRead(LS.ancientConfig, safeRead(LS.primordialConfig, defaultConfig))))));
-  const dataRaw = safeRead(LS.data, safeRead(LS.legacyData, safeRead(LS.olderData, safeRead(LS.oldestData, safeRead(LS.ancientData, safeRead(LS.primordialData, defaultData))))));
-  return migrateConfigData(configRaw, dataRaw);
-}
 
 function safeRead(key, fallback){
   try{
@@ -1092,9 +566,8 @@ function QuickForm({config, typeDef, value, onChange}) {
 }
 
 function App() {
-  const initialState = useMemo(() => readInitialState(), []);
-  const [config, setConfig] = usePersistentState(LS.config, initialState.config);
-  const [data, setData] = usePersistentState(LS.data, initialState.data);
+  const [config, setConfig] = usePersistentState(LS.config, defaultConfig);
+  const [data, setData] = usePersistentState(LS.data, defaultData);
 
   const [activeTab, setActiveTab] = useState('today');
   const [showSearch, setShowSearch] = useState(false);
@@ -1104,35 +577,13 @@ function App() {
   const [quickValue, setQuickValue] = useState({ date: isoToday() });
   const [builderSection, setBuilderSection] = useState('app');
   const [timerSeconds, setTimerSeconds] = useState(25 * 60);
-  const [installNoteDismissed, setInstallNoteDismissed] = usePersistentState(LS.installNoticeDismissed, false);
-  const [installPromptEvent, setInstallPromptEvent] = useState(null);
-  const [isStandalone, setIsStandalone] = useState(false);
+  const [installNoteDismissed, setInstallNoteDismissed] = useState(false);
   const [aiBusy, setAiBusy] = useState(false);
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiResult, setAiResult] = useState('');
-  const [legalMatterFilter, setLegalMatterFilter] = useState('All matters');
-  const [legalQuickFilter, setLegalQuickFilter] = useState('All');
-  const [legalSort, setLegalSort] = useState('due');
-  const [legalStatusFilter, setLegalStatusFilter] = useState('All statuses');
-  const [selectedHistoryItem, setSelectedHistoryItem] = useState(null);
-  const [daySummaryBusyId, setDaySummaryBusyId] = useState('');
-  const [inboxInput, setInboxInput] = useState('');
-  const [inboxTags, setInboxTags] = useState([]);
-  const [inboxPreview, setInboxPreview] = useState(null);
-  const [inboxBusy, setInboxBusy] = useState(false);
-  const [commandInput, setCommandInput] = useState('');
-  const [commandOutput, setCommandOutput] = useState('');
-  const [commandBusy, setCommandBusy] = useState(false);
-  const [napTimerSec, setNapTimerSec] = useState(0);
-  const [showSplash, setShowSplash] = useState(true);
-  const [sceneQuote, setSceneQuote] = useState('');
-  const [sceneBusyQuote, setSceneBusyQuote] = useState(false);
-  const [voiceSupported, setVoiceSupported] = useState(false);
-  const [voiceListening, setVoiceListening] = useState(false);
-  const [bodyDraft, setBodyDraft] = useState({ wakeActual:'', snoozeCount:0, waterMl:0, meditationMin:0, steps:0, bodyActionType:'walk', stress:3, caffeine:'', sugarBreach:false, recoveryNote:'' });
 
   const todayKey = isoToday();
-  const todaysLog = data.today.dailyLogs[todayKey] || makeEmptyDailyLog();
+  const todaysLog = data.today.dailyLogs[todayKey] || defaultData.today.dailyLogs[isoToday()];
   const ruleSet = getRuleSet(config);
   const visibleTabs = config.tabs.filter(t => !t.archived);
   const currentDay = config.challenge.currentDay;
@@ -1144,7 +595,7 @@ function App() {
         ...prev,
         today: {
           ...prev.today,
-          dailyLogs: { ...prev.today.dailyLogs, [todayKey]: makeEmptyDailyLog() }
+          dailyLogs: { ...prev.today.dailyLogs, [todayKey]: deepClone(defaultData.today.dailyLogs[isoToday()]) }
         }
       }));
     }
@@ -1180,93 +631,10 @@ function App() {
   }, [todaysLog?.timerPreset]);
 
   useEffect(() => {
-    if (!napTimerSec) return;
-    const t = setInterval(() => {
-      setNapTimerSec(prev => {
-        if (prev <= 1) {
-          setData(d => ({ ...d, kernel:{ ...d.kernel, napLogs:[{ id:uid(), date:todayKey, durationMin: Math.round((d.kernel.napLogs?.[0]?.plannedMin || 0) || 0), planned:true, thresholdExceeded:false }, ...(d.kernel.napLogs || [])] } }));
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(t);
-  }, [napTimerSec, todayKey]);
-
-  useEffect(() => {
     if (Number(todaysLog.sleepHours || 0) < 6 && !todaysLog.mitOnlyMode) {
       updateToday({ mitOnlyMode:true });
     }
   }, [todaysLog.sleepHours]);
-
-  useEffect(() => {
-    const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-    setIsStandalone(!!standalone);
-    const onBeforeInstall = (e) => {
-      e.preventDefault();
-      setInstallPromptEvent(e);
-    };
-    window.addEventListener('beforeinstallprompt', onBeforeInstall);
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('./service-worker.js').catch(() => {});
-    }
-    if (navigator.storage?.persist) navigator.storage.persist().catch(() => {});
-    setVoiceSupported(!!(window.SpeechRecognition || window.webkitSpeechRecognition));
-    return () => window.removeEventListener('beforeinstallprompt', onBeforeInstall);
-  }, []);
-
-  useEffect(() => {
-    const t = setTimeout(() => setShowSplash(false), 1500);
-    return () => clearTimeout(t);
-  }, []);
-
-  useEffect(() => {
-    if (sceneConfig.lowDataMode || sceneConfig.motionIntensity === 'off') return;
-    const preload = [selectedScene.src];
-    const candidates = Object.values(scenePacks).map(x => x.src).filter(Boolean);
-    if (candidates[1]) preload.push(candidates[(hourNow + 1) % candidates.length]);
-    preload.forEach(src => { const img = new Image(); img.src = src; });
-  }, [selectedScene.src, sceneConfig.lowDataMode, sceneConfig.motionIntensity, hourNow]);
-
-  useEffect(() => {
-    const localList = quoteLibrary[quoteCategory] || quoteLibrary.focus;
-    const localQuote = localList[Math.floor(Math.random() * localList.length)];
-    setSceneQuote(localQuote);
-    if (!sceneConfig.quoteOverlay) return;
-    if (sceneConfig.quoteSource === 'local') return;
-    if (!config.ai.enabled || !config.ai.apiKey) return;
-    if (sceneBusyQuote) return;
-    const run = async () => {
-      try {
-        setSceneBusyQuote(true);
-        const res = await fetch(config.ai.endpoint, {
-          method:'POST',
-          headers:{
-            'Content-Type':'application/json',
-            'Authorization': `Bearer ${config.ai.apiKey}`,
-            ...(config.ai.siteUrl ? { 'HTTP-Referer': config.ai.siteUrl } : {}),
-            ...(config.ai.siteName ? { 'X-Title': config.ai.siteName } : {})
-          },
-          body: JSON.stringify({ model: config.ai.model, messages:[{ role:'system', content: config.ai.systemMode }, { role:'user', content:`Provide one short quote (max 18 words), direct and disciplined, category: ${quoteCategory}.` }] })
-        });
-        const json = await res.json();
-        const text = json?.choices?.[0]?.message?.content?.trim();
-        if (text && sceneConfig.quoteSource !== 'local') setSceneQuote(text.replace(/^\"|\"$/g, ''));
-      } catch {}
-      finally { setSceneBusyQuote(false); }
-    };
-    if (sceneConfig.quoteSource === 'ai' || sceneConfig.quoteSource === 'hybrid') run();
-  }, [quoteCategory, sceneConfig.quoteOverlay, sceneConfig.quoteSource, config.ai.enabled, config.ai.apiKey]);
-
-  useEffect(() => {
-    if (!sceneConfig.quoteOverlay) return;
-    const id = setInterval(() => {
-      const list = quoteLibrary[quoteCategory] || quoteLibrary.focus;
-      setSceneQuote(list[Math.floor(Math.random() * list.length)]);
-    }, 18000);
-    return () => clearInterval(id);
-  }, [quoteCategory, sceneConfig.quoteOverlay]);
-
 
   const updateToday = (patch) => {
     setData(prev => ({
@@ -1283,27 +651,25 @@ function App() {
   const setHealthField = (name, value) => updateToday({ health: { ...todaysLog.health, [name]: value } });
 
   const ruleState = todaysLog.rulesState || {};
-  const mandatoryRules = ruleSet.doRules || [];
-  const killerRules = ruleSet.dontRules || [];
-  const mandatoryPossible = mandatoryRules.reduce((acc, r) => acc + Math.max(0, Number(r.weight || 0)), 0);
-  const mandatoryEarned = mandatoryRules.reduce((acc, r) => acc + (ruleState[r.id] ? Math.max(0, Number(r.weight || 0)) : 0), 0);
-  const penaltyLost = killerRules.reduce((acc, r) => acc + (ruleState[r.id] ? Number(r.weight || 0) : 0), 0);
-  const brokenKillerCount = killerRules.filter(r => !!ruleState[r.id]).length;
-  const missedDriverCount = mandatoryRules.filter(r => !ruleState[r.id]).length;
+  const allRules = [
+    ...ruleSet.doRules.map(r => ({...r, kind:'do'})),
+    ...ruleSet.dontRules.map(r => ({...r, kind:'dont'}))
+  ];
+  const checkedRulesWeight = allRules.reduce((acc, rule) => acc + (ruleState[rule.id] ? Number(rule.weight || 1) : 0), 0);
+  const totalRulesWeight = Math.max(1, allRules.reduce((acc, rule) => acc + Number(rule.weight || 1), 0));
 
-  const scoreMeta = useMemo(() => {
-    const raw = mandatoryEarned + penaltyLost;
-    let finalScore = clamp(Math.round(raw), 0, 100);
-    const gates = config.today.hardGates || {};
-    const primaryRule = mandatoryRules.find(r => r.text === gates.primaryMitRuleText);
-    const deepRule = mandatoryRules.find(r => r.text === gates.deepBlockRuleText);
-    const reviewRule = mandatoryRules.find(r => r.text === gates.reviewRuleText);
-    if (primaryRule && !ruleState[primaryRule.id]) finalScore = Math.min(finalScore, Number(gates.primaryMitRuleCap || 55));
-    if (deepRule && !ruleState[deepRule.id]) finalScore = Math.min(finalScore, Number(gates.deepBlockRuleCap || 65));
-    return { raw, finalScore, primaryRuleMet: primaryRule ? !!ruleState[primaryRule.id] : true, deepRuleMet: deepRule ? !!ruleState[deepRule.id] : true, reviewRuleMet: reviewRule ? !!ruleState[reviewRule.id] : !!todaysLog.review?.trim() };
-  }, [mandatoryEarned, penaltyLost, ruleState, mandatoryRules, config.today.hardGates, todaysLog.review]);
-
-  const todayScore = scoreMeta.finalScore;
+  const todayScore = useMemo(() => {
+    const w = config.today.scoreWeights;
+    let score = 0;
+    if (todaysLog.primaryMit?.trim()) score += Number(w.primaryMit || 0);
+    if (todaysLog.secondaryMit?.trim()) score += Number(w.secondaryMit || 0);
+    if (todaysLog.deepBlock?.trim()) score += Number(w.deepBlock || 0);
+    if (todaysLog.adminBlock?.trim()) score += Number(w.adminBlock || 0);
+    if (todaysLog.review?.trim()) score += Number(w.review || 0);
+    if (todaysLog.nextDayPlan?.trim()) score += Number(w.nextPlan || 0);
+    score += Math.round((checkedRulesWeight / totalRulesWeight) * Number(w.rules || 0));
+    return clamp(Math.round(score), 0, 100);
+  }, [todaysLog, ruleState, config]);
 
   const streak = useMemo(() => {
     const hist = data.today.history || [];
@@ -1339,44 +705,6 @@ function App() {
   const missingExhibits = data.legal.exhibits.filter(e => e.status === 'need');
   const legalTop3 = [...data.legal.deadlines].sort((a,b) => (a.dueDate || '').localeCompare(b.dueDate || '')).slice(0,3);
 
-  const legalTasks = data.legal.legalTasks || [];
-  const legalContacts = data.legal.contacts || [];
-  const activeMatter = legalMatterFilter === 'All matters' ? '' : legalMatterFilter;
-  const isToday = (d) => !!d && d === todayKey;
-  const isWeek = (d) => !!d && diffDays(d) >= 0 && diffDays(d) <= 7;
-  const isOverdue = (d) => !!d && diffDays(d) < 0;
-
-  const filteredLegalTasks = legalTasks.filter(task => {
-    if (task.archived) return false;
-    if (activeMatter && task.matterType !== activeMatter) return false;
-    if (legalQuickFilter === 'Overdue') return !task.completed && isOverdue(task.dueDate);
-    if (legalQuickFilter === 'Due Today') return !task.completed && isToday(task.dueDate);
-    if (legalQuickFilter === 'This Week') return !task.completed && isWeek(task.dueDate);
-    if (legalQuickFilter === 'Waiting') return ['Waiting', 'Sent'].includes(task.status);
-    if (legalQuickFilter === 'Completed') return !!task.completed;
-    if (legalStatusFilter !== 'All statuses' && task.status !== legalStatusFilter) return false;
-    return true;
-  }).sort((a,b) => {
-    if (legalSort === 'priority') return (config.legal.priorities.indexOf(a.priority) - config.legal.priorities.indexOf(b.priority));
-    if (legalSort === 'matter') return (a.matterType || '').localeCompare(b.matterType || '');
-    return (a.dueDate || '9999-12-31').localeCompare(b.dueDate || '9999-12-31');
-  });
-
-  const openLegalTasks = legalTasks.filter(t => !t.completed && !t.archived);
-  const overdueLegalTasks = openLegalTasks.filter(t => isOverdue(t.dueDate));
-  const dueTodayLegalTasks = openLegalTasks.filter(t => isToday(t.dueDate));
-  const dueWeekLegalTasks = openLegalTasks.filter(t => isWeek(t.dueDate));
-  const waitingFollowUps = openLegalTasks.filter(t => ['Waiting', 'Sent'].includes(t.status) || (!!t.followUpDate && diffDays(t.followUpDate) <= 0));
-  const awaitingReplies = (data.legal.correspondence || []).filter(c => ['No reply', 'Waiting'].includes(c.responseStatus));
-  const hardDates = (data.legal.deadlines || []).filter(d => !d.archived && ['Hearing', 'Filing', 'Appointment'].includes(d.type || 'Filing')).sort((a,b) => (a.dueDate||'').localeCompare(b.dueDate||''));
-  const next5LegalActions = [
-    ...overdueLegalTasks,
-    ...dueTodayLegalTasks.filter(t => !overdueLegalTasks.some(x => x.id === t.id)),
-    ...dueWeekLegalTasks.filter(t => !overdueLegalTasks.some(x => x.id === t.id) && !dueTodayLegalTasks.some(x => x.id === t.id)),
-    ...waitingFollowUps.filter(t => !overdueLegalTasks.some(x => x.id === t.id) && !dueWeekLegalTasks.some(x => x.id === t.id))
-  ].slice(0,5);
-  const tasksByMatter = config.legal.matterTypes.map(mt => ({ mt, count: openLegalTasks.filter(t => t.matterType === mt).length })).filter(x => x.count > 0);
-
   const essentialBills = data.money.bills.filter(b => b.essential);
   const monthlyEssentials = essentialBills.reduce((a,b) => a + Number(b.amount || 0), 0);
   const spendThisWeek = data.money.expenses.filter(x => {
@@ -1392,107 +720,6 @@ function App() {
   const caseStudyCount = data.business.leads.filter(l => l.caseStudyPotential).length;
   const mrr = data.business.leads.filter(l => ['Live', 'Build', 'Ready to Build'].includes(l.stage)).reduce((a,b) => a + Number(b.mrrValue || 0), 0);
 
-  const kernel = data.kernel || defaultData.kernel;
-  const kernelObjects = kernel.objects || defaultData.kernel.objects;
-  const kernelActions = kernelObjects.actions || [];
-  const waitingItems = kernel.waitingItems || [];
-  const opportunityQueue = kernel.opportunityQueue || [];
-  const riskRegister = kernel.riskRegister || [];
-  const promiseLedger = kernel.promiseLedger || [];
-  const overdueWaiting = waitingItems.filter(w => w.status !== 'resolved' && w.nextChaseDate && diffDays(w.nextChaseDate) < 0);
-  const dueChaseToday = waitingItems.filter(w => w.status !== 'resolved' && w.nextChaseDate === todayKey);
-  const brokenPromises = promiseLedger.filter(p => p.status === 'broken' || (p.status === 'pending' && p.expectedCompletionDate && diffDays(p.expectedCompletionDate) < 0));
-  const openLoops = useMemo(() => {
-    const loops = [];
-    kernelActions.filter(a => !['Completed','Archived','Resolved'].includes(a.status || '')).forEach(a => {
-      if (!a.nextStep && !a.unblockAction) loops.push({ id:'act-'+a.id, type:'action_no_next_step', title:a.title || 'Action missing next step', severity:'medium', item:a });
-      if (a.blocked && !a.unblockAction) loops.push({ id:'blk-'+a.id, type:'blocked_no_unblock', title:a.title || 'Blocked action missing unblock plan', severity:'high', item:a });
-    });
-    (kernelObjects.deadlines || []).forEach(d => {
-      const linked = kernelActions.some(a => a.relatedDeadlineId === d.id || a.linkedRefId === d.id);
-      if (!linked) loops.push({ id:'ddl-'+d.id, type:'deadline_no_action', title:d.title || 'Deadline without action', severity:'high', item:d });
-    });
-    waitingItems.forEach(w => {
-      if (w.status !== 'resolved' && !w.nextChaseDate) loops.push({ id:'wait-'+w.id, type:'waiting_no_chase', title:w.whatAwaiting || w.title || 'Waiting item missing chase date', severity:'high', item:w });
-    });
-    return loops;
-  }, [kernelActions, kernelObjects.deadlines, waitingItems]);
-  const inferredKernelState = useMemo(() => {
-    if (Number(todaysLog.sleepHours || 0) < 5.5) return 'Recovery Needed';
-    if (overdueLegalTasks.length || (hardDates[0] && diffDays(hardDates[0].dueDate) <= 2)) return 'Deadline Pressure';
-    if (overdueWaiting.length >= 3) return 'Waiting Heavy';
-    if (brokenKillerCount >= 3 || openLoops.length >= 8) return 'Overloaded';
-    if (todaysLog.mitOnlyMode) return 'Locked In';
-    if (missedDriverCount >= 6) return 'Drifting';
-    if (followUpsDue.length >= 3) return 'Revenue Push';
-    return 'Learning Focus';
-  }, [todaysLog.sleepHours, overdueLegalTasks.length, hardDates, overdueWaiting.length, brokenKillerCount, openLoops.length, todaysLog.mitOnlyMode, missedDriverCount, followUpsDue.length]);
-  const hourNow = new Date().getHours();
-  const quoteCategory = useMemo(() => {
-    if (activeTab === 'legal') return 'legal_pressure';
-    if ((kernel.mode || 'Normal') === 'Revenue Push') return 'revenue_push';
-    if ((kernel.mode || 'Normal') === 'Recovery' || inferredKernelState === 'Recovery Needed') return 'recovery';
-    if (inferredKernelState === 'Drifting' || inferredKernelState === 'Overloaded') return 'anti_drift';
-    if (hourNow < 10) return 'morning_start';
-    if (hourNow >= 20) return 'shutdown';
-    return 'focus';
-  }, [activeTab, kernel.mode, inferredKernelState, hourNow]);
-  const autoSceneId = useMemo(() => {
-    if (hourNow >= 20) return 'city_night_shutdown';
-    if ((kernel.mode || 'Normal') === 'MIT-Only') return hourNow < 11 ? 'mountain_focus' : 'desk_focus';
-    if ((kernel.mode || 'Normal') === 'Legal-Critical' || inferredKernelState === 'Deadline Pressure') return 'storm_pressure';
-    if ((kernel.mode || 'Normal') === 'Revenue Push') return 'forest_path';
-    if ((kernel.mode || 'Normal') === 'Recovery' || inferredKernelState === 'Recovery Needed') return 'calm_recovery';
-    if (hourNow >= 5 && hourNow <= 9) return 'dawn_sunrise';
-    if (inferredKernelState === 'Drifting') return 'desk_focus';
-    return 'mountain_focus';
-  }, [hourNow, kernel.mode, inferredKernelState]);
-  const sceneConfig = config.kernel?.scene || defaultConfig.kernel.scene;
-  const selectedSceneId = sceneConfig.sceneMode === 'manual' ? sceneConfig.manualScene : autoSceneId;
-  const selectedScene = scenePacks[selectedSceneId] || scenePacks.mountain_focus;
-  const shouldShowScene = sceneConfig.enabled && (
-    (activeTab === 'today' && sceneConfig.screens?.today) ||
-    (activeTab === 'legal' && sceneConfig.screens?.legal) ||
-    (activeTab === 'builder' && sceneConfig.screens?.builder) ||
-    (activeTab === 'history' && sceneConfig.screens?.historyDetail) ||
-    (activeTab === 'command') || (activeTab === 'inbox')
-  );
-  const rankedKernelItems = useMemo(() => {
-    const w = config.kernel?.rankingWeights || defaultConfig.kernel.rankingWeights;
-    const scoreItem = (item) => {
-      const dueDelta = item.dueDate ? diffDays(item.dueDate) : (item.date ? diffDays(item.date) : 999);
-      const urgency = dueDelta < 0 ? 5 : dueDelta === 0 ? 4 : dueDelta <= 2 ? 3 : dueDelta <= 7 ? 2 : 1;
-      const leverage = Number(item.leverage || item.upside || 2);
-      const riskReduction = item.domain === 'legal' || item.domain === 'money' ? 3 : 2;
-      const unlock = item.blocked ? 4 : 2;
-      const modeBoost = ((kernel.mode || 'Normal') === 'Legal-Critical' && item.domain === 'legal') || ((kernel.mode || 'Normal') === 'Revenue Push' && item.domain === 'business') ? 3 : 1;
-      const loopReduction = item.id && openLoops.some(l => String(l.id).includes(item.id)) ? 4 : 1;
-      return urgency*w.urgency + leverage*w.leverage + riskReduction*w.riskReduction + unlock*w.unlock + modeBoost*w.modeBoost + (5-Math.min(5, Math.max(0, dueDelta)))*w.dueProximity + loopReduction*w.loopReduction;
-    };
-    const actionPool = kernelActions.filter(a => !['Completed','Archived','Resolved'].includes(a.status || '')).map(a => ({ ...a, kind:'Action', domain:a.domain || 'general', dueDate:a.dueDate || '' }));
-    const waitingPool = waitingItems.filter(x => x.status !== 'resolved').map(x => ({ ...x, kind:'Waiting', title:x.whatAwaiting || x.title, domain:x.domain || 'general', dueDate:x.nextChaseDate || x.expectedBy || '' }));
-    const riskPool = riskRegister.filter(r => r.status !== 'closed').map(r => ({ ...r, kind:'Risk', title:r.title, domain:r.domain || 'general', dueDate:r.reviewDate || '' }));
-    const opportunityPool = opportunityQueue.filter(o => o.status !== 'closed').map(o => ({ ...o, kind:'Opportunity', title:o.opportunity || o.title, domain:o.domain || 'general', dueDate:o.urgencyDate || '' }));
-    return [...actionPool, ...waitingPool, ...riskPool, ...opportunityPool].map(item => ({ ...item, rankScore: scoreItem(item) })).sort((a,b)=>b.rankScore-a.rankScore).slice(0,8);
-  }, [kernelActions, waitingItems, riskRegister, opportunityQueue, kernel.mode, openLoops, config.kernel]);
-  const bodyToday = kernel.bodyOps?.daily?.[todayKey] || {};
-  const readinessScore = clamp(Math.round(
-    35 +
-    (Number(todaysLog.sleepHours || bodyToday.sleepHours || 0) * 7) +
-    (Number(bodyToday.waterMl || 0) >= 800 ? 10 : 0) +
-    (Number(bodyToday.meditationMin || 0) >= 20 ? 10 : 0) +
-    ((bodyToday.bodyActionType && bodyToday.bodyActionType !== 'rest day') ? 8 : 0) -
-    (bodyToday.sugarBreach ? 8 : 0) -
-    (Number(bodyToday.stress || 3) >= 4 ? 6 : 0)
-  ), 0, 100);
-  const bodyRiskWarning = readinessScore < 50 && (inferredKernelState === 'Deadline Pressure' || brokenKillerCount >= 3);
-  const leakRecords = kernel.leakDefense?.records || [];
-  const recurringLeaks = useMemo(() => {
-    const map = {};
-    leakRecords.forEach(r => { map[r.type] = (map[r.type] || 0) + 1; });
-    return Object.entries(map).sort((a,b) => b[1]-a[1]).slice(0,3);
-  }, [leakRecords]);
-
   const currentTabName = visibleTabs.find(t => t.id === activeTab)?.name || 'Today';
   const visibleWidgets = config.today.widgets;
   const quickDef = config.quickCapture.types.find(t => t.id === quickType);
@@ -1503,71 +730,15 @@ function App() {
     `Profile weaknesses: ${config.profile.weaknesses}`,
     `Support style: ${config.profile.supportStyle}`,
     `Current goal: ${config.challenge.goalName} Day ${config.challenge.currentDay}/${config.challenge.goalDays}`,
-    `History trend: ${(data.today.history||[]).filter(h=>h.imported).map(h=>`D${h.challengeDay}:${h.legacyStrictScore?.value||'-'}/${h.legacyStrictScore?.outOf||'-'}`).join(', ') || 'none'}`, 
-    `Today score: ${todayScore} (raw ${Math.round(scoreMeta.raw)})`,
+    `Today score: ${todayScore}`,
     `Primary MIT: ${todaysLog.primaryMit || 'none'}`,
     `Secondary MIT: ${todaysLog.secondaryMit || 'none'}`,
     `Deep block: ${todaysLog.deepBlock || 'none'}`,
     `Admin block: ${todaysLog.adminBlock || 'none'}`,
     `Due soon legal items: ${mattersDueSoon.map(x => x.title).join('; ') || 'none'}`,
     `Follow-ups due: ${followUpsDue.map(x => x.company || x.name).join('; ') || 'none'}`,
-    `Cash on hand: ${data.money.cashOnHand}`,
-    `Top risks: ${(riskRegister || []).filter(r => r.status !== 'closed').slice(0,3).map(r => r.title).join('; ') || 'none'}`,
-    `Open loops: ${openLoops.slice(0,5).map(l => l.title).join('; ') || 'none'}`,
-    `Waiting items: ${(waitingItems || []).slice(0,5).map(w => w.whatAwaiting).join('; ') || 'none'}`,
-    `Recent leak patterns: ${recurringLeaks.map(x => `${x[0]}:${x[1]}`).join(', ') || 'none'}`,
-    `Preference memory: ${((kernel.memoryStack?.preferenceMemory || []).slice(0,3).map(m => m.text).join('; ')) || 'action-first, anti-drift'}`
+    `Cash on hand: ${data.money.cashOnHand}`
   ].join('\n');
-
-
-  function newTaskDraft(overrides={}) {
-    return {
-      id: uid(),
-      title: '',
-      type: 'extra',
-      note: '',
-      estMinutes: '',
-      priority: config.today.defaultTaskPriority || 'medium',
-      done: false,
-      ...overrides
-    };
-  }
-
-  function parsePlanFromAi(text) {
-    if (!text) return null;
-    const clean = String(text).trim();
-    const jsonMatch = clean.match(/```json\s*([\s\S]*?)```/i) || clean.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      try {
-        const parsed = JSON.parse(jsonMatch[1] || jsonMatch[0]);
-        if (parsed) return parsed;
-      } catch {}
-    }
-    const lines = clean.split('\n').map(x => x.trim()).filter(Boolean);
-    const mapped = { primaryMit:'', secondaryMit:'', deepBlock:'', adminEvidence:'', extraTasks:[] };
-    lines.forEach(line => {
-      const normalized = line.toLowerCase();
-      const val = line.replace(/^[\-\d\.)\s]*/, '').split(':').slice(1).join(':').trim() || line;
-      if (normalized.includes('primary mit')) mapped.primaryMit = val;
-      else if (normalized.includes('secondary')) mapped.secondaryMit = val;
-      else if (normalized.includes('deep block')) mapped.deepBlock = val;
-      else if (normalized.includes('admin')) mapped.adminEvidence = val;
-      else if (normalized.startsWith('-') || normalized.startsWith('*') || normalized.includes('extra')) mapped.extraTasks.push(val);
-    });
-    return mapped;
-  }
-
-  function buildTomorrowFromAi(parsed) {
-    if (!parsed) return null;
-    const checklist = [];
-    if (parsed.primaryMit) checklist.push(newTaskDraft({ title: parsed.primaryMit, type:'primary_mit', priority:'critical' }));
-    if (parsed.secondaryMit) checklist.push(newTaskDraft({ title: parsed.secondaryMit, type:'secondary_mit', priority:'high' }));
-    if (parsed.deepBlock) checklist.push(newTaskDraft({ title: parsed.deepBlock, type:'deep_block', priority:'high' }));
-    if (parsed.adminEvidence || parsed.adminBlock) checklist.push(newTaskDraft({ title: parsed.adminEvidence || parsed.adminBlock, type:'admin_evidence', priority:'medium' }));
-    const extras = Array.isArray(parsed.extraTasks) ? parsed.extraTasks : [];
-    extras.slice(0,5).forEach(t => checklist.push(newTaskDraft({ title: typeof t === 'string' ? t : (t.title || ''), type: (t.type && config.today.taskTypes.includes(t.type)) ? t.type : 'extra', note: t.note || '', estMinutes: t.estMinutes || '', priority: t.priority || 'medium' })));
-    return checklist.filter(t => t.title && t.title.trim());
-  }
 
   async function askAI(mode) {
     if (!config.ai.enabled) {
@@ -1583,11 +754,10 @@ function App() {
     const prompts = {
       motivation: 'Give a ruthless but sustainable motivational push for the next 2 hours. No fluff. Force focus, discipline, and execution.',
       next: 'Based on the context, give the single highest-leverage next action right now, why it matters, and what to ignore for the next 90 minutes.',
-      tomorrow: `Return JSON only with keys primaryMit, secondaryMit, deepBlock, adminEvidence, extraTasks[]. Build tomorrow from score ${todayScore}, imported trend ${(data.today.history||[]).filter(h=>h.imported).map(h=>`D${h.challengeDay}:${h.legacyStrictScore?.value||'-'}`).join(', ') || 'none'}, completed/missed rules ${mandatoryEarned}/100 and penalties ${penaltyLost}, review ${todaysLog.review || 'none'}, journal ${JSON.stringify(todaysLog.journalEvening)}, due legal deadlines ${mattersDueSoon.map(x=>x.title).join('; ') || 'none'}, due business follow-ups ${followUpsDue.map(x=>x.company || x.name).join('; ') || 'none'}, MIT-only mode ${todaysLog.mitOnlyMode ? 'on' : 'off'}, open tasks ${(todaysLog.plannedTasks || []).map(t=>t.title).join('; ') || 'none'}, recurring weaknesses: snoozing, long naps, task switching, AI/news urges, sugar leakage, overloading tomorrow list, late shutdown risk.`,
+      tomorrow: `Using today context and this journal review:\n${todaysLog.review || 'No review yet.'}\nDraft tomorrow plan with one MIT, one secondary MIT, one deep block, one admin block, and one rule to enforce.`,
       legal: 'Turn the legal context into top 5 precise next actions. Separate hard deadlines, evidence gaps, and correspondence follow-ups.',
       business: 'Draft a concise business follow-up message for the most urgent lead and give one revenue-focused next action.',
       journal: `Synthesize today's journal and health state into: (1) the real problem, (2) one correction for tomorrow, (3) one warning. Morning: ${JSON.stringify(todaysLog.journalMorning)} Evening: ${JSON.stringify(todaysLog.journalEvening)}`,
-      rebuildCore: `Return JSON only with keys primaryMit, secondaryMit, deepBlock, adminEvidence, extraTasks[]. Rebuild only core execution with strict focus and no overloading. Context: ${todaysLog.review || 'no review'}, score ${todayScore}.`,
       custom: aiPrompt || 'Help me execute better today.'
     };
 
@@ -1612,32 +782,11 @@ function App() {
       const json = await res.json();
       const text = json?.choices?.[0]?.message?.content || json?.error?.message || 'No AI response.';
       setAiResult(text);
-      if (mode === 'tomorrow' || mode === 'rebuildCore') {
-        const parsed = parsePlanFromAi(text);
-        const tasks = buildTomorrowFromAi(parsed);
-        if (tasks && tasks.length) {
-          if (mode === 'tomorrow') {
-            updateToday({ tomorrowChecklist: tasks, aiPlanFallback:'' });
-          } else {
-            const firstByType = (type) => tasks.find(t => t.type === type)?.title || '';
-            updateToday({
-              primaryMit: firstByType('primary_mit') || todaysLog.primaryMit,
-              secondaryMit: firstByType('secondary_mit') || todaysLog.secondaryMit,
-              deepBlock: firstByType('deep_block') || todaysLog.deepBlock,
-              adminBlock: firstByType('admin_evidence') || todaysLog.adminBlock,
-              plannedTasks: [...(todaysLog.plannedTasks||[]), ...tasks.filter(t => t.type === 'extra')],
-              aiPlanFallback:''
-            });
-          }
-        } else {
-          updateToday({ aiPlanFallback:text });
-        }
-      }
       updateToday({
         aiLog: [{ id:uid(), mode, text, at:new Date().toISOString() }, ...(todaysLog.aiLog || [])].slice(0, 20)
       });
     } catch (e) {
-      setAiResult('AI button tap worked, but provider request failed. Check API key, endpoint, model, or network, then retry.');
+      setAiResult('AI request failed. Check API key, model, endpoint, and network.');
     } finally {
       setAiBusy(false);
     }
@@ -1697,337 +846,37 @@ function App() {
   }
 
   function endDay() {
-    const checklist = (todaysLog.tomorrowChecklist || []).filter(t => t.title && t.title.trim());
-    if (config.today.hardGates?.requireReviewToClose && !todaysLog.review?.trim()) {
-      alert('Close day blocked: day-end review is required.');
+    if (config.challenge.endRequiresReview && (!todaysLog.review?.trim() || !todaysLog.nextDayPlan?.trim())) {
+      alert('End of day is blocked until you complete the review and tomorrow plan.');
       return;
     }
-    if (!scoreMeta.reviewRuleMet) {
-      alert('Close day blocked: complete the mandatory rule "Complete day-end review with next-day plan".');
-      return;
-    }
-    if (!checklist.length) {
-      alert('Close day blocked: add at least one task in Tomorrow Plan checklist.');
-      return;
-    }
-
-    const nextDate = new Date(todayKey + 'T00:00:00');
-    nextDate.setDate(nextDate.getDate() + 1);
-    const nextKey = nextDate.toISOString().slice(0,10);
-    const coreFromType = (type) => checklist.find(t => t.type === type)?.title || '';
-    const extraTasks = checklist.filter(t => t.type === 'extra').map(t => ({ ...t, done:false, source:'tomorrow_seed' }));
-
     const snapshot = {
       id:uid(),
       date:todayKey,
       score:todayScore,
-      rawScore:Math.round(scoreMeta.raw),
-      mandatoryEarned,
-      penaltyLost,
-      brokenKillerCount,
-      missedDriverCount,
       challengeDay:config.challenge.currentDay,
       review:todaysLog.review,
-      tomorrowChecklist: checklist,
+      nextDayPlan:todaysLog.nextDayPlan,
       primaryMit:todaysLog.primaryMit,
       secondaryMit:todaysLog.secondaryMit,
-      health:{ ...todaysLog.health, sleep:todaysLog.sleepHours },
-      detectedWorkBlocks: todaysLog.detectedWorkBlocks || [],
-      learningMinutesTotal: todaysLog.learningMinutesTotal || 0,
-      daySummary: todaysLog.daySummary || '',
-      wins: todaysLog.wins || [],
-      weaknesses: todaysLog.weaknesses || [],
-      lesson: todaysLog.lesson || '',
-      parseSourceType: todaysLog.parseSourceType || 'manual_entry',
-      proofCreated: (data.kernel?.proofs || []).find(p => p.date === todayKey)?.category || ''
+      health:{ ...todaysLog.health, sleep:todaysLog.sleepHours }
     };
-
-    setData(prev => {
-      const nextLog = { ...makeEmptyDailyLog(), ...(prev.today.dailyLogs[nextKey] || {}) };
-      const dailyMemoryEntry = {
-        id:uid(),
-        date:todayKey,
-        summary:`Day ${config.challenge.currentDay} score ${todayScore}, readiness ${readinessScore}, leaks ${(prev.kernel?.leakDefense?.records || []).filter(r => r.linkedDay === todayKey).length}.`,
-        mode:prev.kernel?.mode || 'Normal',
-        state:inferredKernelState
-      };
-      return {
-        ...prev,
-        today: {
-          ...prev.today,
-          history:[...prev.today.history, snapshot],
-          dailyLogs:{
-            ...prev.today.dailyLogs,
-            [todayKey]: { ...prev.today.dailyLogs[todayKey], completedAt:new Date().toISOString(), timerRunning:false },
-            [nextKey]: {
-              ...nextLog,
-              primaryMit: nextLog.primaryMit || coreFromType('primary_mit'),
-              secondaryMit: nextLog.secondaryMit || coreFromType('secondary_mit'),
-              deepBlock: nextLog.deepBlock || coreFromType('deep_block'),
-              adminBlock: nextLog.adminBlock || coreFromType('admin_evidence'),
-              plannedTasks: [...(nextLog.plannedTasks || []), ...extraTasks]
-            }
-          }
-        },
-        kernel:{
-          ...prev.kernel,
-          memoryStack:{
-            ...(prev.kernel?.memoryStack || {}),
-            dailyMemory:[dailyMemoryEntry, ...((prev.kernel?.memoryStack?.dailyMemory) || [])].slice(0,120)
-          }
+    setData(prev => ({
+      ...prev,
+      today: {
+        ...prev.today,
+        history:[...prev.today.history, snapshot],
+        dailyLogs:{
+          ...prev.today.dailyLogs,
+          [todayKey]: { ...prev.today.dailyLogs[todayKey], completedAt:new Date().toISOString(), timerRunning:false }
         }
-      };
-    });
+      }
+    }));
     setConfig(prev => ({
       ...prev,
       challenge:{ ...prev.challenge, currentDay: prev.challenge.currentDay + 1 }
     }));
-    alert('Day closed, archived, and tomorrow seeded into next-day execution.');
-  }
-
-  function updateTomorrowTask(taskId, patch) {
-    const list = (todaysLog.tomorrowChecklist || []).map(t => t.id === taskId ? { ...t, ...patch } : t);
-    updateToday({ tomorrowChecklist:list });
-  }
-  function addTomorrowTask(seed={}) {
-    updateToday({ tomorrowChecklist:[...(todaysLog.tomorrowChecklist || []), newTaskDraft(seed)] });
-  }
-  function deleteTomorrowTask(taskId) {
-    updateToday({ tomorrowChecklist:(todaysLog.tomorrowChecklist || []).filter(t => t.id !== taskId) });
-  }
-  function moveTomorrowTask(i, dir) {
-    const to = i + dir;
-    if (to < 0 || to >= (todaysLog.tomorrowChecklist || []).length) return;
-    updateToday({ tomorrowChecklist:reorder(todaysLog.tomorrowChecklist || [], i, to) });
-  }
-
-  function updatePlannedTask(taskId, patch) {
-    updateToday({ plannedTasks:(todaysLog.plannedTasks || []).map(t => t.id === taskId ? { ...t, ...patch } : t) });
-  }
-  function addPlannedTask() {
-    updateToday({ plannedTasks:[...(todaysLog.plannedTasks || []), newTaskDraft({ type:'extra', priority:'medium' })] });
-  }
-  function removePlannedTask(taskId) {
-    updateToday({ plannedTasks:(todaysLog.plannedTasks || []).filter(t => t.id !== taskId) });
-  }
-
-  function upsertLegalTask(task) {
-    const now = new Date().toISOString();
-    const payload = { ...task, updatedAt: now, createdAt: task.createdAt || now };
-    setData(prev => {
-      const list = prev.legal.legalTasks || [];
-      const exists = list.some(t => t.id === payload.id);
-      return {
-        ...prev,
-        legal: {
-          ...prev.legal,
-          legalTasks: exists ? list.map(t => t.id === payload.id ? payload : t) : [payload, ...list]
-        }
-      };
-    });
-  }
-  function addLegalTask(seed={}) {
-    upsertLegalTask({
-      id: uid(),
-      title: '',
-      matterType: config.legal.matterTypes[0] || 'Other',
-      subMatter: '',
-      taskType: config.legal.taskTypes[0] || 'Other',
-      priority: config.legal.priorities[1] || 'High',
-      status: config.legal.taskStatuses[0] || 'Open',
-      dueDate: todayKey,
-      followUpDate: '',
-      linkedContact: '',
-      notes: '',
-      relatedDeadlineId: '',
-      relatedCorrespondenceId: '',
-      completed: false,
-      archived: false,
-      ...seed
-    });
-  }
-  function upsertDeadline(item) {
-    const payload = { ...item };
-    setData(prev => {
-      const list = prev.legal.deadlines || [];
-      const exists = list.some(t => t.id === payload.id);
-      return { ...prev, legal:{ ...prev.legal, deadlines: exists ? list.map(t => t.id === payload.id ? payload : t) : [payload, ...list] } };
-    });
-  }
-  function addDeadline(seed={}) {
-    upsertDeadline({ id:uid(), title:'', matterType:config.legal.matterTypes[0] || 'Other', dueDate:todayKey, priority:'High', status:'Open', type:config.legal.deadlineTypes[1] || 'Filing', notes:'', archived:false, ...seed });
-  }
-  function upsertCorrespondence(item) {
-    const payload = { ...item, linkedTaskIds: item.linkedTaskIds || [] };
-    setData(prev => {
-      const list = prev.legal.correspondence || [];
-      const exists = list.some(t => t.id === payload.id);
-      return { ...prev, legal:{ ...prev.legal, correspondence: exists ? list.map(t => t.id === payload.id ? payload : t) : [payload, ...list] } };
-    });
-  }
-  function addCorrespondence(seed={}) {
-    upsertCorrespondence({ id:uid(), subject:'', matterType:config.legal.matterTypes[0] || 'Other', who:'', organisation:'', dateSent:todayKey, replyDue:'', responseStatus:'No reply', communicationType:config.legal.correspondenceTypes[0] || 'email', notes:'', linkedTaskIds:[], ...seed });
-  }
-  function upsertContact(item) {
-    const payload = { ...item, matterTypes: item.matterTypes || [] };
-    setData(prev => {
-      const list = prev.legal.contacts || [];
-      const exists = list.some(t => t.id === payload.id);
-      return { ...prev, legal:{ ...prev.legal, contacts: exists ? list.map(t => t.id === payload.id ? payload : t) : [payload, ...list] } };
-    });
-  }
-  function addContact(seed={}) {
-    upsertContact({ id:uid(), name:'', organisation:'', category:config.legal.contactCategories[0] || 'Other', email:'', phone:'', notes:'', matterTypes:[], ...seed });
-  }
-
-  async function generateHistoryDaySummary(item) {
-    if (!item) return;
-    if (!config.ai.enabled || !config.ai.apiKey) {
-      setSelectedHistoryItem({ ...item, aiSummary: item.aiSummary || item.summary || item.review || 'AI unavailable. Add API key in Builder > AI settings.' });
-      return;
-    }
-    setDaySummaryBusyId(item.id);
-    try {
-      const prompt = `Summarize this day in four sections: what went well, what failed, actual bottleneck, one correction. Day payload: ${JSON.stringify(item)}`;
-      const res = await fetch(config.ai.endpoint, {
-        method:'POST',
-        headers:{
-          'Content-Type':'application/json',
-          'Authorization': `Bearer ${config.ai.apiKey}`,
-          ...(config.ai.siteUrl ? { 'HTTP-Referer': config.ai.siteUrl } : {}),
-          ...(config.ai.siteName ? { 'X-Title': config.ai.siteName } : {})
-        },
-        body: JSON.stringify({ model: config.ai.model, messages:[{ role:'system', content: config.ai.systemMode }, { role:'user', content: prompt }] })
-      });
-      const json = await res.json();
-      const text = json?.choices?.[0]?.message?.content || item.summary || item.review || 'No summary available.';
-      setData(prev => ({ ...prev, today:{ ...prev.today, history:(prev.today.history || []).map(h => h.id === item.id ? { ...h, aiSummary:text } : h) } }));
-      setSelectedHistoryItem(prev => prev && prev.id === item.id ? { ...prev, aiSummary:text } : prev);
-    } catch {
-      setSelectedHistoryItem(prev => prev && prev.id === item.id ? { ...prev, aiSummary: prev.aiSummary || prev.summary || prev.review || 'AI failed, fallback used.' } : prev);
-    } finally {
-      setDaySummaryBusyId('');
-    }
-  }
-
-  function normalizeParsedBlocks(blocks) {
-    if (!Array.isArray(blocks)) return [];
-    return blocks.map((b, idx) => ({
-      id: b.id || uid(),
-      time: b.time || b.startTime || '',
-      durationMin: Number(b.durationMin || b.duration || 0) || 0,
-      activityType: b.activityType || b.type || 'work',
-      topic: b.topic || '',
-      notes: b.notes || ''
-    })).filter(b => b.durationMin > 0 || b.topic || b.notes || b.time);
-  }
-
-  async function parseDailyLogWithAI() {
-    if (!todaysLog.aiDailyLogInput?.trim()) {
-      alert('Paste your day notes first.');
-      return;
-    }
-    if (!config.ai.enabled || !config.ai.apiKey) {
-      updateToday({ aiDailyLogRawOutput:'AI unavailable. Add API key in Builder > AI settings.', aiDailyLogParsed:null });
-      return;
-    }
-    setAiBusy(true);
-    try {
-      const schemaHint = {
-        coreExecution: { primaryMit:'', secondaryMit:'', deepBlock:'', adminBlock:'' },
-        workBlocks:[{ time:'', durationMin:0, activityType:'', topic:'', notes:'' }],
-        totalLearningMinutes:0,
-        completedDrivers:[],
-        brokenKillers:[],
-        summary:'',
-        wins:[],
-        weaknesses:[],
-        lesson:'',
-        suggestedTomorrowTasks:[{ title:'', type:'extra', note:'', estMinutes:0, priority:'medium' }],
-        confidenceNotes:[],
-        uncertaintyNotes:[]
-      };
-      const prompt = `Parse this messy daily log into strict JSON only using this schema: ${JSON.stringify(schemaHint)}. If uncertain, keep fields empty but valid. Log: ${todaysLog.aiDailyLogInput}`;
-      const res = await fetch(config.ai.endpoint, {
-        method:'POST',
-        headers:{
-          'Content-Type':'application/json',
-          'Authorization': `Bearer ${config.ai.apiKey}`,
-          ...(config.ai.siteUrl ? { 'HTTP-Referer': config.ai.siteUrl } : {}),
-          ...(config.ai.siteName ? { 'X-Title': config.ai.siteName } : {})
-        },
-        body: JSON.stringify({ model: config.ai.model, messages:[{ role:'system', content: config.ai.systemMode }, { role:'user', content: prompt }] })
-      });
-      const json = await res.json();
-      const text = json?.choices?.[0]?.message?.content || json?.error?.message || '';
-      let parsed = null;
-      try {
-        const block = text.match(/```json\s*([\s\S]*?)```/i);
-        parsed = JSON.parse(block ? block[1] : text);
-      } catch {}
-      if (!parsed || typeof parsed !== 'object') {
-        updateToday({ aiDailyLogParsed:null, aiDailyLogRawOutput:text || 'Parse failed. No structured output.' });
-        return;
-      }
-      const normalized = {
-        ...parsed,
-        workBlocks: normalizeParsedBlocks(parsed.workBlocks),
-        totalLearningMinutes: Number(parsed.totalLearningMinutes || 0) || normalizeParsedBlocks(parsed.workBlocks).reduce((a,b) => a + Number(b.durationMin || 0), 0),
-        completedDrivers: Array.isArray(parsed.completedDrivers) ? parsed.completedDrivers : [],
-        brokenKillers: Array.isArray(parsed.brokenKillers) ? parsed.brokenKillers : [],
-        wins: Array.isArray(parsed.wins) ? parsed.wins : [],
-        weaknesses: Array.isArray(parsed.weaknesses) ? parsed.weaknesses : [],
-        suggestedTomorrowTasks: Array.isArray(parsed.suggestedTomorrowTasks) ? parsed.suggestedTomorrowTasks : []
-      };
-      updateToday({ aiDailyLogParsed: normalized, aiDailyLogRawOutput:'', parseSourceType:'ai_parsed_log' });
-    } catch {
-      updateToday({ aiDailyLogParsed:null, aiDailyLogRawOutput:'AI parse failed. You can keep using manual fields.' });
-    } finally {
-      setAiBusy(false);
-    }
-  }
-
-  function applyParsedDailyLog() {
-    const parsed = todaysLog.aiDailyLogParsed;
-    if (!parsed) return;
-    const mergeMode = todaysLog.intakeMergeMode || 'append';
-    const existingBlocks = todaysLog.detectedWorkBlocks || [];
-    const newBlocks = normalizeParsedBlocks(parsed.workBlocks);
-    const nextBlocks = mergeMode === 'replace' ? newBlocks : [...existingBlocks, ...newBlocks];
-
-    const nextRulesState = { ...(todaysLog.rulesState || {}) };
-    (parsed.completedDrivers || []).forEach(label => {
-      const rule = (ruleSet.doRules || []).find(r => r.text.toLowerCase().includes(String(label).toLowerCase()) || String(label).toLowerCase().includes(r.text.toLowerCase()));
-      if (rule) nextRulesState[rule.id] = true;
-    });
-    (parsed.brokenKillers || []).forEach(label => {
-      const rule = (ruleSet.dontRules || []).find(r => r.text.toLowerCase().includes(String(label).toLowerCase()) || String(label).toLowerCase().includes(r.text.toLowerCase()));
-      if (rule) nextRulesState[rule.id] = true;
-    });
-
-    const suggested = (parsed.suggestedTomorrowTasks || []).map(t => newTaskDraft({
-      title: t.title || '',
-      type: config.today.taskTypes.includes(t.type) ? t.type : 'extra',
-      note: t.note || '',
-      estMinutes: t.estMinutes || '',
-      priority: t.priority || 'medium'
-    })).filter(t => t.title.trim());
-
-    updateToday({
-      primaryMit: (parsed.coreExecution?.primaryMit && (mergeMode === 'replace' || !todaysLog.primaryMit)) ? parsed.coreExecution.primaryMit : todaysLog.primaryMit,
-      secondaryMit: (parsed.coreExecution?.secondaryMit && (mergeMode === 'replace' || !todaysLog.secondaryMit)) ? parsed.coreExecution.secondaryMit : todaysLog.secondaryMit,
-      deepBlock: (parsed.coreExecution?.deepBlock && (mergeMode === 'replace' || !todaysLog.deepBlock)) ? parsed.coreExecution.deepBlock : todaysLog.deepBlock,
-      adminBlock: (parsed.coreExecution?.adminBlock && (mergeMode === 'replace' || !todaysLog.adminBlock)) ? parsed.coreExecution.adminBlock : todaysLog.adminBlock,
-      detectedWorkBlocks: nextBlocks,
-      learningMinutesTotal: Number(parsed.totalLearningMinutes || 0) || nextBlocks.reduce((a,b) => a + Number(b.durationMin || 0), 0),
-      rulesState: nextRulesState,
-      daySummary: parsed.summary || todaysLog.daySummary,
-      wins: mergeMode === 'replace' ? (parsed.wins || []) : [...(todaysLog.wins || []), ...(parsed.wins || [])],
-      weaknesses: mergeMode === 'replace' ? (parsed.weaknesses || []) : [...(todaysLog.weaknesses || []), ...(parsed.weaknesses || [])],
-      lesson: parsed.lesson || todaysLog.lesson,
-      tomorrowChecklist: mergeMode === 'replace' ? (suggested.length ? suggested : todaysLog.tomorrowChecklist) : [...(todaysLog.tomorrowChecklist || []), ...suggested],
-      parseSourceType:'ai_parsed_log'
-    });
+    alert('Day closed and archived.');
   }
 
   const results = useMemo(() => {
@@ -2058,11 +907,6 @@ function App() {
     pushIf(data.money.bills, 'Bill', 'money', x => x.name, x => x.dueDate);
     pushIf(data.money.expenses, 'Expense', 'money', x => x.category + ' ' + (x.notes || ''), x => x.date);
     pushIf(data.business.leads, 'Lead', 'business', x => (x.company || x.name) + ' / ' + x.stage, x => x.nextFollowUp);
-    pushIf(data.kernel?.waitingItems || [], 'Waiting', 'command', x => x.whatAwaiting || x.title || 'Waiting item', x => x.nextChaseDate || x.expectedBy);
-    pushIf(data.kernel?.promiseLedger || [], 'Promise', 'command', x => x.title || 'Promise', x => x.expectedCompletionDate);
-    pushIf(data.kernel?.parkingLot || [], 'Idea', 'inbox', x => x.title || 'Idea', x => x.createdAt);
-    pushIf(data.kernel?.objects?.actions || [], 'Kernel Action', 'command', x => x.title || 'Action', x => x.dueDate);
-    pushIf(data.kernel?.templates || [], 'Template', 'command', x => x.name || x.title || 'Template', x => x.updatedAt);
     return out.slice(0, 40);
   }, [searchQuery, data]);
 
@@ -2107,300 +951,6 @@ function App() {
     });
   }
 
-  function setKernelMode(mode) {
-    setData(prev => ({ ...prev, kernel:{ ...prev.kernel, mode, modeRecommendation:mode, modeReason:'Set manually', inferredState: inferredKernelState } }));
-  }
-
-  function addKernelAction(seed={}) {
-    const item = {
-      id:uid(), title:seed.title || '', domain:seed.domain || 'general', matterType:seed.matterType || '', dueDate:seed.dueDate || '', priority:seed.priority || 'medium', status:seed.status || 'Open', blocked:!!seed.blocked, blockerType:seed.blockerType || '', blockedBy:seed.blockedBy || '', unblockAction:seed.unblockAction || '', unblockByDate:seed.unblockByDate || '', nextStep:seed.nextStep || '', leverage:seed.leverage || 2, relatedDeadlineId:seed.relatedDeadlineId || '', source:seed.source || 'manual', linkedRefId:seed.linkedRefId || '', createdAt:new Date().toISOString(), updatedAt:new Date().toISOString(), resume:{ whereStopped:'', nextTinyStep:'', openQuestion:'', relatedNote:'', resumeKeyword:'', updatedAt:'' }
-    };
-    setData(prev => ({ ...prev, kernel:{ ...prev.kernel, objects:{ ...prev.kernel.objects, actions:[item, ...(prev.kernel.objects.actions || [])] } } }));
-  }
-
-  function updateKernelAction(id, patch) {
-    setData(prev => ({ ...prev, kernel:{ ...prev.kernel, objects:{ ...prev.kernel.objects, actions:(prev.kernel.objects.actions || []).map(a => a.id===id ? { ...a, ...patch, updatedAt:new Date().toISOString() } : a) } } }));
-  }
-
-  function addWaitingItem(seed={}) {
-    const item = { id:uid(), who:seed.who || '', domain:seed.domain || 'legal', linkedMatter:seed.linkedMatter || '', whatAwaiting:seed.whatAwaiting || seed.title || '', dateRequested:seed.dateRequested || todayKey, expectedBy:seed.expectedBy || '', nextChaseDate:seed.nextChaseDate || '', escalationLevel:seed.escalationLevel || 0, status:seed.status || 'waiting', notes:seed.notes || '', linkedCorrespondenceId:seed.linkedCorrespondenceId || '' };
-    setData(prev => ({ ...prev, kernel:{ ...prev.kernel, waitingItems:[item, ...(prev.kernel.waitingItems || [])], objects:{ ...prev.kernel.objects, waiting:[item, ...(prev.kernel.objects.waiting || [])] } } }));
-  }
-
-  function addPromise(seed={}) {
-    const item = { id:uid(), title:seed.title || '', promisedBy:seed.promisedBy || '', promisedTo:seed.promisedTo || '', linkedMatter:seed.linkedMatter || '', promisedDate:seed.promisedDate || todayKey, expectedCompletionDate:seed.expectedCompletionDate || '', status:seed.status || 'pending', nextAction:seed.nextAction || '', notes:seed.notes || '' };
-    setData(prev => ({ ...prev, kernel:{ ...prev.kernel, promiseLedger:[item, ...(prev.kernel.promiseLedger || [])] } }));
-  }
-
-  function addProofRecord(category='Other', note='') {
-    const proof = { id:uid(), date:todayKey, category, note, linkedDay:config.challenge.currentDay };
-    setData(prev => ({ ...prev, kernel:{ ...prev.kernel, proofs:[proof, ...(prev.kernel.proofs || [])], objects:{ ...prev.kernel.objects, artifacts:[{ id:proof.id, title:category, domain:'today', type:'proof', note, date:todayKey }, ...(prev.kernel.objects.artifacts || [])] } } }));
-  }
-
-  function saveBodyOps(patch={}) {
-    const merged = {
-      sleepHours: Number(todaysLog.sleepHours || 0),
-      wakeTarget: config.userSettings.wakeTime || '',
-      wakeActual: patch.wakeActual ?? bodyDraft.wakeActual ?? '',
-      snoozeCount: Number(patch.snoozeCount ?? bodyDraft.snoozeCount ?? 0),
-      waterMl: Number(patch.waterMl ?? bodyDraft.waterMl ?? 0),
-      meditationMin: Number(patch.meditationMin ?? bodyDraft.meditationMin ?? 0),
-      steps: Number(patch.steps ?? bodyDraft.steps ?? 0),
-      bodyActionType: patch.bodyActionType ?? bodyDraft.bodyActionType ?? 'walk',
-      pain: Number(todaysLog.health?.pain || 0),
-      mood: Number(todaysLog.health?.mood || 0),
-      stress: Number(patch.stress ?? bodyDraft.stress ?? 3),
-      meds: !!todaysLog.health?.meds,
-      caffeine: patch.caffeine ?? bodyDraft.caffeine ?? '',
-      sugarBreach: !!(patch.sugarBreach ?? bodyDraft.sugarBreach),
-      napCount: (kernel.napLogs || []).filter(n => n.date === todayKey).length,
-      napDuration: (kernel.napLogs || []).filter(n => n.date === todayKey).reduce((a,b)=>a+Number(b.durationMin || 0),0),
-      recoveryNote: patch.recoveryNote ?? bodyDraft.recoveryNote ?? '',
-      readinessScore
-    };
-    setData(prev => ({
-      ...prev,
-      kernel:{
-        ...prev.kernel,
-        bodyOps:{
-          ...prev.kernel.bodyOps,
-          daily:{ ...(prev.kernel.bodyOps?.daily || {}), [todayKey]: merged },
-          signals:[{ id:uid(), date:todayKey, ...merged }, ...(prev.kernel.bodyOps?.signals || [])].slice(0,100)
-        },
-        memoryStack:{
-          ...(prev.kernel.memoryStack || {}),
-          dailyMemory:[{ id:uid(), date:todayKey, summary:`Body readiness ${merged.readinessScore}, sleep ${merged.sleepHours}h, water ${merged.waterMl}ml`, tags:['body_ops'] }, ...((prev.kernel.memoryStack?.dailyMemory) || [])].slice(0,100)
-        }
-      }
-    }));
-  }
-
-  function addLeakRecord(type, context='manual', severity='medium', trigger='') {
-    const record = { id:uid(), type, timestamp:new Date().toISOString(), trigger, context, severity, recoveryAction:'return_to_mit', linkedDay:todayKey, linkedMode:kernel.mode || 'Normal', linkedState:inferredKernelState };
-    setData(prev => ({ ...prev, kernel:{ ...prev.kernel, leakDefense:{ ...(prev.kernel.leakDefense || {}), records:[record, ...(prev.kernel.leakDefense?.records || [])] } } }));
-  }
-
-  function upsertLearningUnit(seed={}) {
-    const unit = { id:seed.id || uid(), track:seed.track || 'Other', topic:seed.topic || 'Untitled topic', status:seed.status || 'touched', linkedSessionIds:seed.linkedSessionIds || [], linkedQuizIds:seed.linkedQuizIds || [], proofItem:seed.proofItem || '', confidence:Number(seed.confidence || 2), nextReviseDate:seed.nextReviseDate || '', notes:seed.notes || '' };
-    setData(prev => {
-      const list = prev.kernel.learningOps?.units || [];
-      const exists = list.some(x => x.id === unit.id);
-      return { ...prev, kernel:{ ...prev.kernel, learningOps:{ ...(prev.kernel.learningOps || {}), units: exists ? list.map(x => x.id === unit.id ? unit : x) : [unit, ...list] } } };
-    });
-  }
-
-  function addJobApplication(seed={}) {
-    const item = { id:uid(), targetRole:seed.targetRole || '', employer:seed.employer || '', jobSource:seed.jobSource || '', cvVersion:seed.cvVersion || '', applicationDate:seed.applicationDate || todayKey, stage:seed.stage || 'saved', followUpDate:seed.followUpDate || '', interviewDate:seed.interviewDate || '', notes:seed.notes || '', proofItems:seed.proofItems || [], outcome:seed.outcome || '' };
-    setData(prev => ({ ...prev, kernel:{ ...prev.kernel, jobHunt:{ ...(prev.kernel.jobHunt || {}), applications:[item, ...(prev.kernel.jobHunt?.applications || [])] } } }));
-  }
-
-  function addSupportAction(seed={}) {
-    const item = { id:uid(), type:seed.type || 'support_action', title:seed.title || '', date:seed.date || todayKey, nextChaseDate:seed.nextChaseDate || '', notes:seed.notes || '', linkedWaitingId:seed.linkedWaitingId || '' };
-    setData(prev => ({ ...prev, kernel:{ ...prev.kernel, supportOps:{ ...(prev.kernel.supportOps || {}), actions:[item, ...(prev.kernel.supportOps?.actions || [])] } } }));
-  }
-
-  function startVoiceCapture() {
-    const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!Recognition) return;
-    const rec = new Recognition();
-    rec.lang = 'en-GB';
-    rec.interimResults = true;
-    rec.continuous = false;
-    let transcript = '';
-    setVoiceListening(true);
-    rec.onresult = (e) => {
-      transcript = Array.from(e.results).map(r => r[0]?.transcript || '').join(' ');
-      setInboxInput(prev => [prev, transcript].filter(Boolean).join(' ').trim());
-    };
-    rec.onend = () => setVoiceListening(false);
-    rec.onerror = () => setVoiceListening(false);
-    rec.start();
-  }
-
-  function parseInboxRules(text, tags=[]) {
-    const lines = String(text || '').split(/\n+/).map(l => l.trim()).filter(Boolean);
-    const items = [];
-    const warn = [];
-    const has = (line, arr) => arr.some(k => line.includes(k));
-    lines.forEach((line, idx) => {
-      const l = line.toLowerCase();
-      const duration = l.match(/(\d+)\s*(min|mins|minutes|hour|hr|h)/);
-      const time = l.match(/\b(\d{1,2})[:.](\d{2})\s*(am|pm)?\b/);
-      const dueDate = (l.match(/(\d{4}-\d{2}-\d{2})/) || [])[1] || '';
-      if (has(l,['hearing','deadline','submit by','filing','appointment','due'])) {
-        items.push({ id:uid(), destination:'deadline', confidence:0.9, reasons:['hard-date keyword'], title:line, date:dueDate, sourceLine:idx, checked:true });
-      } else if (has(l,['slept','sleep','woke','wake','snoozed','water','meditation','walked','workout','steps','stress','caffeine','sugar'])) {
-        items.push({ id:uid(), destination:'body_signal', confidence:0.82, reasons:['body ops keyword'], title:line, sourceLine:idx, checked:true });
-      } else if (has(l,['awaiting response','no reply','follow up','chase','waiting for','pending','emailed'])) {
-        items.push({ id:uid(), destination:'waiting', confidence:0.86, reasons:['waiting/follow-up keyword'], whatAwaiting:line, nextChaseDate:dueDate, sourceLine:idx, checked:true });
-      } else if (has(l,['job','application','cv','interview','role','employer'])) {
-        items.push({ id:uid(), destination:'job_hunt', confidence:0.8, reasons:['job hunt keyword'], title:line, sourceLine:idx, checked:true });
-      } else if (has(l,['semantic model','retrieval practice','mock scenario','revised dax','completed module','weak concept','quiz'])) {
-        items.push({ id:uid(), destination:'learning_update', confidence:0.84, reasons:['learning ops keyword'], title:line, sourceLine:idx, checked:true });
-      } else if (has(l,['tomorrow','next day','must do tomorrow','follow up tomorrow'])) {
-        items.push({ id:uid(), destination:'tomorrow_task', confidence:0.82, reasons:['tomorrow keyword'], title:line.replace(/.*tomorrow\s*/i,'' ) || line, sourceLine:idx, checked:true });
-      } else if ((duration || time) && has(l,['studied','learning','revised','reviewed','quiz','power bi','dax','semantic','sql','coding','building','preparing'])) {
-        const mins = duration ? Number(duration[1]) * (['hour','hr','h'].includes(duration[2]) ? 60 : 1) : 0;
-        items.push({ id:uid(), destination:'work_block', confidence:0.88, reasons:['time+work verb'], time: time ? `${time[1].padStart(2,'0')}:${time[2]}` : '', durationMin: mins, topic:line, sourceLine:idx, checked:true });
-      } else if (has(l,['youtube','social media','reels','shorts','random browsing','unrelated tabs','nap','snoozed','sugar','biscuits','cake','ai drift','phone first'])) {
-        items.push({ id:uid(), destination:'leakage', confidence:0.91, reasons:['killer keyword'], title:line, sourceLine:idx, checked:true });
-      } else if (has(l,['idea','later','someday','maybe build','future'])) {
-        items.push({ id:uid(), destination:'idea', confidence:0.75, reasons:['parking lot keyword'], title:line, sourceLine:idx, checked:false });
-      } else {
-        items.push({ id:uid(), destination:'note', confidence:0.55, reasons:['generic fallback'], title:line, sourceLine:idx, checked:false });
-      }
-    });
-    if (tags.length) warn.push(`Tags applied: ${tags.join(', ')}`);
-    return { parserVersion:'v8-hybrid-rules-1', usedAI:false, items, warnings:warn };
-  }
-
-  async function runInboxParse() {
-    if (!inboxInput.trim()) return;
-    setInboxBusy(true);
-    const rulesPreview = parseInboxRules(inboxInput, inboxTags);
-    if (!config.ai.enabled || !config.ai.apiKey) {
-      setInboxPreview(rulesPreview);
-      setInboxBusy(false);
-      return;
-    }
-    try {
-      const prompt = `Parse notes into JSON array items with destination/confidence/reasons and fields. Keep strict JSON. Notes: ${inboxInput}`;
-      const res = await fetch(config.ai.endpoint, { method:'POST', headers:{ 'Content-Type':'application/json','Authorization':`Bearer ${config.ai.apiKey}`,...(config.ai.siteUrl ? { 'HTTP-Referer': config.ai.siteUrl } : {}),...(config.ai.siteName ? { 'X-Title': config.ai.siteName } : {}) }, body: JSON.stringify({ model:config.ai.model, messages:[{ role:'system', content: config.ai.systemMode }, { role:'user', content:prompt }] }) });
-      const json = await res.json();
-      const text = json?.choices?.[0]?.message?.content || '';
-      let aiItems = [];
-      try {
-        const raw = text.match(/```json\s*([\s\S]*?)```/i);
-        const parsed = JSON.parse(raw ? raw[1] : text);
-        aiItems = Array.isArray(parsed?.items) ? parsed.items : (Array.isArray(parsed) ? parsed : []);
-      } catch {}
-      const merged = { ...rulesPreview, usedAI: aiItems.length > 0, items: aiItems.length ? aiItems.map((x,i) => ({ id:x.id || uid(), checked:Number(x.confidence || 0) >= (config.kernel?.confidenceThresholds?.medium || 0.6), ...x, sourceLine:i })) : rulesPreview.items };
-      setInboxPreview(merged);
-    } catch {
-      setInboxPreview({ ...rulesPreview, warnings:[...(rulesPreview.warnings || []), 'AI failed, rules-only preview used.'] });
-    } finally { setInboxBusy(false); }
-  }
-
-  function applyInboxItems(selectedOnly=false) {
-    if (!inboxPreview?.items?.length) return;
-    const chosen = inboxPreview.items.filter(i => selectedOnly ? i.checked : true);
-    const before = deepClone(data.kernel);
-    setData(prev => {
-      const next = deepClone(prev);
-      const now = new Date().toISOString();
-      chosen.forEach(it => {
-        if (it.destination === 'deadline') {
-          const d = { id:uid(), title:it.title || 'Captured deadline', matterType:it.matterType || (inboxTags.includes('legal') ? 'ET' : 'Other'), dueDate:it.date || '', priority:'High', status:'Open', type:'Follow-up', notes:'from inbox', archived:false };
-          next.legal.deadlines.unshift(d);
-          next.kernel.objects.deadlines.unshift({ id:d.id, title:d.title, domain:'legal', matterType:d.matterType, date:d.dueDate, priority:d.priority, type:d.type, notes:d.notes, source:'inbox' });
-        } else if (it.destination === 'waiting') {
-          const w = { id:uid(), who:it.who || '', domain:it.domain || (inboxTags.includes('business') ? 'business' : 'legal'), linkedMatter:it.linkedMatter || '', whatAwaiting:it.whatAwaiting || it.title || '', dateRequested:todayKey, expectedBy:it.expectedBy || '', nextChaseDate:it.nextChaseDate || '', escalationLevel:0, status:'waiting', notes:'from inbox', linkedCorrespondenceId:'' };
-          next.kernel.waitingItems.unshift(w);
-          next.kernel.objects.waiting.unshift({ ...w });
-        } else if (it.destination === 'work_block') {
-          const b = { id:uid(), time:it.time || '', durationMin:Number(it.durationMin || 0), activityType:it.activityType || 'learning', topic:it.topic || it.title || '', notes:'from inbox parse' };
-          const log = next.today.dailyLogs[todayKey] || makeEmptyDailyLog();
-          log.detectedWorkBlocks = [...(log.detectedWorkBlocks || []), b];
-          log.learningMinutesTotal = (log.learningMinutesTotal || 0) + (b.durationMin || 0);
-          log.parseSourceType = 'ai_parsed_log';
-          next.today.dailyLogs[todayKey] = log;
-          next.kernel.objects.sessions.unshift({ id:b.id, type:'work_block', date:todayKey, time:b.time, durationMin:b.durationMin, topic:b.topic, notes:b.notes, source:'inbox' });
-        } else if (it.destination === 'tomorrow_task') {
-          const task = newTaskDraft({ title:it.title || 'Inbox task', type:'extra' });
-          const log = next.today.dailyLogs[todayKey] || makeEmptyDailyLog();
-          log.tomorrowChecklist = [...(log.tomorrowChecklist || []), task];
-          next.today.dailyLogs[todayKey] = log;
-        } else if (it.destination === 'idea') {
-          next.kernel.parkingLot.unshift({ id:uid(), title:it.title || 'Captured idea', sourceText:it.title || '', category:'app feature', urgency:'later', linkedDomain:it.domain || 'general', notes:'from inbox', createdAt:now, reviewedAt:'', status:'parked' });
-          next.kernel.objects.ideas.unshift({ id:uid(), title:it.title || 'Idea', domain:it.domain || 'general', status:'parked', source:'inbox' });
-        } else if (it.destination === 'body_signal') {
-          const lower = String(it.title || '').toLowerCase();
-          const sleep = (lower.match(/(\d+(\.\d+)?)\s*h/) || [])[1];
-          const water = (lower.match(/(\d+)\s*ml/) || [])[1];
-          const meditation = (lower.match(/(\d+)\s*min.*meditat/) || [])[1];
-          const steps = (lower.match(/(\d+)\s*steps/) || [])[1];
-          const existing = next.kernel.bodyOps?.daily?.[todayKey] || {};
-          next.kernel.bodyOps.daily[todayKey] = {
-            ...existing,
-            sleepHours: sleep ? Number(sleep) : (existing.sleepHours || Number(next.today.dailyLogs[todayKey]?.sleepHours || 0)),
-            waterMl: (existing.waterMl || 0) + (water ? Number(water) : 0),
-            meditationMin: (existing.meditationMin || 0) + (meditation ? Number(meditation) : 0),
-            steps: (existing.steps || 0) + (steps ? Number(steps) : 0),
-            sugarBreach: existing.sugarBreach || lower.includes('sugar'),
-            wakeActual: existing.wakeActual || ((lower.match(/woke\s*(at)?\s*([0-9:.apm]+)/) || [])[2] || ''),
-            recoveryNote: [existing.recoveryNote, it.title].filter(Boolean).join(' · ')
-          };
-          next.kernel.bodyOps.signals.unshift({ id:uid(), date:todayKey, text:it.title || '', source:'inbox' });
-        } else if (it.destination === 'learning_update') {
-          const baseTrack = /dax/.test((it.title || '').toLowerCase()) ? 'DAX' : /sql/.test((it.title || '').toLowerCase()) ? 'SQL / T-SQL' : /semantic/.test((it.title || '').toLowerCase()) ? 'Semantic Models' : 'Power BI';
-          next.kernel.learningOps.units.unshift({ id:uid(), track:baseTrack, topic:it.title || 'Captured learning note', status:/weak/.test((it.title || '').toLowerCase()) ? 'weak under pressure' : /complete|tested|quiz/.test((it.title || '').toLowerCase()) ? 'tested' : 'practiced', linkedSessionIds:[], linkedQuizIds:[], proofItem:'', confidence:2, nextReviseDate:'', notes:'from inbox parse' });
-        } else if (it.destination === 'job_hunt') {
-          next.kernel.jobHunt.applications.unshift({ id:uid(), targetRole:'', employer:it.title || '', jobSource:'inbox', cvVersion:'', applicationDate:todayKey, stage:'saved', followUpDate:'', interviewDate:'', notes:'from inbox parse', proofItems:[], outcome:'' });
-        } else if (it.destination === 'leakage') {
-          const label = String(it.title || '').toLowerCase();
-          const leakType = label.includes('sugar') ? 'sugar' : label.includes('ai') ? 'ai_drift' : label.includes('nap') ? 'unplanned_nap' : label.includes('phone') ? 'phone_before_mit' : label.includes('social') ? 'social_media' : label.includes('side') ? 'side_project_drift' : label.includes('research') ? 'random_research' : label.includes('tab') ? 'multitasking' : 'late_shutdown';
-          next.kernel.leakDefense.records.unshift({ id:uid(), type:leakType, timestamp:new Date().toISOString(), trigger:'inbox_parse', context:it.title || '', severity:'medium', recoveryAction:'return_to_mit', linkedDay:todayKey, linkedMode:next.kernel.mode || 'Normal', linkedState:next.kernel.inferredState || 'Drifting' });
-        }
-      });
-      next.kernel.inbox.processed = [{ id:uid(), at:now, count:chosen.length, sourceText:inboxInput.slice(0,500), selectedTags:inboxTags }, ...(next.kernel.inbox.processed || [])].slice(0,30);
-      next.kernel.inbox.auditTrail = [{ id:uid(), at:now, rawSourceText:inboxInput, selectedTags:inboxTags, parserVersion:inboxPreview.parserVersion, usedAI:!!inboxPreview.usedAI, destinationsWritten:[...new Set(chosen.map(x => x.destination))], warnings:inboxPreview.warnings || [] }, ...(next.kernel.inbox.auditTrail || [])].slice(0,40);
-      next.kernel.inbox.lastApplyUndo = before;
-      return next;
-    });
-  }
-
-  function undoLastInboxApply() {
-    if (!data.kernel?.inbox?.lastApplyUndo) return;
-    setData(prev => ({ ...prev, kernel:{ ...prev.kernel.inbox.lastApplyUndo, inbox:{ ...prev.kernel.inbox.lastApplyUndo.inbox, lastApplyUndo:null } } }));
-  }
-
-  async function runCommand(qRaw) {
-    const q = String(qRaw || commandInput || '').trim();
-    if (!q) return;
-    setCommandBusy(true);
-    const ql = q.toLowerCase();
-    let response = '';
-    if (ql.includes('what matters') || ql.includes('next 5')) {
-      response = rankedKernelItems.slice(0,5).map((x,i) => `${i+1}. [${x.kind}] ${x.title || x.whatAwaiting || x.opportunity || 'Untitled'} (${x.domain || 'general'})`).join('\n') || 'No ranked items yet.';
-    } else if (ql.includes('legal next 5')) {
-      response = next5LegalActions.map((x,i)=>`${i+1}. ${x.title} · ${x.matterType} · due ${x.dueDate || '—'}`).join('\n') || 'No legal actions.';
-    } else if (ql.includes('why did i drift')) {
-      response = `State: ${inferredKernelState}. Drift signals: missed drivers ${missedDriverCount}, broken killers ${brokenKillerCount}, open loops ${openLoops.length}. Correction: lock MIT-only and complete one 25m block now.`;
-    } else if (ql.includes('what do i truly know') || ql.includes('weak under pressure') || ql.includes('revise next')) {
-      const units = kernel.learningOps?.units || [];
-      const strong = units.filter(u => ['strong','tested'].includes(u.status)).map(u => `${u.track}:${u.topic}`).slice(0,5);
-      const weak = units.filter(u => u.status === 'weak under pressure' || Number(u.confidence || 0) <= 2).map(u => `${u.track}:${u.topic}`).slice(0,5);
-      response = `Learning snapshot:\nStrong/tested: ${strong.join('; ') || 'none yet'}\nWeak under pressure: ${weak.join('; ') || 'none flagged'}\nRevise next: ${(weak[0] || strong[0] || 'Power BI fundamentals')}.`;
-    } else if (ql.includes('job') || ql.includes('interview') || ql.includes('cv')) {
-      const jobs = kernel.jobHunt?.applications || [];
-      const nextJobs = jobs.filter(j => ['saved','applied','follow-up due','interview prep'].includes(j.stage)).slice(0,5);
-      response = nextJobs.length ? nextJobs.map((j,i)=>`${i+1}. ${j.employer || 'Employer'} · ${j.stage} · follow-up ${j.followUpDate || '—'}`).join('\n') : 'No job actions yet. Add job records from Inbox or Command.';
-    } else if (ql.includes('build tomorrow')) {
-      await askAI('tomorrow');
-      response = 'Triggered AI Build Tomorrow Plan. Review checklist in Journal card.';
-    } else if (ql.includes('weekly review')) {
-      const best = (data.today.history || []).slice().sort((a,b)=>b.score-a.score)[0];
-      const worst = (data.today.history || []).slice().sort((a,b)=>a.score-b.score)[0];
-      response = `Weekly board: Best day ${best?.challengeDay || '—'} (${best?.score || 0}%). Worst day ${worst?.challengeDay || '—'} (${worst?.score || 0}%). Top bottleneck: ${(openLoops[0]?.title || 'insufficient data')}.`;
-    } else {
-      response = `Use app state first:\n- Current mode: ${kernel.mode || 'Normal'}\n- Inferred state: ${inferredKernelState}\n- Open loops: ${openLoops.length}\n- Overdue waiting: ${overdueWaiting.length}\n- Top ranked: ${(rankedKernelItems[0]?.title || 'none')}`;
-      if (config.ai.enabled && config.ai.apiKey) {
-        try {
-          const res = await fetch(config.ai.endpoint, { method:'POST', headers:{ 'Content-Type':'application/json','Authorization':`Bearer ${config.ai.apiKey}`,...(config.ai.siteUrl ? { 'HTTP-Referer': config.ai.siteUrl } : {}),...(config.ai.siteName ? { 'X-Title': config.ai.siteName } : {}) }, body: JSON.stringify({ model:config.ai.model, messages:[{ role:'system', content: config.ai.systemMode }, { role:'user', content: `Using this state, answer command:
-${q}
-State:
-${appSummary}` }] }) });
-          const json = await res.json();
-          const text = json?.choices?.[0]?.message?.content;
-          if (text) response = text;
-        } catch {}
-      }
-    }
-    setCommandOutput(response);
-    setData(prev => ({ ...prev, kernel:{ ...prev.kernel, commandHistory:[{ id:uid(), at:new Date().toISOString(), command:q, output:response }, ...(prev.kernel.commandHistory || [])].slice(0,40) } }));
-    setCommandBusy(false);
-  }
-
   function renderToday() {
     return (
       <div className="space-y-4 fade-up">
@@ -2422,143 +972,27 @@ ${appSummary}` }] }) });
           </Card>
         )}
 
+        {(visibleWidgets.score || visibleWidgets.streak) && (
+          <div className="grid grid-cols-2 gap-3">
+            {visibleWidgets.score && <SmallStat label="Score" value={todayScore} accent />}
+            {visibleWidgets.streak && <SmallStat label="Streak" value={streak} sub="70+ score days" />}
+          </div>
+        )}
+
         {visibleWidgets.progress && (
           <Card title="Progress Dashboard">
             <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-2">
-                <div className="rounded-2xl bg-white/5 p-3"><div className="text-[11px] uppercase tracking-[0.12em] text-slate-400">Mandatory</div><div className="text-xl font-semibold">{mandatoryEarned}/100</div></div>
-                <div className="rounded-2xl bg-white/5 p-3"><div className="text-[11px] uppercase tracking-[0.12em] text-slate-400">Penalty</div><div className="text-xl font-semibold text-red-300">{penaltyLost}</div></div>
-                <div className="rounded-2xl bg-white/5 p-3"><div className="text-[11px] uppercase tracking-[0.12em] text-slate-400">Final Day %</div><div className="text-xl font-semibold text-accent-400">{todayScore}%</div></div>
-                <div className="rounded-2xl bg-white/5 p-3"><div className="text-[11px] uppercase tracking-[0.12em] text-slate-400">Broken/Missed</div><div className="text-xl font-semibold">{brokenKillerCount}/{missedDriverCount}</div></div>
+              <div>
+                <div className="flex justify-between text-xs text-slate-400"><span>Goal day progress</span><span>Day {currentDay}/{config.challenge.goalDays}</span></div>
+                <div className="mt-2 h-3 rounded-full bg-white/5 overflow-hidden"><div className="h-full bg-accent-500" style={{ width:`${goalProgress}%` }}></div></div>
               </div>
               <div>
-                <div className="flex justify-between text-xs text-slate-400"><span>Challenge progress</span><span>Day {currentDay}/{config.challenge.goalDays}</span></div>
-                <div className="mt-2 h-3 rounded-full bg-white/5 overflow-hidden"><div className="h-full bg-accent-500" style={{ width:`${goalProgress}%` }}></div></div>
-                <div className="mt-2 text-xs text-slate-400">Through challenge: {Math.round(goalProgress)}% · Strongest imported day: Day {(data.today.history||[]).filter(h=>h.imported).sort((a,b)=>b.score-a.score)[0]?.challengeDay || '—'} · Streak: {streak} days</div>
+                <div className="flex justify-between text-xs text-slate-400"><span>Today completion</span><span>{todayScore}%</span></div>
+                <div className="mt-2 h-3 rounded-full bg-white/5 overflow-hidden"><div className="h-full bg-teal-400" style={{ width:`${todayScore}%` }}></div></div>
               </div>
             </div>
           </Card>
         )}
-
-        <Card title="Mode + State Engine" right={<Badge tone={inferredKernelState === 'Locked In' ? 'good' : inferredKernelState.includes('Pressure') || inferredKernelState.includes('Overloaded') ? 'bad' : 'warn'}>{inferredKernelState}</Badge>}>
-          <div className="space-y-3">
-            <div className="text-xs text-slate-400">Current mode: <span className="text-slate-200">{kernel.mode || 'Normal'}</span></div>
-            <div className="flex gap-2 overflow-x-auto hide-scroll pb-1">
-              {(config.kernel?.modes || defaultConfig.kernel.modes).map(mode => (
-                <button key={mode} onClick={() => setKernelMode(mode)} className={`whitespace-nowrap rounded-full px-3 py-2 text-xs tap ${ (kernel.mode || 'Normal') === mode ? 'bg-accent-500 text-navy-950' : 'bg-white/10'}`}>{mode}</button>
-              ))}
-            </div>
-            <div className="rounded-2xl bg-white/5 p-3 text-xs text-slate-300">What matters now: {rankedKernelItems[0]?.title || rankedKernelItems[0]?.whatAwaiting || 'Define MIT and one unblock action.'}</div>
-            <div className="flex gap-2">
-              <button onClick={() => setSceneQuote((quoteLibrary[quoteCategory] || quoteLibrary.focus)[Math.floor(Math.random()*((quoteLibrary[quoteCategory] || quoteLibrary.focus).length || 1))])} className="rounded-xl bg-white/10 px-3 py-2 text-xs tap">Rotate Quote</button>
-              <button onClick={() => setSceneQuote('')} className="rounded-xl bg-white/10 px-3 py-2 text-xs tap">Reset Quote</button>
-            </div>
-          </div>
-        </Card>
-
-        <Card title="Morning Brief / Control Tower">
-          <div className="space-y-2 text-xs text-slate-300">
-            <div>Challenge day: {currentDay}/{config.challenge.goalDays}</div>
-            <div>Recommended mode: {inferredKernelState === 'Deadline Pressure' ? 'Legal-Critical' : inferredKernelState === 'Recovery Needed' ? 'Recovery' : 'MIT-Only'}</div>
-            <div>Must-win: {todaysLog.primaryMit || rankedKernelItems[0]?.title || 'Write Primary MIT now'}</div>
-            <div>Top risks: {(riskRegister || []).filter(r => r.status !== 'closed').slice(0,3).map(r => r.title).join(' · ') || 'No active risk registered.'}</div>
-            <div>Ignore today: new side builds, low-value admin before hard task.</div>
-            <div>First block target: {todaysLog.deepBlock || '90-min MIT block'}</div>
-          </div>
-        </Card>
-
-        <Card title="Body Ops / Recovery">
-          <div className="space-y-2 text-xs text-slate-300">
-            <div className="grid grid-cols-2 gap-2">
-              <Input label="Wake actual" value={bodyDraft.wakeActual} onChange={v => setBodyDraft(prev => ({ ...prev, wakeActual:v }))} />
-              <Input label="Snooze count" type="number" value={bodyDraft.snoozeCount} onChange={v => setBodyDraft(prev => ({ ...prev, snoozeCount:Number(v) }))} />
-              <Input label="Water ml" type="number" value={bodyDraft.waterMl} onChange={v => setBodyDraft(prev => ({ ...prev, waterMl:Number(v) }))} />
-              <Input label="Meditation min" type="number" value={bodyDraft.meditationMin} onChange={v => setBodyDraft(prev => ({ ...prev, meditationMin:Number(v) }))} />
-              <Input label="Steps" type="number" value={bodyDraft.steps} onChange={v => setBodyDraft(prev => ({ ...prev, steps:Number(v) }))} />
-              <Select label="Body action" value={bodyDraft.bodyActionType} onChange={v => setBodyDraft(prev => ({ ...prev, bodyActionType:v }))} options={config.kernel?.bodyActionTypes || []} />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <Input label="Stress (1-5)" type="number" value={bodyDraft.stress} onChange={v => setBodyDraft(prev => ({ ...prev, stress:Number(v) }))} />
-              <Input label="Caffeine" value={bodyDraft.caffeine} onChange={v => setBodyDraft(prev => ({ ...prev, caffeine:v }))} />
-            </div>
-            <Toggle label="Sugar breach" checked={!!bodyDraft.sugarBreach} onChange={() => setBodyDraft(prev => ({ ...prev, sugarBreach:!prev.sugarBreach }))} />
-            <TextArea label="Recovery note" value={bodyDraft.recoveryNote} onChange={v => setBodyDraft(prev => ({ ...prev, recoveryNote:v }))} rows={2} />
-            <button onClick={() => { saveBodyOps(); if (bodyDraft.sugarBreach) addLeakRecord('sugar','manual_body_ops','medium','body_ops_toggle'); }} className="rounded-xl bg-accent-500 px-3 py-2 text-xs font-semibold text-navy-950 tap">Save Body Ops</button>
-            <div>Readiness score: <span className="text-accent-300">{readinessScore}</span> · Recommendation: {readinessScore < 55 ? 'MIT-Only + recovery' : readinessScore < 70 ? 'Keep scope tight' : 'Proceed normal'}</div>
-            {bodyRiskWarning && <div className="text-red-300">Body risk warning: low readiness + pressure/drift. Reduce scope immediately.</div>}
-          </div>
-        </Card>
-
-        <Card title="Leak Defense">
-          <div className="space-y-2 text-xs text-slate-300">
-            <div>Top recurring leaks: {recurringLeaks.map(x => `${x[0]} (${x[1]})`).join(' · ') || 'none logged yet'}</div>
-            <div className="flex flex-wrap gap-2">
-              {(config.kernel?.leakTypes || []).slice(0,6).map(t => <button key={t} onClick={() => addLeakRecord(t,'manual_quick_log','medium','quick_button')} className="rounded-xl bg-white/10 px-2 py-1 tap">{t}</button>)}
-            </div>
-          </div>
-        </Card>
-
-        <Card title="Kernel Next 5 Actions">
-          <div className="space-y-2">
-            {rankedKernelItems.slice(0,5).map((item, i) => (
-              <div key={item.id || i} className="rounded-2xl bg-white/5 px-3 py-2 text-xs">
-                <div className="font-medium">{i+1}. {item.title || item.whatAwaiting || item.opportunity || 'Untitled'}</div>
-                <div className="text-slate-400">{item.kind} · {item.domain || 'general'} · rank {Math.round(item.rankScore || 0)}</div>
-              </div>
-            ))}
-            {!rankedKernelItems.length && <div className="text-xs text-slate-500">No ranked items yet. Capture from Inbox or add action.</div>}
-          </div>
-        </Card>
-
-        <Card title="Drift Guard / Nap Guard">
-          <div className="space-y-2 text-xs text-slate-300">
-            <div>Drift status: {brokenKillerCount >= 3 || openLoops.length > 6 ? 'Meta-work drift detected' : 'Stable'}</div>
-            <div>Correction: {brokenKillerCount >= 3 ? 'Return to MIT-only mode and complete one 25m block.' : 'Keep execution tight and avoid context switching.'}</div>
-            <div className="grid grid-cols-3 gap-2">
-              {(config.kernel?.napPresets || [10,20,25]).map(min => <button key={min} onClick={() => setNapTimerSec(min*60)} className="rounded-xl bg-white/10 px-2 py-2 tap">Plan {min}m</button>)}
-            </div>
-            <div className="text-slate-400">Nap timer: {napTimerSec ? `${Math.floor(napTimerSec/60)}:${String(napTimerSec%60).padStart(2,'0')}` : 'not running'}</div>
-            {napTimerSec > 0 && <button onClick={() => setNapTimerSec(s => Math.max(0, s-60))} className="rounded-xl bg-white/10 px-3 py-2 tap">Tick -1m</button>}
-          </div>
-        </Card>
-
-        <Card title="Resume Where I Left Off">
-          <div className="space-y-2">
-            {(kernel.resumeSnapshots || []).slice(0,3).map(item => (
-              <div key={item.id} className="rounded-2xl bg-white/5 p-3 text-xs">
-                <div className="font-medium">{item.title || 'Resume item'}</div>
-                <div className="text-slate-400">Next tiny step: {item.nextTinyStep || 'not set'} · Keyword: {item.resumeKeyword || '—'}</div>
-              </div>
-            ))}
-            {!(kernel.resumeSnapshots || []).length && <div className="text-xs text-slate-500">No resume snapshots yet. Save one from Command or action details.</div>}
-          </div>
-        </Card>
-
-        <Card title="Consequence Engine">
-          <div className="space-y-2 text-xs text-slate-300">
-            <div>Likely downside: {overdueWaiting.length ? 'Unchased waiting items will keep dependencies blocked.' : !scoreMeta.reviewRuleMet ? 'Skipping closure will make tomorrow start cold.' : 'No immediate deterministic downside flagged.'}</div>
-            <div>Delay cost: {overdueLegalTasks.length ? `${overdueLegalTasks.length} legal tasks overdue increases deadline pressure.` : 'Manageable if MIT is executed now.'}</div>
-            <div>Corrective next step: {(rankedKernelItems[0]?.title || 'Write Primary MIT and start timer now')}.</div>
-          </div>
-        </Card>
-
-        <Card title="Family / Stability Micro-Module">
-          <div className="grid gap-2 text-xs">
-            <Input label="Weekly protective action" value={kernel.familyStability?.weeklyProtectiveAction || ''} onChange={v => setData(prev => ({ ...prev, kernel:{ ...prev.kernel, familyStability:{ ...(prev.kernel.familyStability || {}), weeklyProtectiveAction:v } } }))} />
-            <Input label="Urgent stability risk" value={kernel.familyStability?.urgentRisk || ''} onChange={v => setData(prev => ({ ...prev, kernel:{ ...prev.kernel, familyStability:{ ...(prev.kernel.familyStability || {}), urgentRisk:v } } }))} />
-            <Input label="Essential admin item" value={kernel.familyStability?.nextEssentialAction || ''} onChange={v => setData(prev => ({ ...prev, kernel:{ ...prev.kernel, familyStability:{ ...(prev.kernel.familyStability || {}), nextEssentialAction:v } } }))} />
-            <Input label="Do-not-miss document/action" value={kernel.familyStability?.notes || ''} onChange={v => setData(prev => ({ ...prev, kernel:{ ...prev.kernel, familyStability:{ ...(prev.kernel.familyStability || {}), notes:v } } }))} />
-          </div>
-        </Card>
-
-        <Card title="Support / Benefits / Appointments Ops">
-          <div className="space-y-2 text-xs">
-            <button onClick={() => addSupportAction({ title:'GP appointment', type:'gp_appointment' })} className="rounded-xl bg-white/10 px-3 py-2 tap">Add GP/health appointment</button>
-            <button onClick={() => addSupportAction({ title:'Legal appointment prep', type:'legal_appointment' })} className="rounded-xl bg-white/10 px-3 py-2 tap">Add legal appointment</button>
-            <button onClick={() => addSupportAction({ title:'Benefits follow-up', type:'benefits_action' })} className="rounded-xl bg-white/10 px-3 py-2 tap">Add benefits/support action</button>
-            <div className="text-slate-400">Active support ops: {(kernel.supportOps?.actions || []).length} · Next chase due: {(kernel.supportOps?.actions || []).find(a => a.nextChaseDate)?.nextChaseDate || '—'}</div>
-          </div>
-        </Card>
 
         {visibleWidgets.quote && (
           <Card title="Hourly Operating Quote" right={<Badge tone="warn">{new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</Badge>}>
@@ -2606,92 +1040,6 @@ ${appSummary}` }] }) });
           </Card>
         )}
 
-        <Card title="Planned Tasks" right={<button onClick={addPlannedTask} className="rounded-xl bg-white/10 px-3 py-1 text-xs tap">Add Task</button>}>
-          <div className="space-y-2">
-            {(todaysLog.plannedTasks || []).map(task => (
-              <div key={task.id} className="rounded-2xl bg-white/5 p-3">
-                <div className="flex items-center gap-2">
-                  <input type="checkbox" checked={!!task.done} onChange={e => updatePlannedTask(task.id, { done:e.target.checked })} />
-                  <input value={task.title || ''} onChange={e => updatePlannedTask(task.id, { title:e.target.value })} placeholder="Task title" className="flex-1 rounded-xl border border-white/10 bg-navy-850 px-3 py-2 text-sm" />
-                  <button onClick={() => removePlannedTask(task.id)} className="rounded-xl bg-red-500/10 px-2 py-2 text-xs text-red-300">Del</button>
-                </div>
-                <div className="mt-2 grid grid-cols-2 gap-2">
-                  <Select value={task.type || 'extra'} onChange={v => updatePlannedTask(task.id, { type:v })} options={config.today.taskTypes} />
-                  <Select value={task.priority || 'medium'} onChange={v => updatePlannedTask(task.id, { priority:v })} options={config.today.taskPriorities} />
-                </div>
-              </div>
-            ))}
-            {(todaysLog.plannedTasks || []).length === 0 && <div className="text-sm text-slate-500">No planned tasks yet. Add task to keep execution visible on Today.</div>}
-          </div>
-        </Card>
-
-        <Card title="AI Daily Log Intake">
-          <div className="space-y-3">
-            <TextArea
-              label="Paste raw day notes"
-              value={todaysLog.aiDailyLogInput || ''}
-              onChange={v => updateToday({ aiDailyLogInput:v })}
-              rows={6}
-              placeholder="Dump the whole day in plain language: 6.59am 50 min first block... 12.10 pm 20 min quiz... cricket break... 60 min with distractions..."
-            />
-            <div className="flex flex-wrap gap-2">
-              <button onClick={parseDailyLogWithAI} className="rounded-2xl bg-accent-500 px-4 py-3 text-sm font-semibold text-navy-950 tap">{aiBusy ? 'Parsing…' : 'AI Parse Log'}</button>
-              <button onClick={applyParsedDailyLog} disabled={!todaysLog.aiDailyLogParsed} aria-disabled={!todaysLog.aiDailyLogParsed} title={!todaysLog.aiDailyLogParsed ? 'Parse log first to enable apply' : 'Apply parsed update'} className={`rounded-2xl px-4 py-3 text-sm tap ${todaysLog.aiDailyLogParsed ? 'bg-white/10' : 'bg-white/5 text-slate-500'}`}>Apply Parsed Update</button>
-              <button onClick={() => updateToday({ aiDailyLogInput:'', aiDailyLogParsed:null, aiDailyLogRawOutput:'' })} className="rounded-2xl bg-white/10 px-4 py-3 text-sm tap">Clear Input</button>
-              <button onClick={() => updateToday({ intakeMergeMode: (todaysLog.intakeMergeMode || 'append') === 'append' ? 'replace' : 'append' })} className="rounded-2xl bg-white/10 px-4 py-3 text-sm tap">{(todaysLog.intakeMergeMode || 'append') === 'append' ? 'Append mode' : 'Replace suggested fields'}</button>
-            </div>
-            {!todaysLog.aiDailyLogParsed && <div className="text-xs text-amber-300">Apply Parsed Update is disabled until AI Parse Log returns a valid structured preview.</div>}
-
-            <div className="rounded-2xl border border-white/10 bg-navy-850 p-3">
-              <div className="text-xs uppercase tracking-[0.18em] text-slate-500">Parse Preview</div>
-              {todaysLog.aiDailyLogParsed ? (
-                <div className="mt-2 space-y-2 text-xs text-slate-300">
-                  <div><span className="text-slate-400">Core:</span> P:{todaysLog.aiDailyLogParsed.coreExecution?.primaryMit || '—'} | S:{todaysLog.aiDailyLogParsed.coreExecution?.secondaryMit || '—'} | D:{todaysLog.aiDailyLogParsed.coreExecution?.deepBlock || '—'} | A:{todaysLog.aiDailyLogParsed.coreExecution?.adminBlock || '—'}</div>
-                  <div><span className="text-slate-400">Detected blocks:</span> {(todaysLog.aiDailyLogParsed.workBlocks || []).length}</div>
-                  <div><span className="text-slate-400">Learning minutes:</span> {todaysLog.aiDailyLogParsed.totalLearningMinutes || 0}</div>
-                  <div><span className="text-slate-400">Completed drivers:</span> {(todaysLog.aiDailyLogParsed.completedDrivers || []).join(', ') || '—'}</div>
-                  <div><span className="text-slate-400">Broken killers:</span> {(todaysLog.aiDailyLogParsed.brokenKillers || []).join(', ') || '—'}</div>
-                  <div><span className="text-slate-400">Summary:</span> {todaysLog.aiDailyLogParsed.summary || '—'}</div>
-                  <div><span className="text-slate-400">Wins:</span> {(todaysLog.aiDailyLogParsed.wins || []).join(' | ') || '—'}</div>
-                  <div><span className="text-slate-400">Weaknesses:</span> {(todaysLog.aiDailyLogParsed.weaknesses || []).join(' | ') || '—'}</div>
-                  <div><span className="text-slate-400">Lesson:</span> {todaysLog.aiDailyLogParsed.lesson || '—'}</div>
-                  <div><span className="text-slate-400">Suggested tomorrow tasks:</span> {(todaysLog.aiDailyLogParsed.suggestedTomorrowTasks || []).map(t => t.title).join('; ') || '—'}</div>
-                  <div><span className="text-slate-400">Confidence:</span> {(todaysLog.aiDailyLogParsed.confidenceNotes || []).join('; ') || '—'}</div>
-                  <div><span className="text-slate-400">Uncertainty:</span> {(todaysLog.aiDailyLogParsed.uncertaintyNotes || []).join('; ') || '—'}</div>
-                </div>
-              ) : (
-                <div className="mt-2 text-xs text-slate-500">No parsed preview yet.</div>
-              )}
-              {!!todaysLog.aiDailyLogRawOutput && <TextArea label="Raw AI output fallback" value={todaysLog.aiDailyLogRawOutput} onChange={v => updateToday({ aiDailyLogRawOutput:v })} rows={4} />}
-            </div>
-          </div>
-        </Card>
-
-        <Card title="Detected Work Blocks">
-          <div className="space-y-2">
-            <div className="text-xs text-slate-400">Total learning minutes: {todaysLog.learningMinutesTotal || 0} · Source: {todaysLog.parseSourceType || 'manual_entry'}</div>
-            {(todaysLog.detectedWorkBlocks || []).map(block => (
-              <div key={block.id || uid()} className="rounded-2xl bg-white/5 px-3 py-2 text-xs">
-                <div className="font-medium">{block.time || 'time?'} · {block.durationMin || 0}m · {block.topic || block.activityType || 'Work block'}</div>
-                {block.notes ? <div className="text-slate-400 mt-1">{block.notes}</div> : null}
-              </div>
-            ))}
-            {!(todaysLog.detectedWorkBlocks || []).length && <div className="text-xs text-slate-500">No work blocks detected yet. Use AI Daily Log Intake or enter manually later.</div>}
-          </div>
-        </Card>
-
-        <Card title="Proof Engine">
-          <div className="space-y-2">
-            <div className="text-xs text-slate-400">What asset did you create today?</div>
-            <div className="flex flex-wrap gap-2">
-              {(config.kernel?.proofCategories || []).slice(0,6).map(cat => (
-                <button key={cat} onClick={() => addProofRecord(cat)} className="rounded-xl bg-white/10 px-3 py-2 text-xs tap">{cat}</button>
-              ))}
-            </div>
-            <div className="text-xs text-slate-400">Recent proofs: {(kernel.proofs || []).slice(0,3).map(p => p.category).join(' · ') || 'none'}</div>
-          </div>
-        </Card>
-
         {visibleWidgets.focusTimer && (
           <Card title="Deep Block Focus">
             <div className="text-center">
@@ -2716,7 +1064,7 @@ ${appSummary}` }] }) });
         )}
 
         {visibleWidgets.rules && (
-          <Card title="Operating Rules" right={<Badge tone={todayScore >= 70 ? "good" : todayScore >= 50 ? "warn" : "bad"}>Final {todayScore}%</Badge>}>
+          <Card title="Operating Rules">
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <div className="mb-2 text-sm font-semibold text-teal-300">DO</div>
@@ -2729,7 +1077,7 @@ ${appSummary}` }] }) });
                     >
                       <span className={`inline-flex h-5 w-5 items-center justify-center rounded border ${ruleState[rule.id] ? 'border-teal-400 bg-teal-400/20 text-teal-300' : 'border-white/20'}`}>{ruleState[rule.id] ? '✓' : ''}</span>
                       <span className="flex-1 text-sm">{rule.text}</span>
-                      <span className="text-xs text-slate-500">{rule.weight > 0 ? `+${rule.weight}` : rule.weight}</span>
+                      <span className="text-xs text-slate-500">w{rule.weight}</span>
                     </button>
                   ))}
                 </div>
@@ -2745,7 +1093,7 @@ ${appSummary}` }] }) });
                     >
                       <span className={`inline-flex h-5 w-5 items-center justify-center rounded border ${ruleState[rule.id] ? 'border-red-400 bg-red-400/20 text-red-300' : 'border-white/20'}`}>{ruleState[rule.id] ? '✓' : ''}</span>
                       <span className="flex-1 text-sm">{rule.text}</span>
-                      <span className="text-xs text-slate-500">{rule.weight > 0 ? `+${rule.weight}` : rule.weight}</span>
+                      <span className="text-xs text-slate-500">w{rule.weight}</span>
                     </button>
                   ))}
                 </div>
@@ -2802,38 +1150,11 @@ ${appSummary}` }] }) });
                 </div>
               </div>
               <TextArea label="Day Review" value={todaysLog.review} onChange={v => updateToday({ review:v })} placeholder="What moved the needle? Where did you drift?" />
-              <div className="rounded-2xl border border-white/10 bg-navy-850 p-3">
-                <div className="mb-2 flex items-center justify-between">
-                  <div className="text-sm font-semibold">Tomorrow Plan Checklist</div>
-                  <button onClick={() => addTomorrowTask()} className="rounded-xl bg-white/10 px-3 py-1 text-xs tap">Add Task</button>
-                </div>
-                <div className="space-y-2">
-                  {(todaysLog.tomorrowChecklist || []).map((task, i) => (
-                    <div key={task.id} className="rounded-2xl bg-white/5 p-3">
-                      <div className="flex items-center gap-2">
-                        <input value={task.title || ''} onChange={e => updateTomorrowTask(task.id, { title:e.target.value })} placeholder="Task title" className="flex-1 rounded-xl border border-white/10 bg-navy-850 px-3 py-2 text-sm" />
-                        <button onClick={() => moveTomorrowTask(i, -1)} className="rounded-xl bg-white/10 px-2 py-2 text-xs">↑</button>
-                        <button onClick={() => moveTomorrowTask(i, 1)} className="rounded-xl bg-white/10 px-2 py-2 text-xs">↓</button>
-                        <button onClick={() => deleteTomorrowTask(task.id)} className="rounded-xl bg-red-500/10 px-2 py-2 text-xs text-red-300">Del</button>
-                      </div>
-                      <div className="mt-2 grid grid-cols-2 gap-2">
-                        <Select value={task.type || 'extra'} onChange={v => updateTomorrowTask(task.id, { type:v })} options={config.today.taskTypes} />
-                        <Select value={task.priority || 'medium'} onChange={v => updateTomorrowTask(task.id, { priority:v })} options={config.today.taskPriorities} />
-                        <Input type="number" label="Est mins" value={task.estMinutes || ''} onChange={v => updateTomorrowTask(task.id, { estMinutes:v })} />
-                        <Input label="Note" value={task.note || ''} onChange={v => updateTomorrowTask(task.id, { note:v })} />
-                      </div>
-                    </div>
-                  ))}
-                  {(todaysLog.tomorrowChecklist || []).length === 0 && <div className="text-xs text-slate-400">Add tomorrow tasks one by one. Avoid one giant text plan.</div>}
-                </div>
+              <TextArea label="Tomorrow Plan" value={todaysLog.nextDayPlan} onChange={v => updateToday({ nextDayPlan:v })} placeholder="No day closes without tomorrow's plan." />
+              <div className="flex gap-2">
+                <button onClick={endDay} className="flex-1 rounded-2xl bg-accent-500 px-4 py-3 font-semibold text-navy-950 tap">Close Day</button>
+                <button onClick={() => askAI('tomorrow')} className="rounded-2xl bg-white/10 px-4 py-3 text-sm tap">AI Tomorrow Plan</button>
               </div>
-              {!!todaysLog.aiPlanFallback && <TextArea label="AI Plan Raw Output (parse fallback)" value={todaysLog.aiPlanFallback} onChange={v => updateToday({ aiPlanFallback:v })} rows={5} />}
-              <div className="flex flex-wrap gap-2">
-                <button onClick={endDay} aria-label="Close Day" className="flex-1 rounded-2xl bg-accent-500 px-4 py-3 font-semibold text-navy-950 tap">Close Day</button>
-                <button onClick={() => askAI('tomorrow')} className="rounded-2xl bg-white/10 px-4 py-3 text-sm tap">AI Build Tomorrow Plan</button>
-                <button onClick={() => askAI('rebuildCore')} className="rounded-2xl bg-white/10 px-4 py-3 text-sm tap">AI Rebuild Core Execution</button>
-              </div>
-              <div className="text-xs text-slate-400">If AI provider fails, buttons stay tappable — retry after checking API key/network.</div>
             </div>
           </Card>
         )}
@@ -2860,15 +1181,14 @@ ${appSummary}` }] }) });
         {visibleWidgets.history && (
           <Card title="Recent Performance">
             <div className="space-y-2">
-              {(data.today.history || []).slice(-8).reverse().map(item => (
-                <button key={item.id} onClick={() => setSelectedHistoryItem(item)} className="w-full rounded-2xl bg-white/5 px-3 py-3 text-left tap">
+              {(data.today.history || []).slice(-5).reverse().map(item => (
+                <div key={item.id} className="rounded-2xl bg-white/5 px-3 py-3">
                   <div className="flex justify-between">
-                    <div className="text-sm font-medium">Day {item.challengeDay} · {prettifyDate(item.date)} {item.imported ? '· Imported' : ''}</div>
+                    <div className="text-sm font-medium">Day {item.challengeDay} · {prettifyDate(item.date)}</div>
                     <Badge tone={item.score >= 70 ? 'good' : item.score >= 50 ? 'warn' : 'bad'}>{item.score}%</Badge>
                   </div>
-                  <div className="mt-1 text-xs text-slate-400">{item.summary || item.review || 'No review saved.'}</div>
-                  <div className="mt-1 text-[11px] text-accent-400">Tap for full day detail</div>
-                </button>
+                  <div className="mt-1 text-xs text-slate-400">{item.review || 'No review saved.'}</div>
+                </div>
               ))}
               {(data.today.history || []).length === 0 && <div className="text-sm text-slate-500">No completed days yet.</div>}
             </div>
@@ -2878,340 +1198,92 @@ ${appSummary}` }] }) });
     );
   }
 
-
-  function renderInbox() {
-    const previewItems = inboxPreview?.items || [];
-    return (
-      <div className="space-y-4 fade-up">
-        <Card title="Inbox Capture Surface">
-          <TextArea label="Raw inbox dump" value={inboxInput} onChange={setInboxInput} rows={7} placeholder="Dump notes, legal updates, tomorrow thoughts, errands, follow-ups in one place." />
-          <div className="mt-3 flex gap-2 overflow-x-auto hide-scroll pb-1">
-            {(config.kernel?.inboxTags || []).map(tag => (
-              <button key={tag} onClick={() => setInboxTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag])} className={`whitespace-nowrap rounded-full px-3 py-2 text-xs tap ${inboxTags.includes(tag) ? 'bg-accent-500 text-navy-950' : 'bg-white/10'}`}>{tag}</button>
-            ))}
-          </div>
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            <button onClick={runInboxParse} className="rounded-2xl bg-accent-500 px-3 py-3 text-sm font-semibold text-navy-950 tap">{inboxBusy ? 'Parsing…' : 'AI Parse'}</button>
-            <button onClick={() => applyInboxItems(false)} disabled={!previewItems.length} className={`rounded-2xl px-3 py-3 text-sm tap ${previewItems.length ? 'bg-white/10' : 'bg-white/5 text-slate-500'}`}>Apply All</button>
-            <button onClick={() => applyInboxItems(true)} disabled={!previewItems.some(x => x.checked)} className={`rounded-2xl px-3 py-3 text-sm tap ${previewItems.some(x => x.checked) ? 'bg-white/10' : 'bg-white/5 text-slate-500'}`}>Apply Selected</button>
-            <button onClick={() => { setInboxInput(''); setInboxPreview(null); setInboxTags([]); }} className="rounded-2xl bg-white/10 px-3 py-3 text-sm tap">Clear Input</button>
-          </div>
-          <div className="mt-2">
-            {voiceSupported ? (
-              <button onClick={startVoiceCapture} className="rounded-2xl bg-white/10 px-3 py-2 text-xs tap">{voiceListening ? 'Listening…' : 'Voice Capture (optional)'}</button>
-            ) : (
-              <div className="text-xs text-slate-500">Voice capture unavailable in this browser. Text capture remains fully supported.</div>
-            )}
-          </div>
-        </Card>
-
-        <Card title="Preview Panel">
-          <div className="space-y-2">
-            {previewItems.map(item => (
-              <div key={item.id} className="rounded-2xl bg-white/5 p-3 text-xs">
-                <div className="flex items-start justify-between gap-2">
-                  <label className="flex items-start gap-2">
-                    <input type="checkbox" checked={!!item.checked} onChange={e => setInboxPreview(prev => ({ ...prev, items:(prev.items || []).map(x => x.id === item.id ? { ...x, checked:e.target.checked } : x) }))} />
-                    <span className="font-medium">{item.destination}</span>
-                  </label>
-                  <Badge tone={Number(item.confidence || 0) >= 0.85 ? 'good' : Number(item.confidence || 0) >= 0.6 ? 'warn' : 'bad'}>{Math.round(Number(item.confidence || 0) * 100)}%</Badge>
-                </div>
-                <div className="mt-1 text-slate-300">{item.title || item.whatAwaiting || item.topic || 'Untitled'}</div>
-                <div className="mt-1 text-slate-400">Reasons: {(item.reasons || []).join(', ') || '—'}</div>
-              </div>
-            ))}
-            {!previewItems.length && <div className="text-sm text-slate-500">Run parser to generate preview.</div>}
-          </div>
-        </Card>
-
-        <Card title="Needs Review + Processed">
-          <div className="space-y-2 text-xs">
-            <div className="rounded-2xl bg-white/5 p-3">Needs review: {(data.kernel?.inbox?.needsReview || []).length}</div>
-            {(data.kernel?.inbox?.processed || []).slice(0,6).map(item => (
-              <div key={item.id} className="rounded-2xl bg-white/5 p-3">{prettifyDate(item.at)} · {item.count} items applied · tags: {(item.selectedTags || []).join(', ') || 'none'}</div>
-            ))}
-            <button onClick={undoLastInboxApply} className="rounded-xl bg-white/10 px-3 py-2 text-xs tap">Undo Last Apply</button>
-          </div>
-        </Card>
-      </div>
-    );
-  }
-
-  function renderCommand() {
-    return (
-      <div className="space-y-4 fade-up">
-        <Card title="Command / Ask OS">
-          <TextArea value={commandInput} onChange={setCommandInput} rows={5} placeholder="Ask: what matters now, legal next 5, build tomorrow, why did I drift..." />
-          <div className="mt-3 flex gap-2 overflow-x-auto hide-scroll pb-1">
-            {(config.kernel?.commandChips || []).map(chip => (
-              <button key={chip} onClick={() => { setCommandInput(chip); runCommand(chip); }} className="whitespace-nowrap rounded-full bg-white/10 px-3 py-2 text-xs tap">{chip}</button>
-            ))}
-          </div>
-          <button onClick={() => runCommand(commandInput)} className="mt-3 w-full rounded-2xl bg-accent-500 px-4 py-3 font-semibold text-navy-950 tap">{commandBusy ? 'Running…' : 'Run Command'}</button>
-        </Card>
-
-        <Card title="Command Output">
-          <div className="rounded-2xl bg-navy-850 p-3 text-sm text-slate-200 whitespace-pre-wrap min-h-[120px]">{commandOutput || 'Output appears here.'}</div>
-        </Card>
-
-        <Card title="Kernel Subsystems">
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="rounded-2xl bg-white/5 p-3">Open loops: {openLoops.length}</div>
-            <div className="rounded-2xl bg-white/5 p-3">Broken promises: {brokenPromises.length}</div>
-            <div className="rounded-2xl bg-white/5 p-3">Waiting overdue: {overdueWaiting.length}</div>
-            <div className="rounded-2xl bg-white/5 p-3">Opportunities: {(kernel.opportunityQueue || []).length}</div>
-            <div className="rounded-2xl bg-white/5 p-3">Learning units: {(kernel.learningOps?.units || []).length}</div>
-            <div className="rounded-2xl bg-white/5 p-3">Job records: {(kernel.jobHunt?.applications || []).length}</div>
-          </div>
-          <div className="mt-2 text-xs text-slate-400">Native companion bridge: {nativeBridge.isAvailable() ? 'available' : 'web-only placeholder active'}</div>
-          <div className="mt-3 flex gap-2">
-            <button onClick={() => addPromise({ title:'New promise', promisedBy:'self', promisedTo:'system', linkedMatter:'general' })} className="rounded-xl bg-white/10 px-3 py-2 text-xs tap">Add Promise</button>
-            <button onClick={() => addKernelAction({ title:'New action', domain:'general' })} className="rounded-xl bg-white/10 px-3 py-2 text-xs tap">Add Action</button>
-            <button onClick={() => addWaitingItem({ whatAwaiting:'Awaiting reply', domain:'legal' })} className="rounded-xl bg-white/10 px-3 py-2 text-xs tap">Add Waiting</button>
-            <button onClick={() => addJobApplication({ employer:'New Employer', stage:'saved' })} className="rounded-xl bg-white/10 px-3 py-2 text-xs tap">Add Job</button>
-            <button onClick={() => upsertLearningUnit({ track:'Power BI', topic:'New topic', status:'touched' })} className="rounded-xl bg-white/10 px-3 py-2 text-xs tap">Add Learning</button>
-            <button onClick={() => addSupportAction({ title:'Request support letter', type:'support_letter' })} className="rounded-xl bg-white/10 px-3 py-2 text-xs tap">Add Support</button>
-          </div>
-          <div className="mt-3 space-y-2">
-            {openLoops.slice(0,4).map(loop => (
-              <div key={loop.id} className="rounded-2xl bg-white/5 p-3 text-xs">
-                <div className="font-medium">{loop.title}</div>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <button onClick={() => setData(prev => ({ ...prev, kernel:{ ...prev.kernel, objects:{ ...prev.kernel.objects, actions:(prev.kernel.objects.actions || []).map(a => a.id === loop.item?.id ? { ...a, status:'Completed' } : a) } } }))} className="rounded-xl bg-white/10 px-2 py-1 tap">Close</button>
-                  <button onClick={() => setData(prev => ({ ...prev, kernel:{ ...prev.kernel, objects:{ ...prev.kernel.objects, actions:(prev.kernel.objects.actions || []).map(a => a.id === loop.item?.id ? { ...a, dueDate:isoToday(), status:'Deferred' } : a) } } }))} className="rounded-xl bg-white/10 px-2 py-1 tap">Defer</button>
-                  <button onClick={() => addKernelAction({ title:`Follow-up: ${loop.title}`, domain:'general' })} className="rounded-xl bg-white/10 px-2 py-1 tap">Convert to task</button>
-                  <button onClick={() => setData(prev => ({ ...prev, kernel:{ ...prev.kernel, parkingLot:[{ id:uid(), title:loop.title, sourceText:loop.title, category:'other', urgency:'later', linkedDomain:'general', notes:'from open loop', createdAt:new Date().toISOString(), reviewedAt:'', status:'parked' }, ...(prev.kernel.parkingLot || [])] } }))} className="rounded-xl bg-white/10 px-2 py-1 tap">Park</button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-      </div>
-    );
-  }
-
-  function renderHistoryBoard() {
-    const hist = data.today.history || [];
-    const strongest = hist.slice().sort((a,b)=>b.score-a.score).slice(0,3);
-    const weakest = hist.slice().sort((a,b)=>a.score-b.score).slice(0,3);
-    const naps = hist.filter(h => (h.tags || []).some(t => String(t).includes('nap'))).length;
-    const sugars = hist.filter(h => (h.tags || []).some(t => String(t).includes('sugar'))).length;
-    const closure = hist.filter(h => h.review && h.review.trim()).length;
-    const bodySignals = kernel.bodyOps?.signals || [];
-    const avgSleep = bodySignals.length ? (bodySignals.reduce((a,b) => a + Number(b.sleepHours || 0), 0) / bodySignals.length).toFixed(1) : '0.0';
-    return (
-      <div className="space-y-4 fade-up">
-        <Card title="History Intelligence">
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="rounded-2xl bg-white/5 p-3">Strongest: {strongest.map(x => `D${x.challengeDay}`).join(', ') || '—'}</div>
-            <div className="rounded-2xl bg-white/5 p-3">Weakest: {weakest.map(x => `D${x.challengeDay}`).join(', ') || '—'}</div>
-            <div className="rounded-2xl bg-white/5 p-3">Open loops now: {openLoops.length}</div>
-            <div className="rounded-2xl bg-white/5 p-3">Naps tagged: {naps}</div>
-            <div className="rounded-2xl bg-white/5 p-3">Sugar days: {sugars}</div>
-            <div className="rounded-2xl bg-white/5 p-3">Strong closures: {closure}</div>
-            <div className="rounded-2xl bg-white/5 p-3">Avg sleep: {avgSleep}h</div>
-            <div className="rounded-2xl bg-white/5 p-3">Top leaks: {recurringLeaks.map(x => x[0]).join(', ') || 'none'}</div>
-          </div>
-        </Card>
-        <Card title="Weekly Board Review">
-          <button onClick={() => {
-            const summary = { id:uid(), at:new Date().toISOString(), wins: strongest.map(x => `Day ${x.challengeDay}`), losses: weakest.map(x => `Day ${x.challengeDay}`), bottleneck: openLoops[0]?.title || 'None', bestDay: strongest[0]?.challengeDay || null, worstDay: weakest[0]?.challengeDay || null, legalSnapshot: `${overdueLegalTasks.length} overdue legal tasks`, revenueSnapshot: `${followUpsDue.length} follow-ups due`, healthSnapshot: `Sleep ${todaysLog.sleepHours || 0}h`, tightenRule:'Protect MIT start', stopDoing:'Meta-work during execution blocks' };
-            setData(prev => ({ ...prev, kernel:{ ...prev.kernel, weeklyReviews:[summary, ...(prev.kernel.weeklyReviews || [])] } }));
-          }} className="rounded-2xl bg-accent-500 px-4 py-3 text-sm font-semibold text-navy-950 tap">Generate Weekly Review Snapshot</button>
-          <div className="mt-2 text-xs text-slate-400">Saved reviews: {(kernel.weeklyReviews || []).length}</div>
-        </Card>
-      </div>
-    );
-  }
-
   function renderLegal() {
-    const quickFilters = ['All', 'Overdue', 'Due Today', 'This Week', 'Waiting', 'Completed'];
     return (
       <div className="space-y-4 fade-up">
-        <Card title="Legal Operator Dashboard" right={<Badge tone={overdueLegalTasks.length ? 'bad' : 'good'}>{openLegalTasks.length} open</Badge>}>
-          <div className="grid grid-cols-2 gap-2">
-            <SmallStat label="Open tasks" value={openLegalTasks.length} />
-            <SmallStat label="Overdue" value={overdueLegalTasks.length} />
-            <SmallStat label="Due today" value={dueTodayLegalTasks.length} />
-            <SmallStat label="Due this week" value={dueWeekLegalTasks.length} />
-            <SmallStat label="Awaiting replies" value={awaitingReplies.length} />
-            <SmallStat label="Hard dates" value={hardDates.length} />
-          </div>
-          <div className="mt-3 text-xs text-slate-400">Tasks by matter: {tasksByMatter.map(x => `${x.mt} (${x.count})`).join(' · ') || 'No open tasks.'}</div>
-        </Card>
-
-        <Card title="Matter Switcher / Filters">
-          <div className="flex gap-2 overflow-x-auto pb-1 hide-scroll">
-            {['All matters', ...config.legal.matterTypes].map(mt => (
-              <button key={mt} onClick={() => setLegalMatterFilter(mt)} className={`whitespace-nowrap rounded-full px-3 py-2 text-xs tap ${legalMatterFilter === mt ? 'bg-accent-500 text-navy-950' : 'bg-white/10'}`}>{mt}</button>
-            ))}
-          </div>
-          <div className="mt-2 flex gap-2 overflow-x-auto pb-1 hide-scroll">
-            {quickFilters.map(q => (
-              <button key={q} onClick={() => setLegalQuickFilter(q)} className={`whitespace-nowrap rounded-full px-3 py-2 text-xs tap ${legalQuickFilter === q ? 'bg-teal-500/30 text-teal-200' : 'bg-white/10'}`}>{q}</button>
-            ))}
-            <button onClick={() => setLegalQuickFilter('By Matter')} className={`whitespace-nowrap rounded-full px-3 py-2 text-xs tap ${legalQuickFilter === 'By Matter' ? 'bg-teal-500/30 text-teal-200' : 'bg-white/10'}`}>By Matter</button>
-          </div>
-          <div className="mt-3">
-            <Select label="Status filter" value={legalStatusFilter} onChange={setLegalStatusFilter} options={['All statuses', ...(config.legal.taskStatuses || [])]} />
-          </div>
-          <div className="mt-3 grid grid-cols-3 gap-2">
-            <button onClick={() => addLegalTask()} className="rounded-2xl bg-accent-500 px-3 py-3 text-xs font-semibold text-navy-950 tap">Add Legal Task</button>
-            <button onClick={() => addDeadline()} className="rounded-2xl bg-white/10 px-3 py-3 text-xs tap">Add Deadline</button>
-            <button onClick={() => addCorrespondence()} className="rounded-2xl bg-white/10 px-3 py-3 text-xs tap">Add Correspondence</button>
+        <Card title="Legal Dashboard Summary" right={<Badge tone={mattersDueSoon.length ? 'warn' : 'good'}>{mattersDueSoon.length} due soon</Badge>}>
+          <div className="grid grid-cols-2 gap-3">
+            <SmallStat label="Deadlines" value={data.legal.deadlines.length} />
+            <SmallStat label="Exhibits" value={data.legal.exhibits.length} />
+            <SmallStat label="Unanswered" value={unanswered.length} />
+            <SmallStat label="Missing" value={missingExhibits.length} />
           </div>
         </Card>
 
-        <Card title="Action-First View">
-          <div className="space-y-3">
-            <div>
-              <div className="text-sm font-semibold text-accent-300">Next 5 Legal Actions</div>
-              <div className="mt-2 space-y-2">
-                {next5LegalActions.map(task => (
-                  <div key={task.id} className="rounded-2xl bg-white/5 p-3 text-sm">
-                    <div className="flex justify-between"><span>{task.title}</span><Badge tone={isOverdue(task.dueDate) ? 'bad' : isToday(task.dueDate) ? 'warn' : 'default'}>{task.dueDate || 'No date'}</Badge></div>
-                    <div className="mt-1 text-xs text-slate-400">{task.matterType} · {task.status}</div>
-                  </div>
-                ))}
-                {next5LegalActions.length === 0 && <div className="text-xs text-slate-500">No immediate legal actions.</div>}
+        <Card title="Risk Flags">
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between"><span>Critical soon / overdue</span><Badge tone={mattersDueSoon.length ? 'warn' : 'good'}>{mattersDueSoon.length}</Badge></div>
+            <div className="flex justify-between"><span>Missing exhibits</span><Badge tone={missingExhibits.length ? 'warn' : 'good'}>{missingExhibits.length}</Badge></div>
+            <div className="flex justify-between"><span>Unanswered correspondence</span><Badge tone={unanswered.length ? 'warn' : 'good'}>{unanswered.length}</Badge></div>
+          </div>
+        </Card>
+
+        <Card title="Top 3 Legal Actions">
+          <div className="space-y-2">
+            {legalTop3.map(item => (
+              <div key={item.id} className="rounded-2xl bg-white/5 px-3 py-3">
+                <div className="flex justify-between gap-2">
+                  <div className="text-sm">{item.title}</div>
+                  <Badge tone={item.priority === 'Critical' ? 'bad' : item.priority === 'High' ? 'warn' : 'default'}>{item.priority}</Badge>
+                </div>
+                <div className="mt-1 text-xs text-slate-400">{item.matterType} · due {prettifyDate(item.dueDate)}</div>
               </div>
-            </div>
-            <div>
-              <div className="text-sm font-semibold text-slate-200">Upcoming Hard Dates</div>
-              <div className="mt-2 space-y-2">{hardDates.slice(0,5).map(d => <div key={d.id} className="rounded-2xl bg-white/5 p-3 text-xs">{d.title} · {d.type || 'Filing'} · {prettifyDate(d.dueDate)}</div>)}{hardDates.length===0 && <div className="text-xs text-slate-500">No hard dates queued.</div>}</div>
-            </div>
-            <div>
-              <div className="text-sm font-semibold text-slate-200">Awaiting Replies</div>
-              <div className="mt-2 space-y-2">{awaitingReplies.slice(0,5).map(c => <div key={c.id} className="rounded-2xl bg-white/5 p-3 text-xs">{c.subject} · {c.organisation || c.who || 'Contact'} · due {prettifyDate(c.replyDue)}</div>)}{awaitingReplies.length===0 && <div className="text-xs text-slate-500">No pending replies.</div>}</div>
-            </div>
-          </div>
-        </Card>
-
-        <Card title="Legal Tasks" right={<Select value={legalSort} onChange={setLegalSort} options={['due','priority','matter']} />}>
-          <div className="space-y-2">
-            {filteredLegalTasks.map(task => (
-              <details key={task.id} className="rounded-2xl bg-white/5 p-3">
-                <summary className="cursor-pointer list-none">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="text-sm font-medium">{task.title || 'Untitled legal task'}</div>
-                    <Badge tone={task.completed ? 'good' : isOverdue(task.dueDate) ? 'bad' : isToday(task.dueDate) ? 'warn' : 'default'}>{task.completed ? 'Completed' : (task.dueDate || 'No due date')}</Badge>
-                  </div>
-                  <div className="text-xs text-slate-400 mt-1">{task.matterType} · {task.status} · {task.priority}</div>
-                </summary>
-                <div className="mt-3 grid gap-2">
-                  <Input label="Title" value={task.title || ''} onChange={v => upsertLegalTask({ ...task, title:v })} />
-                  <Select label="Matter" value={task.matterType || ''} onChange={v => upsertLegalTask({ ...task, matterType:v })} options={config.legal.matterTypes} />
-                  <Input label="Sub-matter / case" value={task.subMatter || ''} onChange={v => upsertLegalTask({ ...task, subMatter:v })} />
-                  <Select label="Task type" value={task.taskType || ''} onChange={v => upsertLegalTask({ ...task, taskType:v })} options={config.legal.taskTypes} />
-                  <div className="grid grid-cols-2 gap-2">
-                    <Select label="Priority" value={task.priority || ''} onChange={v => upsertLegalTask({ ...task, priority:v })} options={config.legal.priorities} />
-                    <Select label="Status" value={task.status || ''} onChange={v => upsertLegalTask({ ...task, status:v, completed: v === 'Completed' })} options={config.legal.taskStatuses} />
-                    <Input label="Due date" type="date" value={task.dueDate || ''} onChange={v => upsertLegalTask({ ...task, dueDate:v })} />
-                    <Input label="Follow-up" type="date" value={task.followUpDate || ''} onChange={v => upsertLegalTask({ ...task, followUpDate:v })} />
-                  </div>
-                  <Select label="Linked contact" value={task.linkedContact || ''} onChange={v => upsertLegalTask({ ...task, linkedContact:v })} options={['', ...legalContacts.map(c => c.name)]} />
-                  <Input label="Related deadline id" value={task.relatedDeadlineId || ''} onChange={v => upsertLegalTask({ ...task, relatedDeadlineId:v })} />
-                  <Input label="Related correspondence id" value={task.relatedCorrespondenceId || ''} onChange={v => upsertLegalTask({ ...task, relatedCorrespondenceId:v })} />
-                  <TextArea label="Notes" value={task.notes || ''} onChange={v => upsertLegalTask({ ...task, notes:v })} rows={2} />
-                  <div className="flex gap-2">
-                    <button onClick={() => upsertLegalTask({ ...task, completed:!task.completed, status: !task.completed ? 'Completed' : 'Open' })} className="rounded-xl bg-white/10 px-3 py-2 text-xs tap">{task.completed ? 'Mark open' : 'Mark complete'}</button>
-                    <button onClick={() => upsertLegalTask({ ...task, archived:true, status:'Archived' })} className="rounded-xl bg-white/10 px-3 py-2 text-xs tap">Archive</button>
-                    <button onClick={() => setData(prev => ({ ...prev, legal:{ ...prev.legal, legalTasks:(prev.legal.legalTasks || []).filter(t => t.id !== task.id) } }))} className="rounded-xl bg-red-500/10 px-3 py-2 text-xs text-red-300 tap">Delete</button>
-                  </div>
-                </div>
-              </details>
-            ))}
-            {filteredLegalTasks.length === 0 && <div className="text-sm text-slate-500">No legal tasks match current filters.</div>}
-          </div>
-        </Card>
-
-        <Card title="Legal Deadlines">
-          <div className="space-y-2">
-            {(data.legal.deadlines || []).filter(d => !activeMatter || d.matterType === activeMatter).sort((a,b)=> (a.dueDate||'').localeCompare(b.dueDate||'')).map(item => (
-              <details key={item.id} className="rounded-2xl bg-white/5 p-3">
-                <summary className="cursor-pointer list-none flex justify-between"><span className="text-sm">{item.title || 'Untitled deadline'}</span><Badge tone={isOverdue(item.dueDate) ? 'bad' : diffDays(item.dueDate) <= 7 ? 'warn' : 'default'}>{prettifyDate(item.dueDate)}</Badge></summary>
-                <div className="mt-3 grid gap-2">
-                  <Input label="Title" value={item.title || ''} onChange={v => upsertDeadline({ ...item, title:v })} />
-                  <div className="grid grid-cols-2 gap-2">
-                    <Select label="Matter" value={item.matterType || ''} onChange={v => upsertDeadline({ ...item, matterType:v })} options={config.legal.matterTypes} />
-                    <Select label="Type" value={item.type || ''} onChange={v => upsertDeadline({ ...item, type:v })} options={config.legal.deadlineTypes} />
-                    <Select label="Priority" value={item.priority || ''} onChange={v => upsertDeadline({ ...item, priority:v })} options={config.legal.priorities} />
-                    <Input label="Date" type="date" value={item.dueDate || ''} onChange={v => upsertDeadline({ ...item, dueDate:v })} />
-                  </div>
-                  <TextArea label="Notes" value={item.notes || ''} onChange={v => upsertDeadline({ ...item, notes:v })} rows={2} />
-                  <div className="text-xs text-slate-500">Linked tasks: {legalTasks.filter(t => t.relatedDeadlineId === item.id).length}</div>
-                  <div className="flex gap-2"><button onClick={() => upsertDeadline({ ...item, archived:true, status:'Archived' })} className="rounded-xl bg-white/10 px-3 py-2 text-xs">Archive</button><button onClick={() => setData(prev => ({ ...prev, legal:{ ...prev.legal, deadlines:(prev.legal.deadlines || []).filter(d => d.id !== item.id) } }))} className="rounded-xl bg-red-500/10 px-3 py-2 text-xs text-red-300">Delete</button></div>
-                </div>
-              </details>
             ))}
           </div>
         </Card>
 
-        <Card title="Legal Correspondence">
+        <Card title="Deadlines">
           <div className="space-y-2">
-            {(data.legal.correspondence || []).filter(c => !activeMatter || c.matterType === activeMatter).map(item => (
-              <details key={item.id} className="rounded-2xl bg-white/5 p-3">
-                <summary className="cursor-pointer list-none flex justify-between"><span className="text-sm">{item.subject || 'Untitled correspondence'}</span><Badge tone={isOverdue(item.replyDue) && ['No reply','Waiting'].includes(item.responseStatus) ? 'bad' : 'default'}>{item.responseStatus}</Badge></summary>
-                <div className="mt-3 grid gap-2">
-                  <Input label="Subject" value={item.subject || ''} onChange={v => upsertCorrespondence({ ...item, subject:v })} />
-                  <div className="grid grid-cols-2 gap-2">
-                    <Select label="Matter" value={item.matterType || ''} onChange={v => upsertCorrespondence({ ...item, matterType:v })} options={config.legal.matterTypes} />
-                    <Select label="Communication" value={item.communicationType || ''} onChange={v => upsertCorrespondence({ ...item, communicationType:v })} options={config.legal.correspondenceTypes} />
-                    <Input label="Person / org" value={item.who || ''} onChange={v => upsertCorrespondence({ ...item, who:v })} />
-                    <Input label="Organisation" value={item.organisation || ''} onChange={v => upsertCorrespondence({ ...item, organisation:v })} />
-                    <Input label="Sent" type="date" value={item.dateSent || ''} onChange={v => upsertCorrespondence({ ...item, dateSent:v })} />
-                    <Input label="Reply due" type="date" value={item.replyDue || ''} onChange={v => upsertCorrespondence({ ...item, replyDue:v })} />
-                  </div>
-                  <Select label="Reply status" value={item.responseStatus || ''} onChange={v => upsertCorrespondence({ ...item, responseStatus:v })} options={config.legal.correspondenceStatuses} />
-                  <TextArea label="Notes" value={item.notes || ''} onChange={v => upsertCorrespondence({ ...item, notes:v })} rows={2} />
-                  <div className="flex gap-2">
-                    <button onClick={() => upsertCorrespondence({ ...item, responseStatus:'Responded' })} className="rounded-xl bg-white/10 px-3 py-2 text-xs">Mark replied</button>
-                    <button onClick={() => upsertCorrespondence({ ...item, responseStatus:'Closed' })} className="rounded-xl bg-white/10 px-3 py-2 text-xs">Mark closed</button>
-                    <button onClick={() => addLegalTask({ title:`Follow up: ${item.subject}`, matterType:item.matterType, taskType:'Follow up', status:'Open', relatedCorrespondenceId:item.id, dueDate:item.replyDue || todayKey })} className="rounded-xl bg-accent-500 px-3 py-2 text-xs font-semibold text-navy-950">Create follow-up task</button>
-                  </div>
+            {data.legal.deadlines.map(item => (
+              <div key={item.id} className="rounded-2xl bg-white/5 px-3 py-3">
+                <div className="flex justify-between gap-2">
+                  <div className="font-medium text-sm">{item.title}</div>
+                  <Badge>{item.status}</Badge>
                 </div>
-              </details>
+                <div className="mt-1 text-xs text-slate-400">{item.matterType} · {prettifyDate(item.dueDate)} · {item.priority}</div>
+                {item.notes ? <div className="mt-2 text-xs text-slate-300">{item.notes}</div> : null}
+              </div>
             ))}
           </div>
         </Card>
 
-        <Card title="Contacts / Organisations" right={<button onClick={() => addContact()} className="rounded-xl bg-white/10 px-3 py-1 text-xs">Add Contact</button>}>
+        <Card title="Chronology">
           <div className="space-y-2">
-            {legalContacts.map(c => (
-              <details key={c.id} className="rounded-2xl bg-white/5 p-3">
-                <summary className="cursor-pointer list-none text-sm">{c.name || 'Unnamed contact'} · {c.organisation || '—'}</summary>
-                <div className="mt-2 grid gap-2">
-                  <Input label="Name" value={c.name || ''} onChange={v => upsertContact({ ...c, name:v })} />
-                  <Input label="Organisation" value={c.organisation || ''} onChange={v => upsertContact({ ...c, organisation:v })} />
-                  <Select label="Category" value={c.category || ''} onChange={v => upsertContact({ ...c, category:v })} options={config.legal.contactCategories} />
-                  <Input label="Email" value={c.email || ''} onChange={v => upsertContact({ ...c, email:v })} />
-                  <Input label="Phone" value={c.phone || ''} onChange={v => upsertContact({ ...c, phone:v })} />
-                  <Input label="Linked matters (comma separated)" value={(c.matterTypes || []).join(', ')} onChange={v => upsertContact({ ...c, matterTypes:v.split(',').map(x=>x.trim()).filter(Boolean) })} />
-                  <TextArea label="Notes" value={c.notes || ''} onChange={v => upsertContact({ ...c, notes:v })} rows={2} />
-                  <button onClick={() => setData(prev => ({ ...prev, legal:{ ...prev.legal, contacts:(prev.legal.contacts || []).filter(x => x.id !== c.id) } }))} className="rounded-xl bg-red-500/10 px-3 py-2 text-xs text-red-300">Delete</button>
-                </div>
-              </details>
+            {data.legal.chronology.map(item => (
+              <div key={item.id} className="rounded-2xl bg-white/5 px-3 py-3">
+                <div className="font-medium text-sm">{item.event}</div>
+                <div className="mt-1 text-xs text-slate-400">{prettifyDate(item.date)} · {item.matterType} · {item.source}</div>
+                {item.notes ? <div className="mt-2 text-xs text-slate-300">{item.notes}</div> : null}
+              </div>
             ))}
-            {legalContacts.length===0 && <div className="text-sm text-slate-500">No contacts yet.</div>}
           </div>
         </Card>
 
-        <Card title="Matter Cockpit">
-          <div className="space-y-3">
-            {(activeMatter ? [activeMatter] : config.legal.matterTypes.slice(0,4)).map(mt => {
-              const actions = openLegalTasks.filter(t => t.matterType === mt).slice(0,3);
-              const nextDate = hardDates.find(d => d.matterType === mt);
-              const replies = awaitingReplies.filter(r => r.matterType === mt).slice(0,2);
-              return (
-                <div key={mt} className="rounded-2xl bg-white/5 p-3 text-xs">
-                  <div className="font-semibold text-slate-200">{mt}</div>
-                  <div className="text-slate-400 mt-1">Next 3 actions: {actions.map(a => a.title).join(' · ') || 'none'}</div>
-                  <div className="text-slate-400">Next hard date: {nextDate ? `${nextDate.title} (${prettifyDate(nextDate.dueDate)})` : 'none'}</div>
-                  <div className="text-slate-400">Awaiting replies: {replies.map(r => r.subject).join(' · ') || 'none'}</div>
-                  <div className="text-slate-400">Evidence gaps: {missingExhibits.filter(e => e.matterType === mt || !e.matterType).length}</div>
+        <Card title="Exhibits">
+          <div className="space-y-2">
+            {data.legal.exhibits.map(item => (
+              <div key={item.id} className="rounded-2xl bg-white/5 px-3 py-3">
+                <div className="flex justify-between gap-2">
+                  <div className="font-medium text-sm">{item.code} · {item.description}</div>
+                  <Badge>{item.status}</Badge>
                 </div>
-              );
-            })}
+                <div className="mt-1 text-xs text-slate-400">{item.category} · {prettifyDate(item.documentDate)} · {item.filename}</div>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        <Card title="Correspondence">
+          <div className="space-y-2">
+            {data.legal.correspondence.map(item => (
+              <div key={item.id} className="rounded-2xl bg-white/5 px-3 py-3">
+                <div className="font-medium text-sm">{item.subject}</div>
+                <div className="mt-1 text-xs text-slate-400">{item.who} · {item.matterType} · sent {prettifyDate(item.dateSent)} · due {prettifyDate(item.replyDue)}</div>
+                <div className="mt-1">
+                  <Badge tone={['No reply', 'Waiting'].includes(item.responseStatus) ? 'warn' : 'good'}>{item.responseStatus}</Badge>
+                </div>
+              </div>
+            ))}
           </div>
         </Card>
       </div>
@@ -3515,46 +1587,10 @@ ${appSummary}` }] }) });
         {builderSection === 'workflow' && (
           <>
             <ArrayManager title="Legal matter types" items={config.legal.matterTypes} onChange={v => setConfig(prev => ({ ...prev, legal:{ ...prev.legal, matterTypes:v } }))} />
-            <ArrayManager title="Legal task types" items={config.legal.taskTypes || []} onChange={v => setConfig(prev => ({ ...prev, legal:{ ...prev.legal, taskTypes:v } }))} />
-            <ArrayManager title="Legal task statuses" items={config.legal.taskStatuses || []} onChange={v => setConfig(prev => ({ ...prev, legal:{ ...prev.legal, taskStatuses:v } }))} />
-            <ArrayManager title="Legal deadline types" items={config.legal.deadlineTypes || []} onChange={v => setConfig(prev => ({ ...prev, legal:{ ...prev.legal, deadlineTypes:v } }))} />
-            <ArrayManager title="Correspondence statuses" items={config.legal.correspondenceStatuses || []} onChange={v => setConfig(prev => ({ ...prev, legal:{ ...prev.legal, correspondenceStatuses:v } }))} />
-            <ArrayManager title="Contact categories" items={config.legal.contactCategories || []} onChange={v => setConfig(prev => ({ ...prev, legal:{ ...prev.legal, contactCategories:v } }))} />
             <ArrayManager title="Business stages" items={config.business.stages} onChange={v => setConfig(prev => ({ ...prev, business:{ ...prev.business, stages:v } }))} />
             <ArrayManager title="Money categories" items={config.money.categories} onChange={v => setConfig(prev => ({ ...prev, money:{ ...prev.money, categories:v } }))} />
             <ArrayManager title="Morning questions" items={config.today.morningQuestions} onChange={v => setConfig(prev => ({ ...prev, today:{ ...prev.today, morningQuestions:v } }))} />
             <ArrayManager title="Evening questions" items={config.today.eveningQuestions} onChange={v => setConfig(prev => ({ ...prev, today:{ ...prev.today, eveningQuestions:v } }))} />
-            <ArrayManager title="Kernel modes" items={config.kernel?.modes || []} onChange={v => setConfig(prev => ({ ...prev, kernel:{ ...prev.kernel, modes:v } }))} />
-            <ArrayManager title="Kernel states" items={config.kernel?.states || []} onChange={v => setConfig(prev => ({ ...prev, kernel:{ ...prev.kernel, states:v } }))} />
-            <ArrayManager title="Inbox tags" items={config.kernel?.inboxTags || []} onChange={v => setConfig(prev => ({ ...prev, kernel:{ ...prev.kernel, inboxTags:v } }))} />
-            <ArrayManager title="Command chips" items={config.kernel?.commandChips || []} onChange={v => setConfig(prev => ({ ...prev, kernel:{ ...prev.kernel, commandChips:v } }))} />
-            <ArrayManager title="Proof categories" items={config.kernel?.proofCategories || []} onChange={v => setConfig(prev => ({ ...prev, kernel:{ ...prev.kernel, proofCategories:v } }))} />
-            <ArrayManager title="Blocker types" items={config.kernel?.blockerTypes || []} onChange={v => setConfig(prev => ({ ...prev, kernel:{ ...prev.kernel, blockerTypes:v } }))} />
-            <ArrayManager title="Body action types" items={config.kernel?.bodyActionTypes || []} onChange={v => setConfig(prev => ({ ...prev, kernel:{ ...prev.kernel, bodyActionTypes:v } }))} />
-            <ArrayManager title="Leak types" items={config.kernel?.leakTypes || []} onChange={v => setConfig(prev => ({ ...prev, kernel:{ ...prev.kernel, leakTypes:v } }))} />
-            <ArrayManager title="Learning statuses" items={config.kernel?.learningStatuses || []} onChange={v => setConfig(prev => ({ ...prev, kernel:{ ...prev.kernel, learningStatuses:v } }))} />
-            <ArrayManager title="Job hunt stages" items={config.kernel?.jobStages || []} onChange={v => setConfig(prev => ({ ...prev, kernel:{ ...prev.kernel, jobStages:v } }))} />
-            <Card title="Kernel thresholds / ranking">
-              <div className="grid gap-3">
-                <Input label="Parser high confidence" type="number" step="0.01" value={config.kernel?.confidenceThresholds?.high ?? 0.85} onChange={v => setConfig(prev => ({ ...prev, kernel:{ ...prev.kernel, confidenceThresholds:{ ...(prev.kernel?.confidenceThresholds || {}), high:Number(v) } } }))} />
-                <Input label="Parser medium confidence" type="number" step="0.01" value={config.kernel?.confidenceThresholds?.medium ?? 0.6} onChange={v => setConfig(prev => ({ ...prev, kernel:{ ...prev.kernel, confidenceThresholds:{ ...(prev.kernel?.confidenceThresholds || {}), medium:Number(v) } } }))} />
-                <Input label="Drift threshold: open loops" type="number" value={config.kernel?.driftThresholds?.openLoops ?? 6} onChange={v => setConfig(prev => ({ ...prev, kernel:{ ...prev.kernel, driftThresholds:{ ...(prev.kernel?.driftThresholds || {}), openLoops:Number(v) } } }))} />
-                <Input label="Nap preset list (comma)" value={(config.kernel?.napPresets || []).join(', ')} onChange={v => setConfig(prev => ({ ...prev, kernel:{ ...prev.kernel, napPresets:v.split(',').map(x=>Number(x.trim())).filter(Boolean) } }))} />
-              </div>
-            </Card>
-            <Card title="Scene Engine Settings">
-              <div className="grid gap-3">
-                <Toggle label="Scenic backgrounds enabled" checked={!!config.kernel?.scene?.enabled} onChange={() => setConfig(prev => ({ ...prev, kernel:{ ...prev.kernel, scene:{ ...(prev.kernel?.scene || {}), enabled: !prev.kernel?.scene?.enabled } } }))} />
-                <Toggle label="Quote overlay enabled" checked={!!config.kernel?.scene?.quoteOverlay} onChange={() => setConfig(prev => ({ ...prev, kernel:{ ...prev.kernel, scene:{ ...(prev.kernel?.scene || {}), quoteOverlay: !prev.kernel?.scene?.quoteOverlay } } }))} />
-                <Select label="Motion intensity" value={config.kernel?.scene?.motionIntensity || 'subtle'} onChange={v => setConfig(prev => ({ ...prev, kernel:{ ...prev.kernel, scene:{ ...(prev.kernel?.scene || {}), motionIntensity:v } } }))} options={['off','subtle','dynamic']} />
-                <Select label="Background intensity" value={config.kernel?.scene?.backgroundIntensity || 'medium'} onChange={v => setConfig(prev => ({ ...prev, kernel:{ ...prev.kernel, scene:{ ...(prev.kernel?.scene || {}), backgroundIntensity:v } } }))} options={['low','medium','high']} />
-                <Select label="Quote source" value={config.kernel?.scene?.quoteSource || 'local'} onChange={v => setConfig(prev => ({ ...prev, kernel:{ ...prev.kernel, scene:{ ...(prev.kernel?.scene || {}), quoteSource:v } } }))} options={['local','ai','hybrid']} />
-                <Select label="Scene mode" value={config.kernel?.scene?.sceneMode || 'auto'} onChange={v => setConfig(prev => ({ ...prev, kernel:{ ...prev.kernel, scene:{ ...(prev.kernel?.scene || {}), sceneMode:v } } }))} options={['auto','manual','by mode','by time']} />
-                <Select label="Manual scene" value={config.kernel?.scene?.manualScene || 'desk_focus'} onChange={v => setConfig(prev => ({ ...prev, kernel:{ ...prev.kernel, scene:{ ...(prev.kernel?.scene || {}), manualScene:v } } }))} options={Object.keys(scenePacks)} />
-                <Toggle label="Reduced motion fallback" checked={!!config.kernel?.scene?.reducedMotionFallback} onChange={() => setConfig(prev => ({ ...prev, kernel:{ ...prev.kernel, scene:{ ...(prev.kernel?.scene || {}), reducedMotionFallback: !prev.kernel?.scene?.reducedMotionFallback } } }))} />
-                <Toggle label="Low data mode" checked={!!config.kernel?.scene?.lowDataMode} onChange={() => setConfig(prev => ({ ...prev, kernel:{ ...prev.kernel, scene:{ ...(prev.kernel?.scene || {}), lowDataMode: !prev.kernel?.scene?.lowDataMode } } }))} />
-              </div>
-            </Card>
           </>
         )}
 
@@ -3568,17 +1604,15 @@ ${appSummary}` }] }) });
               </div>
             </Card>
 
-            <Card title="MIT labels, hard gates, and task planning">
+            <Card title="MIT labels + score weights">
               <div className="grid gap-3">
                 <Input label="Primary MIT label" value={config.today.mitLabels.primary} onChange={v => setConfig(prev => ({ ...prev, today:{ ...prev.today, mitLabels:{ ...prev.today.mitLabels, primary:v } } }))} />
                 <Input label="Secondary MIT label" value={config.today.mitLabels.secondary} onChange={v => setConfig(prev => ({ ...prev, today:{ ...prev.today, mitLabels:{ ...prev.today.mitLabels, secondary:v } } }))} />
                 <Input label="Deep label" value={config.today.mitLabels.deep} onChange={v => setConfig(prev => ({ ...prev, today:{ ...prev.today, mitLabels:{ ...prev.today.mitLabels, deep:v } } }))} />
                 <Input label="Admin label" value={config.today.mitLabels.admin} onChange={v => setConfig(prev => ({ ...prev, today:{ ...prev.today, mitLabels:{ ...prev.today.mitLabels, admin:v } } }))} />
-                <Input label="Hard gate cap: missing Primary MIT rule" type="number" value={config.today.hardGates.primaryMitRuleCap} onChange={val => setConfig(prev => ({ ...prev, today:{ ...prev.today, hardGates:{ ...prev.today.hardGates, primaryMitRuleCap:Number(val) } } }))} />
-                <Input label="Hard gate cap: missing 90-minute MIT block rule" type="number" value={config.today.hardGates.deepBlockRuleCap} onChange={val => setConfig(prev => ({ ...prev, today:{ ...prev.today, hardGates:{ ...prev.today.hardGates, deepBlockRuleCap:Number(val) } } }))} />
-                <Input label="Task types (comma separated)" value={(config.today.taskTypes || []).join(', ')} onChange={val => setConfig(prev => ({ ...prev, today:{ ...prev.today, taskTypes: val.split(',').map(x => x.trim()).filter(Boolean) } }))} />
-                <Input label="Task priorities (comma separated)" value={(config.today.taskPriorities || []).join(', ')} onChange={val => setConfig(prev => ({ ...prev, today:{ ...prev.today, taskPriorities: val.split(',').map(x => x.trim()).filter(Boolean) } }))} />
-                <Select label="Default task priority" value={config.today.defaultTaskPriority} onChange={val => setConfig(prev => ({ ...prev, today:{ ...prev.today, defaultTaskPriority:val } }))} options={config.today.taskPriorities || []} />
+                {Object.entries(config.today.scoreWeights).map(([k, v]) => (
+                  <Input key={k} label={`Weight: ${k}`} type="number" value={v} onChange={val => setConfig(prev => ({ ...prev, today:{ ...prev.today, scoreWeights:{ ...prev.today.scoreWeights, [k]: Number(val) } } }))} />
+                ))}
               </div>
             </Card>
 
@@ -3658,19 +1692,8 @@ ${appSummary}` }] }) });
   const onboardingNeeded = !config.userSettings.setupComplete;
 
   return (
-    <div className="mx-auto relative flex h-full max-w-md flex-col">
-      {shouldShowScene && (
-        <div className="scene-shell" aria-hidden="true">
-          <div className="scene-image" style={{ backgroundImage:`url('${selectedScene.src}')`, opacity: sceneConfig.backgroundIntensity === 'high' ? .88 : sceneConfig.backgroundIntensity === 'low' ? .52 : .72, animationDuration: sceneConfig.motionIntensity === 'dynamic' ? '24s' : '36s', animationPlayState: sceneConfig.motionIntensity === 'off' || sceneConfig.lowDataMode ? 'paused' : 'running' }}></div>
-          <div className="scene-overlay"></div>
-          {sceneConfig.quoteOverlay && (
-            <div className="scene-quote">
-              <div>{sceneQuote}</div>
-            </div>
-          )}
-        </div>
-      )}
-      <div className="relative z-10 top-safe px-4 pb-3">
+    <div className="mx-auto flex h-full max-w-md flex-col">
+      <div className="top-safe px-4 pb-3">
         <div className="flex items-center justify-between">
           <div>
             <div className="text-xs uppercase tracking-[0.2em] text-slate-500">War-Room OS</div>
@@ -3683,39 +1706,32 @@ ${appSummary}` }] }) });
         </div>
       </div>
 
-      {!installNoteDismissed && !isStandalone && (
-        <div className="relative z-10 mx-4 mb-3 rounded-2xl border border-white/10 bg-white/5 p-3 text-xs text-slate-300">
-          <div className="font-semibold text-slate-200 mb-1">Install Stability OS</div>
-          {installPromptEvent ? 'Install for app-like offline access and faster launch.' : 'Use browser menu → Add to Home screen if no direct install prompt appears.'}
-          <div className="mt-2 flex gap-2">
-            {installPromptEvent && <button onClick={async () => { try { await installPromptEvent.prompt(); } catch {} setInstallPromptEvent(null); }} className="rounded-xl bg-accent-500 px-3 py-2 text-xs font-semibold text-navy-950 tap">Install App</button>}
-            <button onClick={() => setInstallNoteDismissed(true)} className="rounded-xl bg-white/10 px-3 py-2 text-xs tap">Dismiss</button>
-          </div>
+      {!installNoteDismissed && (
+        <div className="mx-4 mb-3 rounded-2xl border border-white/10 bg-white/5 p-3 text-xs text-slate-300">
+          Host this file on GitHub Pages as <code>index.html</code>. This single-file version is app-like and persistent. For a true install prompt and offline cache, a separate manifest and service worker are normally used.
+          <button onClick={() => setInstallNoteDismissed(true)} className="ml-2 text-accent-400 tap">Hide</button>
         </div>
       )}
 
-      <div className="relative z-10 flex-1 overflow-y-auto hide-scroll px-4 content-pad">
+      <div className="flex-1 overflow-y-auto hide-scroll px-4 content-pad">
         {activeTab === 'today' && renderToday()}
-        {activeTab === 'inbox' && renderInbox()}
-        {activeTab === 'command' && renderCommand()}
         {activeTab === 'legal' && renderLegal()}
         {activeTab === 'money' && renderMoney()}
         {activeTab === 'business' && renderBusiness()}
-        {activeTab === 'history' && renderHistoryBoard()}
         {activeTab === 'builder' && renderBuilder()}
-        {!['today','inbox','command','legal','money','business','history','builder'].includes(activeTab) && (
+        {!['today','legal','money','business','builder'].includes(activeTab) && (
           <Card title="Custom Tab">
             <div className="text-sm text-slate-400">This custom tab exists in navigation. Add modules via Builder or repurpose it later.</div>
           </Card>
         )}
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 z-40 pointer-events-none">
-        <div className="mx-auto max-w-md px-3 pb-[calc(10px+var(--safe-bottom))] pointer-events-auto">
+      <div className="fixed bottom-0 left-0 right-0 z-40">
+        <div className="mx-auto max-w-md px-3 pb-[calc(10px+var(--safe-bottom))]">
           <div className="glass rounded-t-3xl rounded-b-none px-2 py-2 shadow-card">
-            <div className="flex gap-1 overflow-x-auto hide-scroll">
-              {visibleTabs.map(tab => (
-                <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`min-w-[74px] rounded-2xl px-2 py-3 text-xs font-medium tap ${activeTab === tab.id ? 'bg-accent-500 text-navy-950' : 'text-slate-400'}`}>
+            <div className="grid grid-cols-5 gap-1">
+              {visibleTabs.slice(0,5).map(tab => (
+                <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`rounded-2xl px-2 py-3 text-xs font-medium tap ${activeTab === tab.id ? 'bg-accent-500 text-navy-950' : 'text-slate-400'}`}>
                   {tab.name}
                 </button>
               ))}
@@ -3767,84 +1783,6 @@ ${appSummary}` }] }) });
                 </button>
               ))}
               {!results.length && searchQuery && <div className="text-sm text-slate-500">No results.</div>}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {selectedHistoryItem && (
-        <div className="fixed inset-0 z-[72] flex items-end justify-center bg-black/70 p-3">
-          <div className="glass max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl p-4">
-            <div className="flex items-center justify-between">
-              <div className="text-lg font-semibold">Day {selectedHistoryItem.challengeDay} Detail</div>
-              <button onClick={() => setSelectedHistoryItem(null)} className="rounded-full bg-white/10 px-3 py-2">×</button>
-            </div>
-            <div className="mt-3 space-y-3 text-sm">
-              <div className="rounded-2xl bg-white/5 p-3">
-                <div className="flex justify-between"><span>Score summary</span><Badge tone={selectedHistoryItem.score >= 70 ? 'good' : selectedHistoryItem.score >= 50 ? 'warn' : 'bad'}>{selectedHistoryItem.score || 0}%</Badge></div>
-                <div className="mt-1 text-xs text-slate-400">{selectedHistoryItem.imported ? 'Imported historical reconstruction' : 'Captured day snapshot'} · {prettifyDate(selectedHistoryItem.date)}</div>
-                <div className="mt-1 text-xs text-slate-400">Data source: {selectedHistoryItem.parseSourceType || (selectedHistoryItem.imported ? 'imported_reconstruction' : 'manual_entry')}</div>
-                {selectedHistoryItem.legacyStrictScore ? <div className="mt-1 text-xs text-slate-400">Legacy strict: {selectedHistoryItem.legacyStrictScore.value}/{selectedHistoryItem.legacyStrictScore.outOf}</div> : null}
-                {typeof selectedHistoryItem.mandatoryEarned !== 'undefined' && <div className="mt-1 text-xs text-slate-400">Mandatory {selectedHistoryItem.mandatoryEarned || 0}/100 · Penalty {selectedHistoryItem.penaltyLost || 0}</div>}
-              </div>
-
-              <div className="rounded-2xl bg-white/5 p-3">
-                <div className="font-semibold text-slate-200">Execution summary</div>
-                <div className="mt-1 text-xs text-slate-300">Primary MIT: {selectedHistoryItem.primaryMit || '—'}</div>
-                <div className="text-xs text-slate-300">Secondary MIT: {selectedHistoryItem.secondaryMit || '—'}</div>
-                <div className="text-xs text-slate-300">Study minutes: {selectedHistoryItem.studyMinutes || selectedHistoryItem.learningMinutesTotal || '—'}</div>
-                <div className="text-xs text-slate-300">Checklist snapshot: {(selectedHistoryItem.tomorrowChecklist || []).map(t => t.title).join('; ') || '—'}</div>
-                <div className="text-xs text-slate-300">Next-day plan summary: {selectedHistoryItem.nextDayPlan || '—'}</div>
-                <div className="text-xs text-slate-300">Proof created: {selectedHistoryItem.proofCreated || '—'}</div>
-              </div>
-
-              <div className="rounded-2xl bg-white/5 p-3">
-                <div className="font-semibold text-slate-200">Wins</div>
-                <div className="mt-1 text-xs text-slate-300 whitespace-pre-wrap">{Array.isArray(selectedHistoryItem.wins) ? selectedHistoryItem.wins.join('\n• ').replace(/^/,'• ') : (selectedHistoryItem.summary || '—')}</div>
-              </div>
-              <div className="rounded-2xl bg-white/5 p-3">
-                <div className="font-semibold text-slate-200">Weaknesses / Leakage</div>
-                <div className="mt-1 text-xs text-slate-300 whitespace-pre-wrap">{Array.isArray(selectedHistoryItem.weaknesses) ? selectedHistoryItem.weaknesses.join('\n• ').replace(/^/,'• ') : '—'}</div>
-              </div>
-              <div className="rounded-2xl bg-white/5 p-3">
-                <div className="font-semibold text-slate-200">Review / Lesson</div>
-                <div className="mt-1 text-xs text-slate-300 whitespace-pre-wrap">{selectedHistoryItem.review || selectedHistoryItem.summary || '—'}</div>
-                {selectedHistoryItem.tags?.length ? <div className="mt-2 text-xs text-slate-400">Tags: {selectedHistoryItem.tags.join(', ')}</div> : null}
-                {selectedHistoryItem.notes ? <div className="mt-1 text-xs text-slate-400">Notes: {selectedHistoryItem.notes}</div> : null}
-                {selectedHistoryItem.imported ? <div className="mt-1 text-xs text-amber-300">Key lesson: {selectedHistoryItem.legacyStrictScore?.interpretation || selectedHistoryItem.review || 'Imported reconstruction insight.'}</div> : null}
-              </div>
-              <div className="rounded-2xl bg-white/5 p-3">
-                <div className="font-semibold text-slate-200">Tasks / Work Blocks Snapshot</div>
-                <div className="mt-2 space-y-2">
-                  {(selectedHistoryItem.detectedWorkBlocks || []).map((b, idx) => (
-                    <div key={b.id || idx} className="rounded-xl bg-white/5 px-2 py-2 text-xs">
-                      <div>{b.time || 'time?'} · {b.durationMin || 0}m · {b.topic || b.activityType || 'Work block'}</div>
-                      {b.notes ? <div className="text-slate-400">{b.notes}</div> : null}
-                    </div>
-                  ))}
-                  {!(selectedHistoryItem.detectedWorkBlocks || []).length && <div className="text-xs text-slate-500">No detected blocks saved.</div>}
-                </div>
-              </div>
-              <div className="rounded-2xl bg-white/5 p-3">
-                <div className="mb-2 font-semibold text-slate-200">AI Summary</div>
-                <div className="text-xs text-slate-300 whitespace-pre-wrap">{selectedHistoryItem.aiSummary || selectedHistoryItem.summary || selectedHistoryItem.review || 'No summary yet.'}</div>
-                <button onClick={() => generateHistoryDaySummary(selectedHistoryItem)} className="mt-2 rounded-xl bg-accent-500 px-3 py-2 text-xs font-semibold text-navy-950">{daySummaryBusyId === selectedHistoryItem.id ? 'Generating…' : 'Generate Day Summary'}</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showSplash && sceneConfig.screens?.splash && (
-        <div className="fixed inset-0 z-[95] flex items-center justify-center bg-black/65 p-6">
-          <div className="w-full max-w-sm rounded-3xl border border-white/15 bg-navy-900/85 p-5 text-center">
-            <img src="./icons/icon-192.svg" alt="Stability OS icon" className="mx-auto h-16 w-16" />
-            <div className="mt-3 text-lg font-semibold">Stability OS</div>
-            <div className="mt-2 text-xs text-slate-300">{sceneQuote || 'Lock in. Operate with clarity.'}</div>
-            <div className="mt-3 flex items-center justify-center gap-1 text-accent-400">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-accent-400"></span>
-              <span className="h-2 w-2 animate-pulse rounded-full bg-accent-400 [animation-delay:180ms]"></span>
-              <span className="h-2 w-2 animate-pulse rounded-full bg-accent-400 [animation-delay:360ms]"></span>
             </div>
           </div>
         </div>
