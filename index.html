@@ -189,17 +189,32 @@ const defaultConfig = {
     },
     ruleSets: [{
       id:'default',
-      name:'Default Rule Set',
+      name:'San Core Operating Rules',
       doRules: [
-        { id:uid(), text:'Drink 3L water', weight:1 },
-        { id:uid(), text:'Complete one deep work block', weight:2 },
-        { id:uid(), text:'Finish day review + tomorrow plan', weight:2 },
-        { id:uid(), text:'Protect legal/admin slot', weight:1 }
+        { id:uid(), text:'Wake up at 5:30am', weight:8 },
+        { id:uid(), text:'Water first 400ml', weight:4 },
+        { id:uid(), text:'Meditation 20 min', weight:8 },
+        { id:uid(), text:'Visualisation 5 min', weight:4 },
+        { id:uid(), text:'Write Primary MIT before anything else', weight:12 },
+        { id:uid(), text:'Complete one 90-minute MIT block', weight:18 },
+        { id:uid(), text:'Complete one secondary work block', weight:10 },
+        { id:uid(), text:'Protect admin / evidence window', weight:10 },
+        { id:uid(), text:'Produce one proof of progress', weight:8 },
+        { id:uid(), text:'Update the system: binder / chronology / tracker / CRM / task board', weight:8 },
+        { id:uid(), text:'Do one body action: walk, stretch, workout, or breathwork', weight:5 },
+        { id:uid(), text:'Complete day-end review with next-day plan', weight:5 }
       ],
       dontRules: [
-        { id:uid(), text:'No random scrolling', weight:2 },
-        { id:uid(), text:'No alcohol', weight:2 },
-        { id:uid(), text:'No busywork before MIT', weight:2 }
+        { id:uid(), text:'Phone before Primary MIT', weight:-10 },
+        { id:uid(), text:'Social media / reels / shorts', weight:-10 },
+        { id:uid(), text:'Sugars', weight:-5 },
+        { id:uid(), text:'AI chatting without a defined output', weight:-5 },
+        { id:uid(), text:'Legal avoidance on a legal day', weight:-15 },
+        { id:uid(), text:'New side project / fresh idea build during execution blocks', weight:-10 },
+        { id:uid(), text:'Researching non-essential things off the main track', weight:-8 },
+        { id:uid(), text:'Unplanned nap', weight:-7 },
+        { id:uid(), text:'WIP above 3', weight:-10 },
+        { id:uid(), text:'Low-value admin before the hard task', weight:-10 }
       ]
     }],
     activeRuleSetId: 'default',
@@ -358,6 +373,9 @@ const defaultConfig = {
 
 const defaultData = {
   legal: {
+    tasks: [
+      { id:uid(), title:'Prepare ET bundle index', matterType:'ET', subMatter:'Bundle', taskType:'Evidence', priority:'High', status:'Open', dueDate:isoToday(), followUpDate:'', linkedContactId:'', notes:'', createdAt:new Date().toISOString(), updatedAt:new Date().toISOString(), completed:false, archived:false }
+    ],
     deadlines: [
       { id:uid(), title:'Review upcoming filing bundle', matterType:'ET', dueDate:isoToday(), priority:'High', status:'Open', notes:'Tighten chronology and missing exhibits.' }
     ],
@@ -411,6 +429,7 @@ const defaultData = {
       { id:uid(), name:'Bad Sleep Day', checklist:['Switch to MIT-only', 'Protect sleep window', 'Delay low-value decisions'] },
       { id:uid(), name:'Legal Deadline in 72 Hours', checklist:['List missing artifacts', 'Send chase reminders', 'Create proof snapshot'] }
     ],
+    migrations: { day6Day7Imported:false },
     templateLocker: [
       { id:uid(), category:'legal', title:'Follow-up request', body:'Dear [Name], this is a follow-up regarding [matter] sent on [date]. Please confirm by [due].' }
     ]
@@ -434,6 +453,7 @@ const defaultData = {
         tomorrowDump:'',
         tomorrowDumpParsed:null,
         parseApplySessionId:'',
+        appliedFingerprints:{ todayDump:[], tomorrowDump:[] },
         journalMorning:{},
         journalEvening:{},
         review:'',
@@ -491,6 +511,11 @@ function normalizeText(t='') {
 function eventFingerprint({ rawText='', selectedTags=[], dayKey='', parserVersion='v1', actionType='' }) {
   return [normalizeText(rawText), normalizeList(selectedTags).join(','), dayKey, parserVersion, actionType].join('|');
 }
+function stableHash(str='') {
+  let h = 5381;
+  for (let i = 0; i < str.length; i++) h = ((h << 5) + h) + str.charCodeAt(i);
+  return (h >>> 0).toString(16);
+}
 
 function migrateState(configRaw, dataRaw) {
   const config = { ...deepClone(defaultConfig), ...(configRaw || {}) };
@@ -511,6 +536,8 @@ function migrateState(configRaw, dataRaw) {
   if (!Array.isArray(data.kernel.resume)) data.kernel.resume = [];
   if (!Array.isArray(data.kernel.runbooks)) data.kernel.runbooks = deepClone(defaultData.kernel.runbooks);
   if (!Array.isArray(data.kernel.templateLocker)) data.kernel.templateLocker = deepClone(defaultData.kernel.templateLocker);
+  if (!data.kernel.migrations) data.kernel.migrations = deepClone(defaultData.kernel.migrations);
+  if (!data.legal.tasks) data.legal.tasks = deepClone(defaultData.legal.tasks);
   if (!data.legal.waiting) data.legal.waiting = deepClone(defaultData.legal.waiting);
   if (!data.legal.promises) data.legal.promises = deepClone(defaultData.legal.promises);
   if (!data.legal.blockers) data.legal.blockers = deepClone(defaultData.legal.blockers);
@@ -634,6 +661,30 @@ class TabErrorBoundary extends React.Component {
           <div className="text-sm font-semibold text-red-300">Recovered tab crash: {this.props.tabId}</div>
           <div className="mt-1 text-xs text-slate-400">{this.state.message}</div>
           <button onClick={this.reset} className="mt-3 rounded-2xl bg-accent-500 px-4 py-2 text-xs font-semibold text-navy-950 tap">Reset this tab state</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+class AppErrorBoundary extends React.Component {
+  constructor(props){ super(props); this.state = { hasError:false, message:'' }; }
+  static getDerivedStateFromError(error){ return { hasError:true, message:error?.message || 'Unknown app crash' }; }
+  componentDidCatch(error){ console.error('App crash', error); }
+  render(){
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen p-4 text-white">
+          <div className="glass mx-auto mt-10 max-w-md rounded-3xl p-4">
+            <div className="text-base font-semibold text-red-300">App recovered from a screen crash</div>
+            <div className="mt-2 text-xs text-slate-400">{this.state.message}</div>
+            <div className="mt-1 text-xs text-slate-500">Last action: {window.__stabilityLastAction || 'unknown'}</div>
+            <div className="mt-3 flex gap-2">
+              <button onClick={() => window.location.reload()} className="rounded-2xl bg-accent-500 px-4 py-2 text-xs font-semibold text-navy-950 tap">Reload app</button>
+              <button onClick={() => { try { localStorage.removeItem('stability_os_data_v5'); } catch {} window.location.reload(); }} className="rounded-2xl bg-white/10 px-4 py-2 text-xs tap">Reset only Today tab state</button>
+            </div>
+          </div>
         </div>
       );
     }
@@ -802,6 +853,9 @@ function App() {
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showQuick, setShowQuick] = useState(false);
+  const [selectedHistory, setSelectedHistory] = useState(null);
+  const [showLegalTaskModal, setShowLegalTaskModal] = useState(false);
+  const [legalTaskFilter, setLegalTaskFilter] = useState('all');
   const [quickType, setQuickType] = useState('deadline');
   const [quickValue, setQuickValue] = useState({ date: isoToday() });
   const [builderSection, setBuilderSection] = useState('app');
@@ -840,6 +894,17 @@ function App() {
   useEffect(() => {
     const hashTab = (window.location.hash || '').replace('#','').trim();
     if (hashTab && visibleTabs.some(t => t.id === hashTab)) setActiveTab(hashTab);
+  }, []);
+
+  useEffect(() => {
+    const onError = (e) => showToast('error', `Runtime error: ${(e?.message || 'unknown').slice(0, 80)}`);
+    const onRejection = (e) => showToast('error', `Promise error: ${(e?.reason?.message || e?.reason || 'unknown').toString().slice(0, 80)}`);
+    window.addEventListener('error', onError);
+    window.addEventListener('unhandledrejection', onRejection);
+    return () => {
+      window.removeEventListener('error', onError);
+      window.removeEventListener('unhandledrejection', onRejection);
+    };
   }, []);
   useEffect(() => {
     if (activeTab) window.history.replaceState(null, '', `#${activeTab}`);
@@ -917,6 +982,7 @@ function App() {
   };
   const runSafeAction = async (key, fn, opts={}) => {
     if (actionLockRef.current[key]) return;
+    window.__stabilityLastAction = key;
     actionLockRef.current[key] = true;
     setActionStates(prev => ({ ...prev, [key]:'working' }));
     const start = Date.now();
@@ -983,17 +1049,24 @@ function App() {
   const setHealthField = (name, value) => updateToday({ health: { ...todaysLog.health, [name]: value } });
 
   const ruleState = todaysLog.rulesState || {};
-  const driverPointsRaw = ruleSet.doRules.reduce((acc, r) => acc + (ruleState[r.id] ? Number(r.weight || 0) : 0), 0);
-  const penaltyRaw = ruleSet.dontRules.reduce((acc, r) => acc + (ruleState[r.id] ? Number(r.weight || 0) : 0), 0);
-  const driverPoints = Math.min(20, Math.max(0, driverPointsRaw));
-  const penaltyPoints = Math.min(35, Math.max(0, penaltyRaw * 5));
-  const coreExecPoints =
-    (todaysLog.coreCompleted?.primary ? 18 : 0) +
-    (todaysLog.coreCompleted?.secondary ? 8 : 0) +
-    (todaysLog.coreCompleted?.deep ? 12 : 0) +
-    (todaysLog.coreCompleted?.admin ? 8 : 0) +
-    (todaysLog.coreCompleted?.review ? 7 : 0) +
-    (todaysLog.coreCompleted?.tomorrow ? 7 : 0);
+  const driverChecksDerived = useMemo(() => {
+    const checks = {};
+    ruleSet.doRules.forEach(r => {
+      const t = r.text.toLowerCase();
+      if (t.includes('write primary mit')) checks[r.id] = !!todaysLog.primaryMit?.trim();
+      if (t.includes('90-minute mit')) checks[r.id] = !!todaysLog.coreCompleted?.primary || (todaysLog.workBlocks || []).some(b => Number(b.durationMin || 0) >= 90);
+      if (t.includes('secondary work block')) checks[r.id] = !!todaysLog.coreCompleted?.secondary || (todaysLog.workBlocks || []).some(b => Number(b.durationMin || 0) >= 45);
+      if (t.includes('admin / evidence')) checks[r.id] = !!todaysLog.coreCompleted?.admin || /admin/.test(todaysLog.adminBlock || '');
+      if (t.includes('day-end review')) checks[r.id] = !!todaysLog.coreCompleted?.review && !!todaysLog.coreCompleted?.tomorrow;
+    });
+    return checks;
+  }, [ruleSet, todaysLog]);
+  const isDriverChecked = (r) => (driverChecksDerived[r.id] ?? ruleState[r.id]) ? true : false;
+  const driverPointsRaw = ruleSet.doRules.reduce((acc, r) => acc + (isDriverChecked(r) ? Number(r.weight || 0) : 0), 0);
+  const penaltyPointsRaw = Math.abs(ruleSet.dontRules.reduce((acc, r) => acc + (ruleState[r.id] ? Number(r.weight || 0) : 0), 0));
+  const driverPoints = clamp(driverPointsRaw, 0, 100);
+  const penaltyPoints = clamp(penaltyPointsRaw, 0, 35);
+  const coreExecPoints = 0;
   const workBlockMeta = useMemo(() => {
     const blocks = normalizeBlocks(todaysLog.workBlocks || []);
     const strongBlocks = blocks.filter(b => Number(b.durationMin || 0) >= 50);
@@ -1017,12 +1090,16 @@ function App() {
   const activeHardGates = [];
 
   const todayScore = useMemo(() => {
-    let score = clamp(coreExecPoints + workBlockMeta.points + driverPoints - penaltyPoints, 0, 100);
+    let score = clamp(driverPoints - penaltyPoints, 0, 100);
     activeHardGates.length = 0;
-    if (!todaysLog.coreCompleted?.primary) { score = Math.min(score, 65); activeHardGates.push('Primary MIT incomplete (cap 65)'); }
-    if (!workBlockMeta.hasMeaningfulBlock) { score = Math.min(score, 60); activeHardGates.push('No meaningful work block (cap 60)'); }
+    const hasPrimaryRule = ruleSet.doRules.find(r => r.text.includes('Write Primary MIT before anything else'));
+    const hasMitRule = ruleSet.doRules.find(r => r.text.includes('Complete one 90-minute MIT block'));
+    const hasCloseRule = ruleSet.doRules.find(r => r.text.includes('Complete day-end review with next-day plan'));
+    if (hasPrimaryRule && !isDriverChecked(hasPrimaryRule)) { score = Math.min(score, 55); activeHardGates.push('Primary MIT rule missing (cap 55)'); }
+    if (hasMitRule && !isDriverChecked(hasMitRule)) { score = Math.min(score, 65); activeHardGates.push('90-min MIT rule missing (cap 65)'); }
+    if (hasCloseRule && !isDriverChecked(hasCloseRule)) activeHardGates.push('Close gate: review + tomorrow plan required');
     return score;
-  }, [coreExecPoints, driverPoints, penaltyPoints, todaysLog.coreCompleted, workBlockMeta]);
+  }, [coreExecPoints, driverPoints, penaltyPoints, todaysLog.coreCompleted, workBlockMeta, ruleSet, driverChecksDerived, ruleState]);
 
   const streak = useMemo(() => {
     const hist = data.today.history || [];
@@ -1172,6 +1249,19 @@ function App() {
     }
   }
 
+  async function summarizeHistoryDay() {
+    if (!selectedHistory) return;
+    const prompt = `Summarize this day in bullets with bottleneck and correction: ${JSON.stringify(selectedHistory)}`;
+    const prevPrompt = aiPrompt;
+    setAiPrompt(prompt);
+    await askAI('custom');
+    setAiPrompt(prevPrompt);
+    setData(prev => ({
+      ...prev,
+      today:{ ...prev.today, history:(prev.today.history || []).map(h => h.id === selectedHistory.id ? { ...h, aiSummary: aiResult || 'AI summary generated.' } : h) }
+    }));
+  }
+
   function parseTodayDump() {
     const raw = todaysLog.todayDump || '';
     const evt = recordEvent({ sourceType:'typed_dump', rawText:raw, selectedTags:['day_progress'], parseStatus:'rules_parsed' });
@@ -1188,6 +1278,11 @@ function App() {
     const p = todaysLog.todayDumpParsed;
     if (!p) return;
     const alreadyApplied = (data.kernel.events || []).find(e => e.eventFingerprint === p.__fingerprint && e.parseStatus === 'applied');
+    const fpToday = stableHash(`${normalizeText(todaysLog.todayDump || '')}|${todayKey}|today_dump`);
+    if ((todaysLog.appliedFingerprints?.todayDump || []).includes(fpToday) && !replace) {
+      alert('Already applied for this exact today dump.');
+      return;
+    }
     if (alreadyApplied && !replace) {
       alert('This exact dump was already applied. Use Replace mode if you explicitly want to reapply.');
       return;
@@ -1216,6 +1311,10 @@ function App() {
       daySummary: safeParsed.summary || todaysLog.daySummary,
       lesson: safeParsed.lesson || todaysLog.lesson,
       learningMinutes: (safeParsed.learningMinutes || 0) || (replace ? 0 : (todaysLog.learningMinutes || 0)),
+      appliedFingerprints:{
+        todayDump: replace ? [fpToday] : normalizeList([...(todaysLog.appliedFingerprints?.todayDump || []), fpToday]),
+        tomorrowDump:[...(todaysLog.appliedFingerprints?.tomorrowDump || [])]
+      },
       parseApplySessionId: uid()
     };
     patch.learningMinutes = normalizeBlocks(patch.workBlocks).reduce((a,b) => a + Number(b.durationMin || 0), 0);
@@ -1241,6 +1340,7 @@ function App() {
       const history = [...(prev.today.history || [])];
       const existing6 = history.filter(h => Number(h.challengeDay) === 6);
       const existing7 = history.filter(h => Number(h.challengeDay) === 7);
+      if (prev.kernel?.migrations?.day6Day7Imported && existing6.length && existing7.length) return prev;
       const alreadyCanonical =
         existing6.length === 1 &&
         existing7.length === 1 &&
@@ -1305,7 +1405,7 @@ function App() {
         .map(h => ({ ...h, wins: normalizeList(h.wins || []), weaknesses: normalizeList(h.weaknesses || []), workBlocks: normalizeBlocks(h.workBlocks || []) }))
         .sort((a,b) => Number(a.challengeDay || 0) - Number(b.challengeDay || 0));
 
-      return { ...prev, today:{ ...prev.today, history:nextHistory } };
+      return { ...prev, today:{ ...prev.today, history:nextHistory }, kernel:{ ...prev.kernel, migrations:{ ...(prev.kernel?.migrations || {}), day6Day7Imported:true } } };
     });
     setConfig(prev => prev.challenge.currentDay === 8 ? prev : ({ ...prev, challenge:{ ...prev.challenge, currentDay:8 } }));
   }, []);
@@ -1362,6 +1462,21 @@ function App() {
     recordEvent({ sourceType:'quick_capture', rawText:JSON.stringify(payload), selectedTags:[quickType], parseStatus:'applied' });
     setQuickValue({ date:todayKey });
     setShowQuick(false);
+  }
+
+  function addLegalTask() {
+    const title = prompt('Legal task title');
+    if (!title) return;
+    const matterType = prompt('Matter type (Visa/ET/County Court/etc)', 'ET') || 'ET';
+    const dueDate = prompt('Due date YYYY-MM-DD', todayKey) || todayKey;
+    setData(prev => ({
+      ...prev,
+      legal:{
+        ...prev.legal,
+        tasks:[{ id:uid(), title, matterType, subMatter:'', taskType:'Task', priority:'High', status:'Open', dueDate, followUpDate:'', linkedContactId:'', notes:'', createdAt:new Date().toISOString(), updatedAt:new Date().toISOString(), completed:false, archived:false }, ...(prev.legal.tasks || [])]
+      }
+    }));
+    setShowLegalTaskModal(false);
   }
 
   async function promptInstall() {
@@ -1654,6 +1769,12 @@ function App() {
               <Input label={config.today.mitLabels.secondary} value={todaysLog.secondaryMit} onChange={v => updateToday({ secondaryMit:v })} placeholder="Useful, but not above the MIT." />
               <Input label={config.today.mitLabels.deep} value={todaysLog.deepBlock} onChange={v => updateToday({ deepBlock:v })} placeholder="Deep work target" />
               <Input label={config.today.mitLabels.admin} value={todaysLog.adminBlock} onChange={v => updateToday({ adminBlock:v })} placeholder="Admin or evidence block" />
+              <div className="grid grid-cols-2 gap-2">
+                <Toggle label="Primary MIT done" checked={!!todaysLog.coreCompleted?.primary} onChange={() => updateToday({ coreCompleted:{ ...todaysLog.coreCompleted, primary:!todaysLog.coreCompleted?.primary } })} />
+                <Toggle label="Secondary done" checked={!!todaysLog.coreCompleted?.secondary} onChange={() => updateToday({ coreCompleted:{ ...todaysLog.coreCompleted, secondary:!todaysLog.coreCompleted?.secondary } })} />
+                <Toggle label="Deep done" checked={!!todaysLog.coreCompleted?.deep} onChange={() => updateToday({ coreCompleted:{ ...todaysLog.coreCompleted, deep:!todaysLog.coreCompleted?.deep } })} />
+                <Toggle label="Admin/Evidence done" checked={!!todaysLog.coreCompleted?.admin} onChange={() => updateToday({ coreCompleted:{ ...todaysLog.coreCompleted, admin:!todaysLog.coreCompleted?.admin } })} />
+              </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <Input label="Sleep hours" type="number" step="0.5" value={todaysLog.sleepHours} onChange={v => updateToday({ sleepHours:Number(v) })} />
@@ -1776,8 +1897,20 @@ function App() {
             <div className="flex flex-wrap gap-2">
               <ActionButton state={actionStates.parseTomorrowDump || 'idle'} onClick={() => runSafeAction('parseTomorrowDump', async () => parseTomorrowDump(), { success:'Tomorrow plan parsed', failure:'Tomorrow parse failed' })}>Parse Tomorrow Dump</ActionButton>
               <ActionButton state={actionStates.applyTomorrowSeed || 'idle'} onClick={() => runSafeAction('applyTomorrowSeed', async () => {
+                const fpTomorrow = stableHash(`${normalizeText(todaysLog.tomorrowDump || '')}|${todayKey}|tomorrow_dump`);
+                if ((todaysLog.appliedFingerprints?.tomorrowDump || []).includes(fpTomorrow)) {
+                  throw new Error('Already applied for this tomorrow dump');
+                }
                 const tasks = normalizeList((todaysLog.tomorrowDumpParsed?.tasks || []).map(t => t.title));
-                updateToday({ tomorrowChecklist: tasks.map(t => ({ id:uid(), title:t, type:'extra' })), coreCompleted:{ ...todaysLog.coreCompleted, tomorrow:true } });
+                const merged = normalizeList([...(todaysLog.tomorrowChecklist || []).map(t => t.title), ...tasks]).map(t => ({ id:uid(), title:t, type:'extra' }));
+                updateToday({
+                  tomorrowChecklist: merged,
+                  coreCompleted:{ ...todaysLog.coreCompleted, tomorrow:true },
+                  appliedFingerprints:{
+                    todayDump:[...(todaysLog.appliedFingerprints?.todayDump || [])],
+                    tomorrowDump: normalizeList([...(todaysLog.appliedFingerprints?.tomorrowDump || []), fpTomorrow])
+                  }
+                });
               }, { success:'Tomorrow checklist seeded', failure:'Could not seed tomorrow checklist' })} disabled={!todaysLog.tomorrowDumpParsed}>Apply Tomorrow Seed</ActionButton>
             </div>
             {!!(todaysLog.tomorrowDumpParsed?.tasks || []).length && (
@@ -1866,6 +1999,28 @@ function App() {
             <SmallStat label="Exhibits" value={data.legal.exhibits.length} />
             <SmallStat label="Unanswered" value={unanswered.length} />
             <SmallStat label="Missing" value={missingExhibits.length} />
+          </div>
+        </Card>
+
+        <Card title="Legal Tasks" right={<ActionButton state={actionStates.addLegalTask || 'idle'} onClick={() => runSafeAction('addLegalTask', async () => addLegalTask(), { success:'Legal task added', failure:'Could not add legal task' })}>Add Legal Task</ActionButton>}>
+          <div className="mb-2 flex gap-2">
+            <Select value={legalTaskFilter} onChange={setLegalTaskFilter} options={['all', ...config.legal.matterTypes]} />
+          </div>
+          <div className="space-y-2">
+            {(data.legal.tasks || []).filter(t => legalTaskFilter === 'all' || t.matterType === legalTaskFilter).map(task => (
+              <div key={task.id} className="rounded-2xl bg-white/5 p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-sm font-semibold">{task.title}</div>
+                  <Badge tone={task.completed ? 'good' : 'warn'}>{task.status}</Badge>
+                </div>
+                <div className="mt-1 text-xs text-slate-400">{task.matterType} · due {prettifyDate(task.dueDate)}</div>
+                <div className="mt-2 flex gap-2">
+                  <button onClick={() => setData(prev => ({ ...prev, legal:{ ...prev.legal, tasks:(prev.legal.tasks || []).map(x => x.id === task.id ? { ...x, completed:!x.completed, status:!x.completed ? 'Done' : 'Open', updatedAt:new Date().toISOString() } : x) } }))} className="rounded-xl bg-white/10 px-3 py-1 text-xs tap">Mark done</button>
+                  <button onClick={() => setData(prev => ({ ...prev, legal:{ ...prev.legal, deadlines:[{ id:uid(), title:task.title, matterType:task.matterType, dueDate:task.dueDate, priority:task.priority, status:'Open', notes:task.notes }, ...(prev.legal.deadlines || [])] } }))} className="rounded-xl bg-white/10 px-3 py-1 text-xs tap">Convert to deadline</button>
+                </div>
+              </div>
+            ))}
+            {!(data.legal.tasks || []).length && <div className="text-sm text-slate-500">No legal tasks yet.</div>}
           </div>
         </Card>
 
@@ -2246,13 +2401,13 @@ function App() {
         <Card title="Day History">
           <div className="space-y-2">
             {(data.today.history || []).slice().reverse().map(item => (
-              <div key={item.id} className="rounded-2xl bg-white/5 p-3 text-sm">
+              <button key={item.id} onClick={() => setSelectedHistory(item)} className="w-full rounded-2xl bg-white/5 p-3 text-left text-sm tap">
                 <div className="flex items-center justify-between">
                   <div className="font-semibold">Day {item.challengeDay || '—'} · {prettifyDate(item.date)}</div>
                   <Badge>{item.score ?? '—'}%</Badge>
                 </div>
                 <div className="mt-1 text-xs text-slate-400">{item.daySummary || item.review || 'No summary'}</div>
-              </div>
+              </button>
             ))}
           </div>
         </Card>
@@ -2666,6 +2821,32 @@ function App() {
         </div>
       )}
 
+      {selectedHistory && (
+        <div className="fixed inset-0 z-[72] flex items-end justify-center bg-black/70 p-3">
+          <div className="glass max-h-[92vh] w-full max-w-md overflow-y-auto rounded-3xl p-4">
+            <div className="flex items-center justify-between">
+              <div className="text-lg font-semibold">Day {selectedHistory.challengeDay} detail</div>
+              <button onClick={() => setSelectedHistory(null)} className="rounded-full bg-white/5 px-3 py-2 tap">×</button>
+            </div>
+            <div className="mt-2 text-xs text-slate-400">{prettifyDate(selectedHistory.date)}</div>
+            <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+              <div className="rounded-xl bg-white/5 p-2">Final: {selectedHistory.score}%</div>
+              <div className="rounded-xl bg-white/5 p-2">Drivers: {selectedHistory.scoreBreakdown?.driverPoints ?? '—'}</div>
+              <div className="rounded-xl bg-white/5 p-2">Penalties: {selectedHistory.scoreBreakdown?.penaltyPoints ?? '—'}</div>
+              <div className="rounded-xl bg-white/5 p-2">Work Blocks: {(selectedHistory.workBlocks || []).length}</div>
+            </div>
+            <div className="mt-3 text-xs text-slate-300">Wins: {(selectedHistory.wins || []).join(' | ') || '—'}</div>
+            <div className="mt-1 text-xs text-slate-300">Weaknesses: {(selectedHistory.weaknesses || []).join(' | ') || '—'}</div>
+            <div className="mt-1 text-xs text-slate-300">Lesson: {selectedHistory.lesson || '—'}</div>
+            <div className="mt-1 text-xs text-slate-300">Review: {selectedHistory.review || '—'}</div>
+            <div className="mt-3">
+              <ActionButton state={actionStates.aiHistorySummary || 'idle'} onClick={() => runSafeAction('aiHistorySummary', async () => summarizeHistoryDay(), { success:'History day summarized', failure:'AI summary failed' })}>AI Summarize This Day</ActionButton>
+            </div>
+            {selectedHistory.aiSummary ? <div className="mt-3 rounded-xl bg-white/5 p-3 text-xs text-slate-200 whitespace-pre-wrap">{selectedHistory.aiSummary}</div> : null}
+          </div>
+        </div>
+      )}
+
       {onboardingNeeded && (
         <div className="fixed inset-0 z-[70] flex items-start justify-center overflow-y-auto bg-black/70 p-3 pt-8">
           <div className="glass w-full max-w-md rounded-3xl p-4">
@@ -2693,7 +2874,7 @@ function App() {
   );
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+ReactDOM.createRoot(document.getElementById('root')).render(<AppErrorBoundary><App /></AppErrorBoundary>);
 </script>
 </body>
 </html>
