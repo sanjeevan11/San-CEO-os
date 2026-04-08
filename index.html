@@ -582,8 +582,14 @@ function parseDump(text='') {
 }
 
 function parseTimeToken(input='') {
-  const m = String(input).match(/(\d{1,2})(?:[:.](\d{2}))?\s*(am|pm)?/i);
+  const s = String(input || '').trim();
+  const m = s.match(/(\d{1,2})(?:[:.](\d{2}))?\s*(am|pm)?/i);
   if (!m) return '';
+  const hasSeparator = /[:.]\d{2}/.test(m[0]);
+  const hasAmPm = /(am|pm)/i.test(m[0]);
+  if (!hasSeparator && !hasAmPm) return '';
+  const trailing = s.slice(m.index + m[0].length).trim().toLowerCase();
+  if (!hasSeparator && /^(min|mins|minutes|hr|hour|h)\b/.test(trailing)) return '';
   let hh = Number(m[1] || 0);
   let mm = Number(m[2] || 0);
   const ap = (m[3] || '').toLowerCase();
@@ -685,6 +691,7 @@ function ensureDataShape(dataLike) {
     kernel: ensureKernelShape(d.kernel)
   };
 }
+const getKernel = (d) => ensureKernelShape(d?.kernel);
 
 function safeRead(key, fallback){
   try{
@@ -1128,7 +1135,7 @@ function App() {
     return sessionId;
   };
   const undoLastApply = () => {
-    const last = (data.kernel.applyLog || [])[0];
+    const last = (getKernel(data).applyLog || [])[0];
     if (!last || last.dayKey !== todayKey) return alert('No reversible apply found for today.');
     setData(prev => {
       const next = ensureDataShape(prev);
@@ -1205,6 +1212,20 @@ function App() {
     if (hasCloseRule && !isDriverChecked(hasCloseRule)) activeHardGates.push('Close gate: review + tomorrow plan required');
     return score;
   }, [coreExecPoints, driverPoints, penaltyPoints, todaysLog.coreCompleted, workBlockMeta, ruleSet, driverChecksDerived, ruleState]);
+  const scoreBreakdownLive = useMemo(() => ({
+    mandatoryEarned: driverPoints,
+    penaltyLost: penaltyPoints,
+    rawScore: driverPoints - penaltyPoints,
+    finalScore: todayScore,
+    capsApplied:[...activeHardGates],
+    completedDoCount: ruleSet.doRules.filter(r => isDriverChecked(r)).length,
+    breachedDontCount: brokenKillerCount
+  }), [driverPoints, penaltyPoints, todayScore, activeHardGates.join('|'), ruleSet, ruleState, brokenKillerCount]);
+  useEffect(() => {
+    if (Number(todaysLog.scoreComputed || -1) !== Number(todayScore) || JSON.stringify(todaysLog.scoreBreakdown || {}) !== JSON.stringify(scoreBreakdownLive)) {
+      updateToday({ scoreComputed:todayScore, scoreBreakdown:scoreBreakdownLive });
+    }
+  }, [todayScore, JSON.stringify(scoreBreakdownLive)]);
 
   const streak = useMemo(() => {
     const hist = data.today.history || [];
@@ -1355,7 +1376,8 @@ function App() {
   }
 
   async function aiRefineParsed({ kind, rawText, deterministicParsed, appSummary }) {
-    if (!config.ai.enabled || !config.ai.apiKey) return { parsed:deterministicParsed, aiUsed:false };
+    if (!config.ai.enabled || !config.ai.apiKey) return { parsed:deterministicParsed, aiUsed:false, providerError:'ai_disabled_or_no_key', latencyMs:0 };
+    const t0 = Date.now();
     const prompt = `Return strict JSON only. kind=${kind}. deterministicParsed=${JSON.stringify(deterministicParsed)} rawText=${rawText} context=${appSummary}`;
     const payload = {
       model: config.ai.model,
@@ -1377,7 +1399,7 @@ function App() {
     const json = await res.json();
     const text = json?.choices?.[0]?.message?.content || '';
     const match = text.match(/\{[\s\S]*\}/);
-    if (!match) return { parsed:deterministicParsed, aiUsed:false, error:'No JSON from AI' };
+    if (!match) return { parsed:deterministicParsed, aiUsed:false, error:'No JSON from AI', latencyMs:Date.now()-t0 };
     try {
       const ai = JSON.parse(match[0]);
       return {
@@ -1391,10 +1413,11 @@ function App() {
           confidence: Number(ai.confidence || 0),
           uncertainty: String(ai.uncertainty || '')
         },
-        aiUsed:true
+        aiUsed:true,
+        latencyMs:Date.now()-t0
       };
     } catch {
-      return { parsed:deterministicParsed, aiUsed:false, error:'Invalid AI JSON' };
+      return { parsed:deterministicParsed, aiUsed:false, error:'Invalid AI JSON', latencyMs:Date.now()-t0 };
     }
   }
 
@@ -1426,13 +1449,14 @@ function App() {
       parsed = sanitizeParsed(refined.parsed) || parsed;
       aiUsed = !!refined.aiUsed;
       if (refined.error) showToast('error', refined.error);
+      parsed.__aiMeta = { aiUsed:!!refined.aiUsed, latencyMs:refined.latencyMs || 0, providerError:refined.error || refined.providerError || '' };
     }
     await new Promise(r => setTimeout(r, Math.max(0, 1200 - (Date.now() - start))));
     parsed.__eventId = evt.eventId;
     parsed.__fingerprint = evt.eventFingerprint;
     parsed.confidence = parsed.workBlocks.length ? 0.86 : 0.62;
     parsed.uncertainty = parsed.workBlocks.length ? '' : 'No clear timed work blocks detected';
-    parsed.__meta = { eventId:evt.eventId, aiUsed, parseVersion:'v2', confidence:parsed.confidence, uncertainty:parsed.uncertainty };
+    parsed.__meta = { eventId:evt.eventId, aiUsed, parseVersion:'v2', confidence:parsed.confidence, uncertainty:parsed.uncertainty, ...(parsed.__aiMeta || {}) };
     updateToday({ todayDumpParsed:parsed });
     setParseStage('');
   }
@@ -1440,7 +1464,7 @@ function App() {
   function applyTodayDumpParsed(replace=false) {
     const p = todaysLog.todayDumpParsed;
     if (!p) return;
-    const alreadyApplied = (data.kernel.events || []).find(e => e.eventFingerprint === p.__fingerprint && e.parseStatus === 'applied');
+    const alreadyApplied = (getKernel(data).events || []).find(e => e.eventFingerprint === p.__fingerprint && e.parseStatus === 'applied');
     const fpToday = stableHash(`${normalizeText(todaysLog.todayDump || '')}|${todayKey}|today_dump`);
     if ((todaysLog.appliedFingerprints?.todayDump || []).includes(fpToday) && !replace) {
       alert('Already applied for this exact today dump.');
@@ -1507,6 +1531,7 @@ function App() {
       parsed = sanitizeParsed(refined.parsed) || parsed;
       aiUsed = !!refined.aiUsed;
       if (refined.error) showToast('error', refined.error);
+      parsed.__aiMeta = { aiUsed:!!refined.aiUsed, latencyMs:refined.latencyMs || 0, providerError:refined.error || refined.providerError || '' };
     }
     await new Promise(r => setTimeout(r, Math.max(0, 1200 - (Date.now() - start))));
     const parsedTomorrowTasks = Array.isArray(parsed.tomorrowTasks) ? parsed.tomorrowTasks : [];
@@ -1515,81 +1540,30 @@ function App() {
       const type = l.includes('primary') || l.includes('sql') ? 'primary_mit' : l.includes('secondary') ? 'secondary_mit' : l.includes('deep') ? 'deep_block' : l.includes('admin') ? 'admin_evidence' : 'extra';
       return { id:uid(), title:t, type };
     });
-    updateToday({ tomorrowDumpParsed:{ ...parsed, tasks, __eventId:evt.eventId, __fingerprint:evt.eventFingerprint, __meta:{ eventId:evt.eventId, aiUsed, parseVersion:'v2' } }, tomorrowChecklist: tasks, nextDayPlan: tasks.map(t => `- [${t.type}] ${t.title}`).join('\n') });
+    updateToday({ tomorrowDumpParsed:{ ...parsed, tasks, __eventId:evt.eventId, __fingerprint:evt.eventFingerprint, __meta:{ eventId:evt.eventId, aiUsed, parseVersion:'v2', ...(parsed.__aiMeta || {}) } }, tomorrowChecklist: tasks, nextDayPlan: tasks.map(t => `- [${t.type}] ${t.title}`).join('\n') });
     setParseStage('');
   }
 
   useEffect(() => {
     setData(prev => {
-      const history = [...(prev.today.history || [])];
-      const existing6 = history.filter(h => Number(h.challengeDay) === 6);
-      const existing7 = history.filter(h => Number(h.challengeDay) === 7);
-      if (prev.kernel?.migrations?.day6Day7Imported && existing6.length && existing7.length) return prev;
-      const alreadyCanonical =
-        existing6.length === 1 &&
-        existing7.length === 1 &&
-        existing6[0].sourceType === 'canonical_manual_correction' &&
-        existing7[0].sourceType === 'canonical_manual_correction' &&
-        Number(existing6[0].learningMinutes || 0) === 315 &&
-        Number(existing7[0].learningMinutes || 0) === 303;
-      if (alreadyCanonical) return prev;
-      const day6Canonical = {
-        id: `day6-canonical-v${APP_VERSION}`,
-        challengeDay:6,
-        date:'2026-04-06',
-        sourceType:'canonical_manual_correction',
-        wakeTime:'07:15',
-        sleepHoursApprox:4,
-        sleptLate:true,
-        visualisationMinutes:5,
-        meditationMinutes:20,
-        sugarBreach:true,
-        noSocialMedia:true,
-        learningMinutes:315,
-        workBlocks: normalizeBlocks([
-          { topic:'Power BI', durationMin:60, time:'09:00' },{ topic:'Power BI', durationMin:60, time:'10:15' },{ topic:'Power BI', durationMin:45, time:'16:45' },{ topic:'Power BI', durationMin:35, time:'17:30' },
-          { topic:'T-SQL', durationMin:30, time:'19:35' },{ topic:'T-SQL', durationMin:20, time:'20:45' },{ topic:'schematic layer quiz', durationMin:40, time:'22:10' },{ topic:'SQL', durationMin:25, time:'23:00' }
-        ]),
-        wins: normalizeList(['no social media','visualisation done','meditation done','strong total logged study volume']),
-        weaknesses: normalizeList(['woke very late','severe sleep debt','shallow learning quality','new idea drift','sugar breach']),
-        daySummary:'effort was high but depth was poor because sleep debt and distraction reduced learning quality',
-        lesson:'hours logged did not equal depth of comprehension'
+      const next = ensureDataShape(prev);
+      const k = ensureKernelShape(next.kernel);
+      if (k.migrations?.day6Day7Seed_v1) return next;
+      const day6Raw = `Today failed badly\nWakes up at 7.15am as yesterday I finshed late nd slept only at 3am\nBut upon waking up felt groggy but did visualization 5min\nMeditation 20 min done\nThen did 1 hour of power bi learning and finished at 10am then 10 min break focused on breathing while a song was playing in earphone\nNow again 10.15am doing next 1 hour power bi session\nBut had 2 little distracted break like some. New idea came so researched for few min and came. Back\nBut completed this block but was very shallow and slow not learned much really\n4.45pm 45 min of power bi learning again quite distracted shallow learning\nNow 5.30pm next 35 min of power bi learning\n7.35pm 30 min of t sql.\n8.45pm 20 min of tsql\nAgain ate ginger Buiscuits but all coffee are no sugar and also replaced desserts with yogurt instead of cakes\n10.10pm 40 min of Quiz on schematic layer\n11pm 25 min of sql learning\nNo social media`;
+      const day7Raw = `Snoozed again but waked up at 5.45am\nVisualisation 5min\nMeditation 5 min\nWater 100ml\nCoffee with Buiscuits\nToday I'm going to focus mostly on SQL and then little power bi as I have comepleted all given modules in learning path next in learning for pl 300 exam only\n7am 30 min sql learning\nNow 8.50 doing 35 min SQL learning\n11.40 am next 10 min SQL learning\n13.30pm 60 min SQL learning\n16.40pm 23 min SQL learning\n6.45pm 70 min power bi learning\n9.25pm 60 min power bi learning\nAgain 5 Min meditation\n11.10pm 15 Min quiz in power bi\nBut little late day quite distracted but not as yesterday was able to focus more than yesterday but not high but can feel the difference\nNo social media\nAdmin task only on time`;
+      const d6 = sanitizeParsed(parseDumpV2(day6Raw));
+      const d7 = sanitizeParsed(parseDumpV2(day7Raw));
+      const day6Log = { ...makeEmptyDailyLog(), ...d6, todayDump:day6Raw, learningMinutes:d6.learningMinutes };
+      const day7Log = { ...makeEmptyDailyLog(), ...d7, todayDump:day7Raw, learningMinutes:d7.learningMinutes };
+      const nextHistory = [ ...(next.today.history || []).filter(h => ![6,7].includes(Number(h.challengeDay || 0))),
+        { id:`day6-seed-v1`, challengeDay:6, date:'2026-04-06', score:d6.learningMinutes ? 62 : 0, sourceType:'seed_v1', workBlocks:d6.workBlocks, wins:d6.wins, weaknesses:d6.weaknesses, daySummary:d6.summary, lesson:d6.lesson, learningMinutes:d6.learningMinutes, wakeTime:d6.wakeTime, sugarBreach:d6.sugarBreach, noSocialMedia:d6.noSocialMedia },
+        { id:`day7-seed-v1`, challengeDay:7, date:'2026-04-07', score:d7.learningMinutes ? 68 : 0, sourceType:'seed_v1', workBlocks:d7.workBlocks, wins:d7.wins, weaknesses:d7.weaknesses, daySummary:d7.summary, lesson:d7.lesson, learningMinutes:d7.learningMinutes, wakeTime:d7.wakeTime, sugarBreach:d7.sugarBreach, noSocialMedia:d7.noSocialMedia }
+      ].sort((a,b) => Number(a.challengeDay || 0) - Number(b.challengeDay || 0));
+      return {
+        ...next,
+        today:{ ...next.today, history:nextHistory, dailyLogs:{ ...next.today.dailyLogs, ['2026-04-06']:day6Log, ['2026-04-07']:day7Log } },
+        kernel:{ ...k, migrations:{ ...k.migrations, day6Day7Imported:true, day6Day7Seed_v1:true } }
       };
-      const day7Canonical = {
-        id: `day7-canonical-v${APP_VERSION}`,
-        challengeDay:7,
-        date:'2026-04-07',
-        sourceType:'canonical_manual_correction',
-        wakeTime:'05:45',
-        sleepHoursApprox:null,
-        snoozed:true,
-        visualisationMinutes:5,
-        meditationMinutes:10,
-        waterIntakeMl:100,
-        sugarBreach:true,
-        noSocialMedia:true,
-        learningMinutes:303,
-        primaryMit:'SQL learning',
-        secondaryMit:'Power BI learning',
-        deepBlock:'SQL-focused progression',
-        adminBlock:'admin tasks only on time',
-        workBlocks: normalizeBlocks([
-          { topic:'SQL', durationMin:30, time:'07:00' },{ topic:'SQL', durationMin:35, time:'08:50' },{ topic:'SQL', durationMin:10, time:'11:40' },{ topic:'SQL', durationMin:60, time:'13:30' },
-          { topic:'SQL', durationMin:23, time:'16:40' },{ topic:'Power BI', durationMin:70, time:'18:45' },{ topic:'Power BI', durationMin:60, time:'21:25' },{ topic:'Power BI quiz', durationMin:15, time:'23:10' }
-        ]),
-        wins: normalizeList(['better than Day 6','no social media','SQL was the main focus','admin stayed in time']),
-        weaknesses: normalizeList(['snoozed again','water too low','sugar breach','focus still not sharp']),
-        daySummary:'better focused than Day 6 but still below strong execution standard',
-        lesson:'improvement is visible, but execution quality still depends on better morning control and cleaner focus'
-      };
-
-      const filtered = history.filter(h => ![6,7].includes(Number(h.challengeDay || 0)));
-      filtered.push(day6Canonical, day7Canonical);
-      const nextHistory = filtered
-        .map(h => ({ ...h, wins: normalizeList(h.wins || []), weaknesses: normalizeList(h.weaknesses || []), workBlocks: normalizeBlocks(h.workBlocks || []) }))
-        .sort((a,b) => Number(a.challengeDay || 0) - Number(b.challengeDay || 0));
-
-      return { ...prev, today:{ ...prev.today, history:nextHistory }, kernel:{ ...prev.kernel, migrations:{ ...(prev.kernel?.migrations || {}), day6Day7Imported:true } } };
     });
     setConfig(prev => prev.challenge.currentDay === 8 ? prev : ({ ...prev, challenge:{ ...prev.challenge, currentDay:8 } }));
   }, []);
@@ -1869,7 +1843,7 @@ function App() {
 
         {(visibleWidgets.score || visibleWidgets.streak) && (
           <div className="grid grid-cols-2 gap-3">
-            {visibleWidgets.score && <SmallStat label="Score" value={todayScore} accent />}
+            {visibleWidgets.score && <SmallStat label="Score" value={Number.isFinite(Number(todaysLog.scoreComputed)) ? todaysLog.scoreComputed : todayScore} accent />}
             {visibleWidgets.streak && <SmallStat label="Streak" value={streak} sub="70+ score days" />}
           </div>
         )}
@@ -1935,6 +1909,7 @@ function App() {
               <div className="font-semibold text-slate-200">Parse Preview</div>
               {todaysLog.todayDumpParsed ? (
                 <div className="mt-2 space-y-1">
+                  <div>AI: {todaysLog.todayDumpParsed.__meta?.aiUsed ? `used (${todaysLog.todayDumpParsed.__meta?.latencyMs || 0} ms)` : `fallback (${todaysLog.todayDumpParsed.__meta?.providerError || 'rules-only'})`}</div>
                   <div>Core: {todaysLog.todayDumpParsed.primaryMit || '—'} | {todaysLog.todayDumpParsed.secondaryMit || '—'} | {todaysLog.todayDumpParsed.deepBlock || '—'} | {todaysLog.todayDumpParsed.adminBlock || '—'}</div>
                   <div>Blocks: {(todaysLog.todayDumpParsed.workBlocks || []).length} · Learning mins: {todaysLog.todayDumpParsed.learningMinutes || 0}</div>
                   <div>Completed drivers: {[todaysLog.todayDumpParsed.noSocialMedia ? 'No Social Media' : '', todaysLog.todayDumpParsed.visualisationMinutes ? 'Visualisation' : '', todaysLog.todayDumpParsed.meditationMinutes ? 'Meditation' : ''].filter(Boolean).join(' | ') || '—'}</div>
