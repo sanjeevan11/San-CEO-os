@@ -536,6 +536,10 @@ function parseDump(text='') {
     if (/water/.test(l) && l.match(/(\d+)\s*ml/)) parsed.waterIntakeMl += Number((l.match(/(\d+)\s*ml/)||[])[1] || 0);
     if (/no social media/.test(l)) parsed.noSocialMedia = true;
     if (/biscuit|cake|sugar/.test(l)) parsed.sugarBreach = true;
+    if (/admin.*on time|admin task only on time/.test(l)) parsed.adminBlock = parsed.adminBlock || 'admin tasks only on time';
+    if (/shallow|distracted|slow/.test(l)) parsed.leaks.push('shallow_or_distracted_block');
+    if (/drift|random idea|research/.test(l)) parsed.leaks.push('drift_or_random_research');
+    if (/focused|strong/.test(l)) parsed.wins.push('focused block');
     if ((/sql|power bi|quiz|retrieval|mock|dax|semantic/.test(l)) && dMin) {
       parsed.workBlocks.push({ time: tm ? `${tm[1].padStart(2,'0')}:${tm[2]}` : '', durationMin:dMin, topic: topic || 'Learning', notes: line });
       parsed.learningMinutes += dMin;
@@ -555,6 +559,32 @@ function parseDump(text='') {
   parsed.weaknesses = normalizeList(parsed.weaknesses);
   parsed.tomorrowTasks = normalizeList(parsed.tomorrowTasks);
   return parsed;
+}
+
+function sanitizeParsed(parsed) {
+  if (!parsed || typeof parsed !== 'object') return null;
+  const safe = {
+    primaryMit: String(parsed.primaryMit || ''),
+    secondaryMit: String(parsed.secondaryMit || ''),
+    deepBlock: String(parsed.deepBlock || ''),
+    adminBlock: String(parsed.adminBlock || ''),
+    tomorrowTasks: normalizeList(parsed.tomorrowTasks || []),
+    workBlocks: normalizeBlocks(parsed.workBlocks || []),
+    wins: normalizeList(parsed.wins || []),
+    weaknesses: normalizeList(parsed.weaknesses || []),
+    summary: String(parsed.summary || ''),
+    lesson: String(parsed.lesson || ''),
+    wakeTime: String(parsed.wakeTime || ''),
+    sleepHoursApprox: Number.isFinite(Number(parsed.sleepHoursApprox)) ? Number(parsed.sleepHoursApprox) : null,
+    visualisationMinutes: Number(parsed.visualisationMinutes || 0),
+    meditationMinutes: Number(parsed.meditationMinutes || 0),
+    waterIntakeMl: Number(parsed.waterIntakeMl || 0),
+    noSocialMedia: !!parsed.noSocialMedia,
+    sugarBreach: !!parsed.sugarBreach,
+    learningMinutes: Number(parsed.learningMinutes || 0),
+    leaks: normalizeList(parsed.leaks || [])
+  };
+  return safe;
 }
 
 function safeRead(key, fallback){
@@ -580,6 +610,35 @@ function resolveOptions(config, optionsFrom){
 }
 function getRuleSet(config){
   return config.today.ruleSets.find(r => r.id === config.today.activeRuleSetId) || config.today.ruleSets[0];
+}
+
+class TabErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError:false, message:'' };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError:true, message:error?.message || 'Unknown render error' };
+  }
+  componentDidCatch(error) {
+    console.error('Tab crash', this.props.tabId, error);
+  }
+  reset = () => {
+    this.setState({ hasError:false, message:'' });
+    this.props.onReset && this.props.onReset();
+  };
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="glass rounded-3xl p-4">
+          <div className="text-sm font-semibold text-red-300">Recovered tab crash: {this.props.tabId}</div>
+          <div className="mt-1 text-xs text-slate-400">{this.state.message}</div>
+          <button onClick={this.reset} className="mt-3 rounded-2xl bg-accent-500 px-4 py-2 text-xs font-semibold text-navy-950 tap">Reset this tab state</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
 }
 
 function Card({title, right, children, className=''}) {
@@ -617,6 +676,18 @@ function Input({label, value, onChange, type='text', placeholder='', step}) {
         className="w-full rounded-2xl border border-white/10 bg-navy-850 px-4 py-3 text-white outline-none focus:border-accent-500"
       />
     </label>
+  );
+}
+
+function ActionButton({state='idle', onClick, disabled=false, children, className=''}) {
+  const tone = state === 'error' ? 'bg-red-500/20 text-red-200' : state === 'success' ? 'bg-emerald-500/20 text-emerald-200' : state === 'working' ? 'bg-accent-500 text-navy-950' : '';
+  return (
+    <button onClick={onClick} disabled={disabled || state === 'working'} className={`rounded-2xl px-4 py-3 text-sm tap ${tone} ${disabled ? 'bg-white/5 text-slate-500' : 'bg-white/10'} ${className}`}>
+      <span className="inline-flex items-center gap-2">
+        {state === 'working' ? <span className="inline-block h-2 w-2 rounded-full bg-current pulse-dot"></span> : null}
+        {children}
+      </span>
+    </button>
   );
 }
 function TextArea({label, value, onChange, placeholder='', rows=3}) {
@@ -740,9 +811,12 @@ function App() {
   const [isStandalone, setIsStandalone] = useState(window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone);
   const [aiBusy, setAiBusy] = useState(false);
   const [closeBusy, setCloseBusy] = useState(false);
+  const [actionStates, setActionStates] = useState({});
+  const [toast, setToast] = useState(null);
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiResult, setAiResult] = useState('');
   const closeLockRef = useRef(false);
+  const actionLockRef = useRef({});
 
   const todayKey = isoToday();
   const todaysLog = data.today.dailyLogs[todayKey] || defaultData.today.dailyLogs[isoToday()];
@@ -836,6 +910,30 @@ function App() {
         }
       }
     }));
+  };
+  const showToast = (tone, text) => {
+    setToast({ id:uid(), tone, text });
+    setTimeout(() => setToast(null), 2200);
+  };
+  const runSafeAction = async (key, fn, opts={}) => {
+    if (actionLockRef.current[key]) return;
+    actionLockRef.current[key] = true;
+    setActionStates(prev => ({ ...prev, [key]:'working' }));
+    const start = Date.now();
+    try {
+      await fn();
+      const hold = Math.max(0, (opts.minMs || 1700) - (Date.now() - start));
+      await new Promise(r => setTimeout(r, hold));
+      setActionStates(prev => ({ ...prev, [key]:'success' }));
+      showToast('success', opts.success || 'Done');
+    } catch (e) {
+      console.error(e);
+      setActionStates(prev => ({ ...prev, [key]:'error' }));
+      showToast('error', opts.failure || 'Action failed');
+    } finally {
+      setTimeout(() => setActionStates(prev => ({ ...prev, [key]:'idle' })), 900);
+      actionLockRef.current[key] = false;
+    }
   };
   const recordEvent = ({ sourceType, rawText, selectedTags=[], parseStatus='unparsed', aiUsed=false, warnings=[] }) => {
     const fp = eventFingerprint({ rawText, selectedTags, dayKey:todayKey, parserVersion:`v${APP_VERSION}`, actionType:sourceType });
@@ -1077,9 +1175,12 @@ function App() {
   function parseTodayDump() {
     const raw = todaysLog.todayDump || '';
     const evt = recordEvent({ sourceType:'typed_dump', rawText:raw, selectedTags:['day_progress'], parseStatus:'rules_parsed' });
-    const parsed = parseDump(raw);
+    const parsed = sanitizeParsed(parseDump(raw));
+    if (!parsed) throw new Error('Parsed object invalid');
     parsed.__eventId = evt.eventId;
     parsed.__fingerprint = evt.eventFingerprint;
+    parsed.confidence = parsed.workBlocks.length ? 0.86 : 0.62;
+    parsed.uncertainty = parsed.workBlocks.length ? '' : 'No clear timed work blocks detected';
     updateToday({ todayDumpParsed:parsed });
   }
 
@@ -1092,24 +1193,29 @@ function App() {
       return;
     }
     const before = deepClone(todaysLog);
+    const safeParsed = sanitizeParsed(p);
+    if (!safeParsed) {
+      setData(prev => ({ ...prev, kernel:{ ...prev.kernel, needsReview:[{ id:uid(), at:new Date().toISOString(), dayKey:todayKey, payload:deepClone(p), reason:'invalid_parsed_shape' }, ...(prev.kernel.needsReview || [])] } }));
+      throw new Error('Parsed data malformed');
+    }
     const patch = {
-      primaryMit: (replace || !todaysLog.primaryMit) ? (p.primaryMit || todaysLog.primaryMit) : todaysLog.primaryMit,
-      secondaryMit: (replace || !todaysLog.secondaryMit) ? (p.secondaryMit || todaysLog.secondaryMit) : todaysLog.secondaryMit,
-      deepBlock: (replace || !todaysLog.deepBlock) ? (p.deepBlock || todaysLog.deepBlock) : todaysLog.deepBlock,
-      adminBlock: (replace || !todaysLog.adminBlock) ? (p.adminBlock || todaysLog.adminBlock) : todaysLog.adminBlock,
-      wakeTime: p.wakeTime || todaysLog.wakeTime,
-      sleepHours: p.sleepHoursApprox ?? todaysLog.sleepHours,
-      visualisationMinutes: p.visualisationMinutes || todaysLog.visualisationMinutes || 0,
-      meditationMinutes: p.meditationMinutes || todaysLog.meditationMinutes || 0,
-      waterIntakeMl: (todaysLog.waterIntakeMl || 0) + (p.waterIntakeMl || 0),
-      noSocialMedia: p.noSocialMedia || todaysLog.noSocialMedia,
-      sugarBreach: p.sugarBreach || todaysLog.sugarBreach,
-      workBlocks: normalizeBlocks([...(replace ? [] : (todaysLog.workBlocks || [])), ...(p.workBlocks || [])]),
-      wins: normalizeList([...(replace ? [] : (todaysLog.wins || [])), ...(p.wins || [])]),
-      weaknesses: normalizeList([...(replace ? [] : (todaysLog.weaknesses || [])), ...(p.weaknesses || [])]),
-      daySummary: p.summary || todaysLog.daySummary,
-      lesson: p.lesson || todaysLog.lesson,
-      learningMinutes: (p.learningMinutes || 0) || (replace ? 0 : (todaysLog.learningMinutes || 0)),
+      primaryMit: (replace || !todaysLog.primaryMit) ? (safeParsed.primaryMit || todaysLog.primaryMit) : todaysLog.primaryMit,
+      secondaryMit: (replace || !todaysLog.secondaryMit) ? (safeParsed.secondaryMit || todaysLog.secondaryMit) : todaysLog.secondaryMit,
+      deepBlock: (replace || !todaysLog.deepBlock) ? (safeParsed.deepBlock || todaysLog.deepBlock) : todaysLog.deepBlock,
+      adminBlock: (replace || !todaysLog.adminBlock) ? (safeParsed.adminBlock || todaysLog.adminBlock) : todaysLog.adminBlock,
+      wakeTime: safeParsed.wakeTime || todaysLog.wakeTime,
+      sleepHours: safeParsed.sleepHoursApprox ?? todaysLog.sleepHours,
+      visualisationMinutes: safeParsed.visualisationMinutes || todaysLog.visualisationMinutes || 0,
+      meditationMinutes: safeParsed.meditationMinutes || todaysLog.meditationMinutes || 0,
+      waterIntakeMl: (todaysLog.waterIntakeMl || 0) + (safeParsed.waterIntakeMl || 0),
+      noSocialMedia: safeParsed.noSocialMedia || todaysLog.noSocialMedia,
+      sugarBreach: safeParsed.sugarBreach || todaysLog.sugarBreach,
+      workBlocks: normalizeBlocks([...(replace ? [] : (todaysLog.workBlocks || [])), ...(safeParsed.workBlocks || [])]),
+      wins: normalizeList([...(replace ? [] : (todaysLog.wins || [])), ...(safeParsed.wins || [])]),
+      weaknesses: normalizeList([...(replace ? [] : (todaysLog.weaknesses || [])), ...(safeParsed.weaknesses || [])]),
+      daySummary: safeParsed.summary || todaysLog.daySummary,
+      lesson: safeParsed.lesson || todaysLog.lesson,
+      learningMinutes: (safeParsed.learningMinutes || 0) || (replace ? 0 : (todaysLog.learningMinutes || 0)),
       parseApplySessionId: uid()
     };
     patch.learningMinutes = normalizeBlocks(patch.workBlocks).reduce((a,b) => a + Number(b.durationMin || 0), 0);
@@ -1120,7 +1226,8 @@ function App() {
   function parseTomorrowDump() {
     const raw = todaysLog.tomorrowDump || '';
     const evt = recordEvent({ sourceType:'typed_dump', rawText:raw, selectedTags:['tomorrow_plan'], parseStatus:'rules_parsed' });
-    const parsed = parseDump(raw);
+    const parsed = sanitizeParsed(parseDump(raw));
+    if (!parsed) throw new Error('Tomorrow parse failed');
     const tasks = normalizeList(parsed.tomorrowTasks.length ? parsed.tomorrowTasks : (todaysLog.tomorrowDump || '').split('\n')).map(t => {
       const l = t.toLowerCase();
       const type = l.includes('primary') || l.includes('sql') ? 'primary_mit' : l.includes('secondary') ? 'secondary_mit' : l.includes('deep') ? 'deep_block' : l.includes('admin') ? 'admin_evidence' : 'extra';
@@ -1132,6 +1239,16 @@ function App() {
   useEffect(() => {
     setData(prev => {
       const history = [...(prev.today.history || [])];
+      const existing6 = history.filter(h => Number(h.challengeDay) === 6);
+      const existing7 = history.filter(h => Number(h.challengeDay) === 7);
+      const alreadyCanonical =
+        existing6.length === 1 &&
+        existing7.length === 1 &&
+        existing6[0].sourceType === 'canonical_manual_correction' &&
+        existing7[0].sourceType === 'canonical_manual_correction' &&
+        Number(existing6[0].learningMinutes || 0) === 315 &&
+        Number(existing7[0].learningMinutes || 0) === 303;
+      if (alreadyCanonical) return prev;
       const day6Canonical = {
         id: `day6-canonical-v${APP_VERSION}`,
         challengeDay:6,
@@ -1190,7 +1307,7 @@ function App() {
 
       return { ...prev, today:{ ...prev.today, history:nextHistory } };
     });
-    setConfig(prev => ({ ...prev, challenge:{ ...prev.challenge, currentDay:8 } }));
+    setConfig(prev => prev.challenge.currentDay === 8 ? prev : ({ ...prev, challenge:{ ...prev.challenge, currentDay:8 } }));
   }, []);
 
   function exportBackup() {
@@ -1500,10 +1617,10 @@ function App() {
           <div className="space-y-3">
             <TextArea value={todaysLog.todayDump || ''} onChange={v => updateToday({ todayDump:v })} rows={6} placeholder="Dump what you did, what leaked, what changed, legal/business/body updates, ideas, tomorrow notes..." />
             <div className="flex flex-wrap gap-2">
-              <button onClick={parseTodayDump} className="rounded-2xl bg-accent-500 px-4 py-3 text-sm font-semibold text-navy-950 tap">Parse Today Dump</button>
-              <button onClick={() => applyTodayDumpParsed(false)} disabled={!todaysLog.todayDumpParsed} className={`rounded-2xl px-4 py-3 text-sm tap ${todaysLog.todayDumpParsed ? 'bg-white/10' : 'bg-white/5 text-slate-500'}`}>Apply Parsed Update</button>
-              <button onClick={() => applyTodayDumpParsed(true)} disabled={!todaysLog.todayDumpParsed} className={`rounded-2xl px-4 py-3 text-sm tap ${todaysLog.todayDumpParsed ? 'bg-white/10' : 'bg-white/5 text-slate-500'}`}>Apply (Replace)</button>
-              <button onClick={undoLastApply} className="rounded-2xl bg-white/10 px-4 py-3 text-sm tap">Undo Last Apply</button>
+              <ActionButton state={actionStates.parseTodayDump || 'idle'} onClick={() => runSafeAction('parseTodayDump', async () => parseTodayDump(), { success:'Today dump parsed', failure:'Could not parse today dump' })} className="bg-accent-500 font-semibold text-navy-950">Parse Today Dump</ActionButton>
+              <ActionButton state={actionStates.applyParsed || 'idle'} onClick={() => runSafeAction('applyParsed', async () => applyTodayDumpParsed(false), { success:'Parsed update applied', failure:'Apply failed' })} disabled={!todaysLog.todayDumpParsed}>Apply Parsed Update</ActionButton>
+              <ActionButton state={actionStates.applyParsedReplace || 'idle'} onClick={() => runSafeAction('applyParsedReplace', async () => applyTodayDumpParsed(true), { success:'Reapplied in replace mode', failure:'Replace apply failed' })} disabled={!todaysLog.todayDumpParsed}>Apply (Replace)</ActionButton>
+              <ActionButton state={actionStates.undoApply || 'idle'} onClick={() => runSafeAction('undoApply', async () => undoLastApply(), { success:'Last apply undone', failure:'Undo failed' })}>Undo Last Apply</ActionButton>
               <button onClick={() => {
                 if (!todaysLog.todayDumpParsed) return;
                 setData(prev => ({ ...prev, kernel:{ ...prev.kernel, needsReview:[{ id:uid(), at:new Date().toISOString(), dayKey:todayKey, payload:deepClone(todaysLog.todayDumpParsed) }, ...(prev.kernel.needsReview || [])] } }));
@@ -1516,9 +1633,14 @@ function App() {
                 <div className="mt-2 space-y-1">
                   <div>Core: {todaysLog.todayDumpParsed.primaryMit || '—'} | {todaysLog.todayDumpParsed.secondaryMit || '—'} | {todaysLog.todayDumpParsed.deepBlock || '—'} | {todaysLog.todayDumpParsed.adminBlock || '—'}</div>
                   <div>Blocks: {(todaysLog.todayDumpParsed.workBlocks || []).length} · Learning mins: {todaysLog.todayDumpParsed.learningMinutes || 0}</div>
+                  <div>Completed drivers: {[todaysLog.todayDumpParsed.noSocialMedia ? 'No Social Media' : '', todaysLog.todayDumpParsed.visualisationMinutes ? 'Visualisation' : '', todaysLog.todayDumpParsed.meditationMinutes ? 'Meditation' : ''].filter(Boolean).join(' | ') || '—'}</div>
+                  <div>Broken killers: {[todaysLog.todayDumpParsed.sugarBreach ? 'Sugar breach' : '', ...(todaysLog.todayDumpParsed.leaks || [])].filter(Boolean).join(' | ') || '—'}</div>
                   <div>Wins: {(todaysLog.todayDumpParsed.wins || []).join(' | ') || '—'}</div>
                   <div>Weaknesses: {(todaysLog.todayDumpParsed.weaknesses || []).join(' | ') || '—'}</div>
                   <div>Summary: {todaysLog.todayDumpParsed.summary || '—'}</div>
+                  <div>Lesson: {todaysLog.todayDumpParsed.lesson || '—'}</div>
+                  <div>Suggested tomorrow tasks: {(todaysLog.todayDumpParsed.tomorrowTasks || []).join(' | ') || '—'}</div>
+                  <div>Confidence: {Math.round((todaysLog.todayDumpParsed.confidence || 0.6) * 100)}% · Uncertainty: {todaysLog.todayDumpParsed.uncertainty || 'low'}</div>
                 </div>
               ) : <div className="mt-2 text-slate-500">No parsed preview yet.</div>}
             </div>
@@ -1648,6 +1770,24 @@ function App() {
           </Card>
         )}
 
+        <Card title="Tomorrow Dump (Shutdown Planner)">
+          <div className="space-y-3">
+            <TextArea value={todaysLog.tomorrowDump || ''} onChange={v => updateToday({ tomorrowDump:v })} rows={4} placeholder="Dump tomorrow plan in natural language..." />
+            <div className="flex flex-wrap gap-2">
+              <ActionButton state={actionStates.parseTomorrowDump || 'idle'} onClick={() => runSafeAction('parseTomorrowDump', async () => parseTomorrowDump(), { success:'Tomorrow plan parsed', failure:'Tomorrow parse failed' })}>Parse Tomorrow Dump</ActionButton>
+              <ActionButton state={actionStates.applyTomorrowSeed || 'idle'} onClick={() => runSafeAction('applyTomorrowSeed', async () => {
+                const tasks = normalizeList((todaysLog.tomorrowDumpParsed?.tasks || []).map(t => t.title));
+                updateToday({ tomorrowChecklist: tasks.map(t => ({ id:uid(), title:t, type:'extra' })), coreCompleted:{ ...todaysLog.coreCompleted, tomorrow:true } });
+              }, { success:'Tomorrow checklist seeded', failure:'Could not seed tomorrow checklist' })} disabled={!todaysLog.tomorrowDumpParsed}>Apply Tomorrow Seed</ActionButton>
+            </div>
+            {!!(todaysLog.tomorrowDumpParsed?.tasks || []).length && (
+              <div className="rounded-2xl bg-white/5 p-3 text-xs text-slate-300">
+                {(todaysLog.tomorrowDumpParsed.tasks || []).map(t => `• [${t.type}] ${t.title}`).join('\n')}
+              </div>
+            )}
+          </div>
+        </Card>
+
         {visibleWidgets.journal && (
           <Card title="Power Journal">
             <div className="space-y-4">
@@ -1670,9 +1810,9 @@ function App() {
               <TextArea label="Day Review" value={todaysLog.review} onChange={v => updateToday({ review:v })} placeholder="What moved the needle? Where did you drift?" />
               <TextArea label="Tomorrow Plan" value={todaysLog.nextDayPlan} onChange={v => updateToday({ nextDayPlan:v })} placeholder="No day closes without tomorrow's plan." />
               <div className="flex gap-2">
-                <button onClick={endDay} disabled={closeBusy} className={`flex-1 rounded-2xl px-4 py-3 font-semibold tap ${closeBusy ? 'bg-white/10 text-slate-400' : 'bg-accent-500 text-navy-950'}`}>{closeBusy ? 'Closing…' : 'Close Day'}</button>
+                <ActionButton state={actionStates.closeDay || (closeBusy ? 'working' : 'idle')} onClick={() => runSafeAction('closeDay', async () => endDay(), { success:'Day closed safely', failure:'Close day blocked or failed' })} className="flex-1 bg-accent-500 font-semibold text-navy-950">Close Day</ActionButton>
                 <button onClick={reopenClosedDay} className="rounded-2xl bg-white/10 px-4 py-3 text-sm tap">Reopen/Edit</button>
-                <button onClick={() => askAI('tomorrow')} className="rounded-2xl bg-white/10 px-4 py-3 text-sm tap">AI Tomorrow Plan</button>
+                <ActionButton state={actionStates.aiTomorrow || 'idle'} onClick={() => runSafeAction('aiTomorrow', async () => askAI('tomorrow'), { success:'AI tomorrow draft ready', failure:'AI tomorrow failed' })}>AI Tomorrow Plan</ActionButton>
               </div>
             </div>
           </Card>
@@ -1682,14 +1822,14 @@ function App() {
           <Card title="AI Coach">
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-2">
-                <button onClick={() => askAI('motivation')} className="rounded-2xl bg-white/5 px-3 py-3 text-sm tap">Ruthless Focus</button>
-                <button onClick={() => askAI('next')} className="rounded-2xl bg-white/5 px-3 py-3 text-sm tap">Next Action</button>
-                <button onClick={() => askAI('legal')} className="rounded-2xl bg-white/5 px-3 py-3 text-sm tap">Legal Next Steps</button>
-                <button onClick={() => askAI('business')} className="rounded-2xl bg-white/5 px-3 py-3 text-sm tap">Business Draft</button>
-                <button onClick={() => askAI('journal')} className="col-span-2 rounded-2xl bg-white/5 px-3 py-3 text-sm tap">Journal Synthesis</button>
-              </div>
+                  <ActionButton state={actionStates.aiMotivation || 'idle'} onClick={() => runSafeAction('aiMotivation', async () => askAI('motivation'), { success:'AI coach ready', failure:'AI failed' })} className="bg-white/5">Ruthless Focus</ActionButton>
+                  <ActionButton state={actionStates.aiNext || 'idle'} onClick={() => runSafeAction('aiNext', async () => askAI('next'), { success:'AI next action ready', failure:'AI failed' })} className="bg-white/5">Next Action</ActionButton>
+                  <ActionButton state={actionStates.aiLegal || 'idle'} onClick={() => runSafeAction('aiLegal', async () => askAI('legal'), { success:'AI legal draft ready', failure:'AI failed' })} className="bg-white/5">Legal Next Steps</ActionButton>
+                  <ActionButton state={actionStates.aiBusiness || 'idle'} onClick={() => runSafeAction('aiBusiness', async () => askAI('business'), { success:'AI business draft ready', failure:'AI failed' })} className="bg-white/5">Business Draft</ActionButton>
+                  <ActionButton state={actionStates.aiJournal || 'idle'} onClick={() => runSafeAction('aiJournal', async () => askAI('journal'), { success:'AI journal ready', failure:'AI failed' })} className="col-span-2 bg-white/5">Journal Synthesis</ActionButton>
+                </div>
               <TextArea label="Custom AI prompt" value={aiPrompt} onChange={setAiPrompt} rows={3} placeholder="Ask for a schedule, hard coaching, summary, or draft." />
-              <button onClick={() => askAI('custom')} className="w-full rounded-2xl bg-accent-500 px-4 py-3 font-semibold text-navy-950 tap">{aiBusy ? 'Working…' : 'Run AI'}</button>
+              <ActionButton state={actionStates.aiCustom || (aiBusy ? 'working' : 'idle')} onClick={() => runSafeAction('aiCustom', async () => askAI('custom'), { success:'AI response ready', failure:'AI request failed' })} className="w-full bg-accent-500 font-semibold text-navy-950">Run AI</ActionButton>
               <div className="rounded-2xl border border-white/10 bg-navy-850 p-4 text-sm text-slate-200 whitespace-pre-wrap min-h-[96px]">
                 {aiResult || 'AI output will appear here. Save your API key inside Builder > AI Settings on your own device.'}
               </div>
@@ -1842,11 +1982,14 @@ function App() {
   }
 
   function renderMoney() {
-    return (
+    try {
+      const money = data.money || { cashOnHand:0, bills:[], expenses:[], income:[] };
+      const supportItems = (data.support && Array.isArray(data.support.items)) ? data.support.items : [];
+      return (
       <div className="space-y-4 fade-up">
         <Card title="Money Dashboard">
           <div className="grid grid-cols-2 gap-3">
-            <SmallStat label="Cash" value={asCurrency(data.money.cashOnHand)} accent />
+            <SmallStat label="Cash" value={asCurrency(money.cashOnHand)} accent />
             <SmallStat label="Runway" value={runwayDays} sub="days" />
             <SmallStat label="Essentials" value={asCurrency(monthlyEssentials)} sub="monthly" />
             <SmallStat label="Weekly spend" value={asCurrency(spendThisWeek)} />
@@ -1859,14 +2002,14 @@ function App() {
 
         <Card title="Cash + Targets">
           <div className="grid gap-3">
-            <Input label="Cash on hand" type="number" step="0.01" value={data.money.cashOnHand} onChange={v => setData(prev => ({ ...prev, money:{ ...prev.money, cashOnHand:Number(v) } }))} />
+            <Input label="Cash on hand" type="number" step="0.01" value={money.cashOnHand} onChange={v => setData(prev => ({ ...prev, money:{ ...(prev.money || {}), cashOnHand:Number(v) } }))} />
             <Input label="Emergency fund target" type="number" step="1" value={config.userSettings.emergencyFundTarget} onChange={v => setConfig(prev => ({ ...prev, userSettings:{ ...prev.userSettings, emergencyFundTarget:Number(v) } }))} />
           </div>
         </Card>
 
         <Card title="Bills">
           <div className="space-y-2">
-            {data.money.bills.map(item => (
+            {(money.bills || []).map(item => (
               <div key={item.id} className="rounded-2xl bg-white/5 px-3 py-3">
                 <div className="flex justify-between gap-2">
                   <div className="font-medium text-sm">{item.name}</div>
@@ -1875,12 +2018,13 @@ function App() {
                 <div className="mt-1 text-xs text-slate-400">{asCurrency(item.amount)} · due {prettifyDate(item.dueDate)} · {item.essential ? 'Essential' : 'Optional'}</div>
               </div>
             ))}
+            {!(money.bills || []).length && <div className="text-sm text-slate-500">No bills added yet.</div>}
           </div>
         </Card>
 
         <Card title="Expenses">
           <div className="space-y-2">
-            {data.money.expenses.map(item => (
+            {(money.expenses || []).map(item => (
               <div key={item.id} className="rounded-2xl bg-white/5 px-3 py-3">
                 <div className="flex justify-between gap-2">
                   <div className="font-medium text-sm">{item.category}</div>
@@ -1889,12 +2033,13 @@ function App() {
                 <div className="mt-1 text-xs text-slate-400">{prettifyDate(item.date)} · {item.notes || '—'}</div>
               </div>
             ))}
+            {!(money.expenses || []).length && <div className="text-sm text-slate-500">No expenses logged yet.</div>}
           </div>
         </Card>
 
         <Card title="Support / Appointments">
           <div className="space-y-2">
-            {(data.support.items || []).map(item => (
+            {(supportItems || []).map(item => (
               <div key={item.id} className="rounded-2xl bg-white/5 p-3">
                 <div className="flex items-center justify-between gap-2">
                   <div className="text-sm font-semibold">{item.type} · {item.title}</div>
@@ -1903,10 +2048,19 @@ function App() {
                 <div className="mt-1 text-xs text-slate-400">Appointment {prettifyDate(item.appointmentDate)} · Next chase {prettifyDate(item.nextChase)}</div>
               </div>
             ))}
+            {!supportItems.length && <div className="text-sm text-slate-500">No support items yet.</div>}
           </div>
         </Card>
       </div>
     );
+    } catch (e) {
+      return (
+        <Card title="Money Tab Recovery">
+          <div className="text-sm text-red-300">A money widget failed to render safely.</div>
+          <div className="mt-2 text-xs text-slate-400">{String(e?.message || e)}</div>
+        </Card>
+      );
+    }
   }
 
   function renderBusiness() {
@@ -2411,8 +2565,8 @@ function App() {
             <div className="text-lg font-semibold">{currentTabName}</div>
           </div>
           <div className="flex gap-2">
-            <button onClick={() => setShowSearch(true)} className="rounded-2xl bg-white/5 px-3 py-2 text-sm tap">Search</button>
-            <button onClick={() => setShowQuick(true)} className="rounded-2xl bg-white/5 px-3 py-2 text-sm tap">Capture</button>
+            <ActionButton state={actionStates.openSearch || 'idle'} onClick={() => runSafeAction('openSearch', async () => setShowSearch(true), { minMs:250, success:'Search ready' })} className="bg-white/5 px-3 py-2">Search</ActionButton>
+            <ActionButton state={actionStates.openQuick || 'idle'} onClick={() => runSafeAction('openQuick', async () => setShowQuick(true), { minMs:250, success:'Capture ready' })} className="bg-white/5 px-3 py-2">Capture</ActionButton>
           </div>
         </div>
       </div>
@@ -2428,20 +2582,27 @@ function App() {
       )}
 
       <div className="flex-1 overflow-y-auto hide-scroll px-4 content-pad">
-        {activeTab === 'today' && renderToday()}
-        {activeTab === 'inbox' && renderInbox()}
-        {activeTab === 'command' && renderCommand()}
-        {activeTab === 'legal' && renderLegal()}
-        {activeTab === 'money' && renderMoney()}
-        {activeTab === 'business' && renderBusiness()}
-        {activeTab === 'history' && renderHistory()}
-        {activeTab === 'builder' && renderBuilder()}
-        {!['today','inbox','command','legal','money','business','history','builder'].includes(activeTab) && (
-          <Card title="Custom Tab">
-            <div className="text-sm text-slate-400">This custom tab exists in navigation. Add modules via Builder or repurpose it later.</div>
-          </Card>
-        )}
+        <TabErrorBoundary tabId={activeTab} onReset={() => setActiveTab('today')}>
+          {activeTab === 'today' && renderToday()}
+          {activeTab === 'inbox' && renderInbox()}
+          {activeTab === 'command' && renderCommand()}
+          {activeTab === 'legal' && renderLegal()}
+          {activeTab === 'money' && renderMoney()}
+          {activeTab === 'business' && renderBusiness()}
+          {activeTab === 'history' && renderHistory()}
+          {activeTab === 'builder' && renderBuilder()}
+          {!['today','inbox','command','legal','money','business','history','builder'].includes(activeTab) && (
+            <Card title="Custom Tab">
+              <div className="text-sm text-slate-400">This custom tab exists in navigation. Add modules via Builder or repurpose it later.</div>
+            </Card>
+          )}
+        </TabErrorBoundary>
       </div>
+      {toast && (
+        <div className={`fixed left-1/2 top-[calc(var(--safe-top)+8px)] z-[90] -translate-x-1/2 rounded-2xl px-4 py-2 text-xs shadow-card ${toast.tone === 'error' ? 'bg-red-500/90 text-white' : 'bg-emerald-500/90 text-navy-950'}`}>
+          {toast.text}
+        </div>
+      )}
 
       <div className="fixed bottom-0 left-0 right-0 z-40">
         <div className="mx-auto max-w-md px-3 pb-[calc(10px+var(--safe-bottom))]">
@@ -2472,7 +2633,7 @@ function App() {
               <QuickForm config={config} typeDef={quickDef} value={quickValue} onChange={setQuickValue} />
             </div>
             <div className="mt-4 flex gap-2">
-              <button onClick={saveQuickCapture} className="flex-1 rounded-2xl bg-accent-500 px-4 py-3 font-semibold text-navy-950 tap">Save</button>
+              <ActionButton state={actionStates.quickSave || 'idle'} onClick={() => runSafeAction('quickSave', async () => saveQuickCapture(), { success:'Quick capture saved', failure:'Quick capture failed' })} className="flex-1 bg-accent-500 font-semibold text-navy-950">Save</ActionButton>
               <button onClick={() => setShowQuick(false)} className="rounded-2xl bg-white/10 px-4 py-3 tap">Cancel</button>
             </div>
           </div>
