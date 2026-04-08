@@ -519,23 +519,16 @@ function stableHash(str='') {
 
 function migrateState(configRaw, dataRaw) {
   const config = { ...deepClone(defaultConfig), ...(configRaw || {}) };
-  const data = { ...deepClone(defaultData), ...(dataRaw || {}) };
+  const data = ensureDataShape({ ...deepClone(defaultData), ...(dataRaw || {}) });
   config.version = APP_VERSION;
   if (!data.today) data.today = { dailyLogs:{}, history:[] };
   if (!data.today.dailyLogs) data.today.dailyLogs = {};
   Object.keys(data.today.dailyLogs).forEach(k => { data.today.dailyLogs[k] = { ...makeEmptyDailyLog(), ...data.today.dailyLogs[k] }; });
   if (!data.today.dailyLogs[isoToday()]) data.today.dailyLogs[isoToday()] = makeEmptyDailyLog();
   if (!Array.isArray(data.today.history)) data.today.history = [];
-  if (!data.kernel) data.kernel = deepClone(defaultData.kernel);
-  if (!Array.isArray(data.kernel.events)) data.kernel.events = [];
-  if (!Array.isArray(data.kernel.objects)) data.kernel.objects = [];
-  if (!Array.isArray(data.kernel.applyLog)) data.kernel.applyLog = [];
-  if (!Array.isArray(data.kernel.needsReview)) data.kernel.needsReview = [];
-  if (!Array.isArray(data.kernel.decisionJournal)) data.kernel.decisionJournal = [];
-  if (!Array.isArray(data.kernel.openLoops)) data.kernel.openLoops = [];
-  if (!Array.isArray(data.kernel.resume)) data.kernel.resume = [];
-  if (!Array.isArray(data.kernel.runbooks)) data.kernel.runbooks = deepClone(defaultData.kernel.runbooks);
-  if (!Array.isArray(data.kernel.templateLocker)) data.kernel.templateLocker = deepClone(defaultData.kernel.templateLocker);
+  data.kernel = ensureKernelShape(data.kernel);
+  if (!Array.isArray(data.kernel.runbooks) || !data.kernel.runbooks.length) data.kernel.runbooks = deepClone(defaultData.kernel.runbooks);
+  if (!Array.isArray(data.kernel.templateLocker) || !data.kernel.templateLocker.length) data.kernel.templateLocker = deepClone(defaultData.kernel.templateLocker);
   if (!data.kernel.migrations) data.kernel.migrations = deepClone(defaultData.kernel.migrations);
   if (!data.legal.tasks) data.legal.tasks = deepClone(defaultData.legal.tasks);
   if (!data.legal.waiting) data.legal.waiting = deepClone(defaultData.legal.waiting);
@@ -612,6 +605,38 @@ function sanitizeParsed(parsed) {
     leaks: normalizeList(parsed.leaks || [])
   };
   return safe;
+}
+
+function ensureKernelShape(kernelLike) {
+  const k = kernelLike && typeof kernelLike === 'object' ? kernelLike : {};
+  return {
+    events: Array.isArray(k.events) ? k.events : [],
+    objects: Array.isArray(k.objects) ? k.objects : [],
+    applyLog: Array.isArray(k.applyLog) ? k.applyLog : [],
+    needsReview: Array.isArray(k.needsReview) ? k.needsReview : [],
+    decisionJournal: Array.isArray(k.decisionJournal) ? k.decisionJournal : [],
+    openLoops: Array.isArray(k.openLoops) ? k.openLoops : [],
+    resume: Array.isArray(k.resume) ? k.resume : [],
+    runbooks: Array.isArray(k.runbooks) ? k.runbooks : [],
+    migrations: k.migrations && typeof k.migrations === 'object' ? k.migrations : {},
+    templateLocker: Array.isArray(k.templateLocker) ? k.templateLocker : []
+  };
+}
+
+function ensureDataShape(dataLike) {
+  const d = dataLike && typeof dataLike === 'object' ? dataLike : {};
+  const money = d.money && typeof d.money === 'object' ? d.money : {};
+  return {
+    ...deepClone(defaultData),
+    ...d,
+    money:{
+      cashOnHand:Number(money.cashOnHand || 0),
+      income:Array.isArray(money.income) ? money.income : [],
+      bills:Array.isArray(money.bills) ? money.bills : [],
+      expenses:Array.isArray(money.expenses) ? money.expenses : []
+    },
+    kernel: ensureKernelShape(d.kernel)
+  };
 }
 
 function safeRead(key, fallback){
@@ -1022,29 +1047,41 @@ function App() {
       eventFingerprint:fp,
       userConfirmed:false
     };
-    setData(prev => ({ ...prev, kernel:{ ...prev.kernel, events:[evt, ...(prev.kernel.events || [])].slice(0, 400) } }));
+    setData(prev => {
+      const next = ensureDataShape(prev);
+      const k = ensureKernelShape(next.kernel);
+      return { ...next, kernel:{ ...k, events:[evt, ...k.events].slice(0, 400) } };
+    });
     return evt;
   };
   const applyKernelSession = (label, beforeToday, eventId='') => {
     const sessionId = uid();
-    setData(prev => ({
-      ...prev,
-      kernel:{
-        ...prev.kernel,
-        applyLog:[{ id:sessionId, label, at:new Date().toISOString(), dayKey:todayKey, eventId, before:beforeToday, after:deepClone(prev.today.dailyLogs[todayKey] || {}) }, ...(prev.kernel.applyLog || [])].slice(0, 80),
-        events:(prev.kernel.events || []).map(e => e.eventId === eventId ? { ...e, parseStatus:'applied', applySessionId:sessionId, userConfirmed:true } : e)
-      }
-    }));
+    setData(prev => {
+      const next = ensureDataShape(prev);
+      const k = ensureKernelShape(next.kernel);
+      return {
+        ...next,
+        kernel:{
+          ...k,
+          applyLog:[{ id:sessionId, label, at:new Date().toISOString(), dayKey:todayKey, eventId, before:beforeToday, after:deepClone(next.today?.dailyLogs?.[todayKey] || {}) }, ...k.applyLog].slice(0, 80),
+          events:k.events.map(e => e.eventId === eventId ? { ...e, parseStatus:'applied', applySessionId:sessionId, userConfirmed:true } : e)
+        }
+      };
+    });
     return sessionId;
   };
   const undoLastApply = () => {
     const last = (data.kernel.applyLog || [])[0];
     if (!last || last.dayKey !== todayKey) return alert('No reversible apply found for today.');
-    setData(prev => ({
-      ...prev,
-      today:{ ...prev.today, dailyLogs:{ ...prev.today.dailyLogs, [todayKey]:deepClone(last.before) } },
-      kernel:{ ...prev.kernel, applyLog:(prev.kernel.applyLog || []).slice(1) }
-    }));
+    setData(prev => {
+      const next = ensureDataShape(prev);
+      const k = ensureKernelShape(next.kernel);
+      return {
+        ...next,
+        today:{ ...next.today, dailyLogs:{ ...next.today.dailyLogs, [todayKey]:deepClone(last.before) } },
+        kernel:{ ...k, applyLog:k.applyLog.slice(1) }
+      };
+    });
   };
   const setHealthField = (name, value) => updateToday({ health: { ...todaysLog.health, [name]: value } });
 
@@ -1064,6 +1101,8 @@ function App() {
   const isDriverChecked = (r) => (driverChecksDerived[r.id] ?? ruleState[r.id]) ? true : false;
   const driverPointsRaw = ruleSet.doRules.reduce((acc, r) => acc + (isDriverChecked(r) ? Number(r.weight || 0) : 0), 0);
   const penaltyPointsRaw = Math.abs(ruleSet.dontRules.reduce((acc, r) => acc + (ruleState[r.id] ? Number(r.weight || 0) : 0), 0));
+  const brokenKillerCount = ruleSet.dontRules.filter(r => !!ruleState[r.id]).length;
+  const missedDriverCount = ruleSet.doRules.filter(r => !isDriverChecked(r)).length;
   const driverPoints = clamp(driverPointsRaw, 0, 100);
   const penaltyPoints = clamp(penaltyPointsRaw, 0, 35);
   const coreExecPoints = 0;
@@ -1264,6 +1303,7 @@ function App() {
 
   function parseTodayDump() {
     const raw = todaysLog.todayDump || '';
+    if (!raw.trim()) { showToast('error', 'Nothing to parse'); return; }
     const evt = recordEvent({ sourceType:'typed_dump', rawText:raw, selectedTags:['day_progress'], parseStatus:'rules_parsed' });
     const parsed = sanitizeParsed(parseDump(raw));
     if (!parsed) throw new Error('Parsed object invalid');
@@ -1290,7 +1330,11 @@ function App() {
     const before = deepClone(todaysLog);
     const safeParsed = sanitizeParsed(p);
     if (!safeParsed) {
-      setData(prev => ({ ...prev, kernel:{ ...prev.kernel, needsReview:[{ id:uid(), at:new Date().toISOString(), dayKey:todayKey, payload:deepClone(p), reason:'invalid_parsed_shape' }, ...(prev.kernel.needsReview || [])] } }));
+      setData(prev => {
+        const next = ensureDataShape(prev);
+        const k = ensureKernelShape(next.kernel);
+        return { ...next, kernel:{ ...k, needsReview:[{ id:uid(), at:new Date().toISOString(), dayKey:todayKey, payload:deepClone(p), reason:'invalid_parsed_shape' }, ...k.needsReview] } };
+      });
       throw new Error('Parsed data malformed');
     }
     const patch = {
@@ -1324,10 +1368,12 @@ function App() {
 
   function parseTomorrowDump() {
     const raw = todaysLog.tomorrowDump || '';
+    if (!raw.trim()) { showToast('error', 'Nothing to parse'); return; }
     const evt = recordEvent({ sourceType:'typed_dump', rawText:raw, selectedTags:['tomorrow_plan'], parseStatus:'rules_parsed' });
     const parsed = sanitizeParsed(parseDump(raw));
     if (!parsed) throw new Error('Tomorrow parse failed');
-    const tasks = normalizeList(parsed.tomorrowTasks.length ? parsed.tomorrowTasks : (todaysLog.tomorrowDump || '').split('\n')).map(t => {
+    const parsedTomorrowTasks = Array.isArray(parsed.tomorrowTasks) ? parsed.tomorrowTasks : [];
+    const tasks = normalizeList(parsedTomorrowTasks.length ? parsedTomorrowTasks : (todaysLog.tomorrowDump || '').split('\n')).map(t => {
       const l = t.toLowerCase();
       const type = l.includes('primary') || l.includes('sql') ? 'primary_mit' : l.includes('secondary') ? 'secondary_mit' : l.includes('deep') ? 'deep_block' : l.includes('admin') ? 'admin_evidence' : 'extra';
       return { id:uid(), title:t, type };
@@ -1426,7 +1472,7 @@ function App() {
         const json = JSON.parse(reader.result);
         if (json.config && json.data) {
           setConfig(json.config);
-          setData(json.data);
+          setData(migrateState(json.config, json.data).data);
           alert('Backup imported.');
         } else {
           alert('Invalid backup file.');
@@ -1707,10 +1753,10 @@ function App() {
 
         <Card title="Score Breakdown (Hybrid)">
           <div className="grid grid-cols-2 gap-2 text-xs text-slate-300">
-            <div className="rounded-xl bg-white/5 p-2">Core: <span className="font-semibold text-white">{coreExecPoints}</span></div>
-            <div className="rounded-xl bg-white/5 p-2">Work Blocks: <span className="font-semibold text-white">{workBlockMeta.points}</span></div>
-            <div className="rounded-xl bg-white/5 p-2">Drivers: <span className="font-semibold text-white">{driverPoints}</span></div>
-            <div className="rounded-xl bg-white/5 p-2">Penalties: <span className="font-semibold text-white">-{penaltyPoints}</span></div>
+            <div className="rounded-xl bg-white/5 p-2">Mandatory earned: <span className="font-semibold text-white">{driverPoints}/100</span></div>
+            <div className="rounded-xl bg-white/5 p-2">Penalty lost: <span className="font-semibold text-white">-{penaltyPoints}</span></div>
+            <div className="rounded-xl bg-white/5 p-2">Broken killers: <span className="font-semibold text-white">{brokenKillerCount}</span></div>
+            <div className="rounded-xl bg-white/5 p-2">Missed drivers: <span className="font-semibold text-white">{missedDriverCount}</span></div>
           </div>
           {!!activeHardGates.length && <div className="mt-2 text-xs text-amber-300">Hard gates: {activeHardGates.join(' · ')}</div>}
         </Card>
@@ -1738,7 +1784,11 @@ function App() {
               <ActionButton state={actionStates.undoApply || 'idle'} onClick={() => runSafeAction('undoApply', async () => undoLastApply(), { success:'Last apply undone', failure:'Undo failed' })}>Undo Last Apply</ActionButton>
               <button onClick={() => {
                 if (!todaysLog.todayDumpParsed) return;
-                setData(prev => ({ ...prev, kernel:{ ...prev.kernel, needsReview:[{ id:uid(), at:new Date().toISOString(), dayKey:todayKey, payload:deepClone(todaysLog.todayDumpParsed) }, ...(prev.kernel.needsReview || [])] } }));
+                setData(prev => {
+                  const next = ensureDataShape(prev);
+                  const k = ensureKernelShape(next.kernel);
+                  return { ...next, kernel:{ ...k, needsReview:[{ id:uid(), at:new Date().toISOString(), dayKey:todayKey, payload:deepClone(todaysLog.todayDumpParsed) }, ...k.needsReview] } };
+                });
               }} disabled={!todaysLog.todayDumpParsed} className={`rounded-2xl px-4 py-3 text-sm tap ${todaysLog.todayDumpParsed ? 'bg-white/10' : 'bg-white/5 text-slate-500'}`}>Send to Needs Review</button>
               <button onClick={() => updateToday({ todayDump:'', todayDumpParsed:null })} className="rounded-2xl bg-white/10 px-4 py-3 text-sm tap">Clear</button>
             </div>
@@ -2213,6 +2263,7 @@ function App() {
         <Card title="Money Tab Recovery">
           <div className="text-sm text-red-300">A money widget failed to render safely.</div>
           <div className="mt-2 text-xs text-slate-400">{String(e?.message || e)}</div>
+          <button onClick={() => setData(prev => ({ ...ensureDataShape(prev), money:deepClone(defaultData.money) }))} className="mt-3 rounded-2xl bg-white/10 px-4 py-2 text-xs tap">Reset Money Tab State</button>
         </Card>
       );
     }
