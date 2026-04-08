@@ -581,6 +581,53 @@ function parseDump(text='') {
   return parsed;
 }
 
+function parseTimeToken(input='') {
+  const m = String(input).match(/(\d{1,2})(?:[:.](\d{2}))?\s*(am|pm)?/i);
+  if (!m) return '';
+  let hh = Number(m[1] || 0);
+  let mm = Number(m[2] || 0);
+  const ap = (m[3] || '').toLowerCase();
+  if (ap === 'pm' && hh < 12) hh += 12;
+  if (ap === 'am' && hh === 12) hh = 0;
+  if (hh > 23 || mm > 59) return '';
+  return `${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`;
+}
+
+function parseDumpV2(text='') {
+  const raw = String(text || '');
+  const normalized = raw.replace(/waked up/ig, 'woke up');
+  const lines = normalized.split(/\n+/).map(x => x.trim()).filter(Boolean);
+  const parsed = parseDump(normalized);
+  parsed.workBlocks = [];
+  parsed.learningMinutes = 0;
+  lines.forEach(line => {
+    const l = line.toLowerCase();
+    const t = parseTimeToken(line);
+    const d = l.match(/(\d+)\s*(min|mins|minutes|hour|hr|h)/);
+    const durationMin = d ? Number(d[1]) * (['hour','hr','h'].includes(d[2]) ? 60 : 1) : 0;
+    const hasTopic = /sql|t-sql|power bi|dax|semantic|quiz|retrieval|mock/.test(l);
+    const topic = /t-sql|sql/.test(l) ? 'SQL / T-SQL' : /power bi/.test(l) ? 'Power BI' : /dax/.test(l) ? 'DAX' : /quiz|retrieval|mock/.test(l) ? 'Quiz / Retrieval / Mock scenario' : 'Learning';
+    if (hasTopic && durationMin > 0) {
+      parsed.workBlocks.push({ time:t || '', durationMin, topic, notes:line });
+      parsed.learningMinutes += durationMin;
+    }
+    if (/focus mostly on/.test(l) && /sql|power bi|dax/.test(l)) parsed.primaryMit = parsed.primaryMit || (topic.includes('Power BI') ? 'Power BI learning' : 'SQL learning');
+    if (/then.*little power bi|little power bi/.test(l)) parsed.secondaryMit = parsed.secondaryMit || 'Power BI learning';
+    if (/admin task only on time|admin on time|follow up|email/.test(l)) parsed.adminBlock = parsed.adminBlock || 'admin tasks only on time';
+    if (/biscuit|cake|sugar/.test(l)) parsed.sugarBreach = true;
+    if (/social media|reels|shorts/.test(l)) parsed.leaks.push('social_media');
+    if (/nap/.test(l)) parsed.leaks.push('nap');
+    if (/random idea|research unrelated|switching tabs|researched/.test(l)) parsed.leaks.push('drift');
+  });
+  parsed.wakeTime = parsed.wakeTime || parseTimeToken((lines.find(l => /woke|wake/.test(l.toLowerCase())) || ''));
+  parsed.workBlocks = normalizeBlocks(parsed.workBlocks);
+  parsed.wins = normalizeList(parsed.wins || []);
+  parsed.weaknesses = normalizeList(parsed.weaknesses || []);
+  parsed.tomorrowTasks = normalizeList(parsed.tomorrowTasks || []);
+  parsed.leaks = normalizeList(parsed.leaks || []);
+  return parsed;
+}
+
 function sanitizeParsed(parsed) {
   if (!parsed || typeof parsed !== 'object') return null;
   const safe = {
@@ -707,7 +754,15 @@ class AppErrorBoundary extends React.Component {
             <div className="mt-1 text-xs text-slate-500">Last action: {window.__stabilityLastAction || 'unknown'}</div>
             <div className="mt-3 flex gap-2">
               <button onClick={() => window.location.reload()} className="rounded-2xl bg-accent-500 px-4 py-2 text-xs font-semibold text-navy-950 tap">Reload app</button>
-              <button onClick={() => { try { localStorage.removeItem('stability_os_data_v5'); } catch {} window.location.reload(); }} className="rounded-2xl bg-white/10 px-4 py-2 text-xs tap">Reset only Today tab state</button>
+              <button onClick={() => {
+                try {
+                  const raw = localStorage.getItem('stability_os_data_v5');
+                  const parsed = raw ? JSON.parse(raw) : {};
+                  if (parsed && parsed.today) parsed.today = deepClone(defaultData.today);
+                  localStorage.setItem('stability_os_data_v5', JSON.stringify(parsed || {}));
+                } catch {}
+                window.location.reload();
+              }} className="rounded-2xl bg-white/10 px-4 py-2 text-xs tap">Reset only Today tab state</button>
             </div>
           </div>
         </div>
@@ -755,13 +810,13 @@ function Input({label, value, onChange, type='text', placeholder='', step}) {
   );
 }
 
-function ActionButton({state='idle', onClick, disabled=false, children, className=''}) {
+function ActionButton({state='idle', onClick, disabled=false, children, workingLabel='Working…', className=''}) {
   const tone = state === 'error' ? 'bg-red-500/20 text-red-200' : state === 'success' ? 'bg-emerald-500/20 text-emerald-200' : state === 'working' ? 'bg-accent-500 text-navy-950' : '';
   return (
     <button onClick={onClick} disabled={disabled || state === 'working'} className={`rounded-2xl px-4 py-3 text-sm tap ${tone} ${disabled ? 'bg-white/5 text-slate-500' : 'bg-white/10'} ${className}`}>
       <span className="inline-flex items-center gap-2">
         {state === 'working' ? <span className="inline-block h-2 w-2 rounded-full bg-current pulse-dot"></span> : null}
-        {children}
+        {state === 'working' ? workingLabel : children}
       </span>
     </button>
   );
@@ -894,6 +949,8 @@ function App() {
   const [toast, setToast] = useState(null);
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiResult, setAiResult] = useState('');
+  const [parseStage, setParseStage] = useState('');
+  const [highlightBlocks, setHighlightBlocks] = useState(false);
   const closeLockRef = useRef(false);
   const actionLockRef = useRef({});
 
@@ -1099,9 +1156,18 @@ function App() {
     return checks;
   }, [ruleSet, todaysLog]);
   const isDriverChecked = (r) => (driverChecksDerived[r.id] ?? ruleState[r.id]) ? true : false;
+  const isKillerBreached = (r) => {
+    const txt = r.text.toLowerCase();
+    const derived =
+      (txt.includes('social media') && !!todaysLog.noSocialMedia ? false : undefined) ??
+      (txt.includes('sugars') ? !!todaysLog.sugarBreach : undefined) ??
+      (txt.includes('unplanned nap') ? /nap/.test((todaysLog.weaknesses || []).join(' ').toLowerCase()) : undefined) ??
+      (txt.includes('ai chatting') ? /ai drift|random ai/.test((todaysLog.weaknesses || []).join(' ').toLowerCase()) : undefined);
+    return (derived ?? !!ruleState[r.id]) ? true : false;
+  };
   const driverPointsRaw = ruleSet.doRules.reduce((acc, r) => acc + (isDriverChecked(r) ? Number(r.weight || 0) : 0), 0);
-  const penaltyPointsRaw = Math.abs(ruleSet.dontRules.reduce((acc, r) => acc + (ruleState[r.id] ? Number(r.weight || 0) : 0), 0));
-  const brokenKillerCount = ruleSet.dontRules.filter(r => !!ruleState[r.id]).length;
+  const penaltyPointsRaw = Math.abs(ruleSet.dontRules.reduce((acc, r) => acc + (isKillerBreached(r) ? Number(r.weight || 0) : 0), 0));
+  const brokenKillerCount = ruleSet.dontRules.filter(r => isKillerBreached(r)).length;
   const missedDriverCount = ruleSet.doRules.filter(r => !isDriverChecked(r)).length;
   const driverPoints = clamp(driverPointsRaw, 0, 100);
   const penaltyPoints = clamp(penaltyPointsRaw, 0, 35);
@@ -1288,6 +1354,50 @@ function App() {
     }
   }
 
+  async function aiRefineParsed({ kind, rawText, deterministicParsed, appSummary }) {
+    if (!config.ai.enabled || !config.ai.apiKey) return { parsed:deterministicParsed, aiUsed:false };
+    const prompt = `Return strict JSON only. kind=${kind}. deterministicParsed=${JSON.stringify(deterministicParsed)} rawText=${rawText} context=${appSummary}`;
+    const payload = {
+      model: config.ai.model,
+      messages: [
+        { role:'system', content:'Return JSON only with keys: summary,wins,weaknesses,lesson,suggestedTomorrowTasks,confidence,uncertainty' },
+        { role:'user', content: prompt }
+      ]
+    };
+    const res = await fetch(config.ai.endpoint, {
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'Authorization':`Bearer ${config.ai.apiKey}`,
+        ...(config.ai.siteUrl ? { 'HTTP-Referer':config.ai.siteUrl } : {}),
+        ...(config.ai.siteName ? { 'X-Title':config.ai.siteName } : {})
+      },
+      body: JSON.stringify(payload)
+    });
+    const json = await res.json();
+    const text = json?.choices?.[0]?.message?.content || '';
+    const match = text.match(/\{[\s\S]*\}/);
+    if (!match) return { parsed:deterministicParsed, aiUsed:false, error:'No JSON from AI' };
+    try {
+      const ai = JSON.parse(match[0]);
+      return {
+        parsed:{
+          ...deterministicParsed,
+          summary: ai.summary || deterministicParsed.summary,
+          wins: normalizeList([...(deterministicParsed.wins || []), ...((ai.wins || []).map(String))]),
+          weaknesses: normalizeList([...(deterministicParsed.weaknesses || []), ...((ai.weaknesses || []).map(String))]),
+          lesson: ai.lesson || deterministicParsed.lesson,
+          tomorrowTasks: normalizeList([...(deterministicParsed.tomorrowTasks || []), ...((ai.suggestedTomorrowTasks || []).map(String))]),
+          confidence: Number(ai.confidence || 0),
+          uncertainty: String(ai.uncertainty || '')
+        },
+        aiUsed:true
+      };
+    } catch {
+      return { parsed:deterministicParsed, aiUsed:false, error:'Invalid AI JSON' };
+    }
+  }
+
   async function summarizeHistoryDay() {
     if (!selectedHistory) return;
     const prompt = `Summarize this day in bullets with bottleneck and correction: ${JSON.stringify(selectedHistory)}`;
@@ -1301,17 +1411,30 @@ function App() {
     }));
   }
 
-  function parseTodayDump() {
+  async function parseTodayDump() {
     const raw = todaysLog.todayDump || '';
     if (!raw.trim()) { showToast('error', 'Nothing to parse'); return; }
+    const start = Date.now();
+    setParseStage('Rules pass…');
     const evt = recordEvent({ sourceType:'typed_dump', rawText:raw, selectedTags:['day_progress'], parseStatus:'rules_parsed' });
-    const parsed = sanitizeParsed(parseDump(raw));
+    let parsed = sanitizeParsed(parseDumpV2(raw));
     if (!parsed) throw new Error('Parsed object invalid');
+    let aiUsed = false;
+    if (config.ai.enabled && config.ai.apiKey) {
+      setParseStage('AI refine…');
+      const refined = await aiRefineParsed({ kind:'today', rawText:raw, deterministicParsed:parsed, appSummary });
+      parsed = sanitizeParsed(refined.parsed) || parsed;
+      aiUsed = !!refined.aiUsed;
+      if (refined.error) showToast('error', refined.error);
+    }
+    await new Promise(r => setTimeout(r, Math.max(0, 1200 - (Date.now() - start))));
     parsed.__eventId = evt.eventId;
     parsed.__fingerprint = evt.eventFingerprint;
     parsed.confidence = parsed.workBlocks.length ? 0.86 : 0.62;
     parsed.uncertainty = parsed.workBlocks.length ? '' : 'No clear timed work blocks detected';
+    parsed.__meta = { eventId:evt.eventId, aiUsed, parseVersion:'v2', confidence:parsed.confidence, uncertainty:parsed.uncertainty };
     updateToday({ todayDumpParsed:parsed });
+    setParseStage('');
   }
 
   function applyTodayDumpParsed(replace=false) {
@@ -1362,23 +1485,38 @@ function App() {
       parseApplySessionId: uid()
     };
     patch.learningMinutes = normalizeBlocks(patch.workBlocks).reduce((a,b) => a + Number(b.durationMin || 0), 0);
-    updateToday(patch);
+    updateToday({ ...patch, todayDump:'' });
     applyKernelSession('apply_today_dump', before, p.__eventId || '');
+    showToast('success', `Applied: ${(patch.workBlocks || []).length} blocks, ${patch.learningMinutes || 0} mins, score updated`);
+    setHighlightBlocks(true);
+    setTimeout(() => setHighlightBlocks(false), 1400);
   }
 
-  function parseTomorrowDump() {
+  async function parseTomorrowDump() {
     const raw = todaysLog.tomorrowDump || '';
     if (!raw.trim()) { showToast('error', 'Nothing to parse'); return; }
+    const start = Date.now();
+    setParseStage('Rules pass…');
     const evt = recordEvent({ sourceType:'typed_dump', rawText:raw, selectedTags:['tomorrow_plan'], parseStatus:'rules_parsed' });
-    const parsed = sanitizeParsed(parseDump(raw));
+    let parsed = sanitizeParsed(parseDumpV2(raw));
     if (!parsed) throw new Error('Tomorrow parse failed');
+    let aiUsed = false;
+    if (config.ai.enabled && config.ai.apiKey) {
+      setParseStage('AI refine…');
+      const refined = await aiRefineParsed({ kind:'tomorrow', rawText:raw, deterministicParsed:parsed, appSummary });
+      parsed = sanitizeParsed(refined.parsed) || parsed;
+      aiUsed = !!refined.aiUsed;
+      if (refined.error) showToast('error', refined.error);
+    }
+    await new Promise(r => setTimeout(r, Math.max(0, 1200 - (Date.now() - start))));
     const parsedTomorrowTasks = Array.isArray(parsed.tomorrowTasks) ? parsed.tomorrowTasks : [];
     const tasks = normalizeList(parsedTomorrowTasks.length ? parsedTomorrowTasks : (todaysLog.tomorrowDump || '').split('\n')).map(t => {
       const l = t.toLowerCase();
       const type = l.includes('primary') || l.includes('sql') ? 'primary_mit' : l.includes('secondary') ? 'secondary_mit' : l.includes('deep') ? 'deep_block' : l.includes('admin') ? 'admin_evidence' : 'extra';
       return { id:uid(), title:t, type };
     });
-    updateToday({ tomorrowDumpParsed:{ ...parsed, tasks, __eventId:evt.eventId, __fingerprint:evt.eventFingerprint }, tomorrowChecklist: tasks, nextDayPlan: tasks.map(t => `- [${t.type}] ${t.title}`).join('\n') });
+    updateToday({ tomorrowDumpParsed:{ ...parsed, tasks, __eventId:evt.eventId, __fingerprint:evt.eventFingerprint, __meta:{ eventId:evt.eventId, aiUsed, parseVersion:'v2' } }, tomorrowChecklist: tasks, nextDayPlan: tasks.map(t => `- [${t.type}] ${t.title}`).join('\n') });
+    setParseStage('');
   }
 
   useEffect(() => {
@@ -1792,6 +1930,7 @@ function App() {
               }} disabled={!todaysLog.todayDumpParsed} className={`rounded-2xl px-4 py-3 text-sm tap ${todaysLog.todayDumpParsed ? 'bg-white/10' : 'bg-white/5 text-slate-500'}`}>Send to Needs Review</button>
               <button onClick={() => updateToday({ todayDump:'', todayDumpParsed:null })} className="rounded-2xl bg-white/10 px-4 py-3 text-sm tap">Clear</button>
             </div>
+            {parseStage ? <div className="text-xs text-accent-300">{parseStage}</div> : null}
             <div className="rounded-2xl border border-white/10 bg-navy-850 p-3 text-xs text-slate-300">
               <div className="font-semibold text-slate-200">Parse Preview</div>
               {todaysLog.todayDumpParsed ? (
@@ -1873,6 +2012,18 @@ function App() {
             </div>
           </Card>
         )}
+
+        <Card title="Detected Work Blocks" className={highlightBlocks ? 'ring-2 ring-accent-500' : ''}>
+          <div className="space-y-2">
+            {(todaysLog.workBlocks || []).map((b, i) => (
+              <div key={`${b.time}-${b.durationMin}-${i}`} className="rounded-2xl bg-white/5 px-3 py-2 text-xs">
+                <div className="font-semibold">{b.topic || 'Learning'} · {b.durationMin}m</div>
+                <div className="text-slate-400">{b.time || '—'} · {b.notes || ''}</div>
+              </div>
+            ))}
+            {!(todaysLog.workBlocks || []).length && <div className="text-sm text-slate-500">No detected blocks yet.</div>}
+          </div>
+        </Card>
 
         {visibleWidgets.rules && (
           <Card title="Operating Rules">
