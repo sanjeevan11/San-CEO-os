@@ -172,13 +172,9 @@ const defaultConfig = {
   },
   tabs: [
     { id:'today', name:'Today', archived:false },
-    { id:'inbox', name:'Inbox', archived:false },
-    { id:'command', name:'Command', archived:false },
-    { id:'legal', name:'Legal', archived:false },
-    { id:'money', name:'Money', archived:false },
-    { id:'business', name:'Business', archived:false },
+    { id:'rules', name:'Rules', archived:false },
     { id:'history', name:'History', archived:false },
-    { id:'builder', name:'Builder', archived:false }
+    { id:'settings', name:'Settings', archived:false }
   ],
   today: {
     mitLabels: {
@@ -1173,11 +1169,12 @@ function App() {
     return (derived ?? !!ruleState[r.id]) ? true : false;
   };
   const driverPointsRaw = ruleSet.doRules.reduce((acc, r) => acc + (isDriverChecked(r) ? Number(r.weight || 0) : 0), 0);
+  const workEarned = Math.min(40, Math.floor(Number(todaysLog.learningMinutes || 0) / 30) * 5 + ((todaysLog.workBlocks || []).some(b => Number(b.durationMin || 0) >= 90) ? 5 : 0));
   const penaltyPointsRaw = Math.abs(ruleSet.dontRules.reduce((acc, r) => acc + (isKillerBreached(r) ? Number(r.weight || 0) : 0), 0));
   const brokenKillerCount = ruleSet.dontRules.filter(r => isKillerBreached(r)).length;
   const missedDriverCount = ruleSet.doRules.filter(r => !isDriverChecked(r)).length;
-  const driverPoints = clamp(driverPointsRaw, 0, 100);
-  const penaltyPoints = clamp(penaltyPointsRaw, 0, 35);
+  const driverPoints = clamp(driverPointsRaw, 0, 60);
+  const penaltyPoints = clamp(penaltyPointsRaw, 0, 30);
   const coreExecPoints = 0;
   const workBlockMeta = useMemo(() => {
     const blocks = normalizeBlocks(todaysLog.workBlocks || []);
@@ -1202,7 +1199,7 @@ function App() {
   const activeHardGates = [];
 
   const todayScore = useMemo(() => {
-    let score = clamp(driverPoints - penaltyPoints, 0, 100);
+    let score = clamp(driverPoints + workEarned - penaltyPoints, 0, 100);
     activeHardGates.length = 0;
     const hasPrimaryRule = ruleSet.doRules.find(r => r.text.includes('Write Primary MIT before anything else'));
     const hasMitRule = ruleSet.doRules.find(r => r.text.includes('Complete one 90-minute MIT block'));
@@ -1211,11 +1208,12 @@ function App() {
     if (hasMitRule && !isDriverChecked(hasMitRule)) { score = Math.min(score, 65); activeHardGates.push('90-min MIT rule missing (cap 65)'); }
     if (hasCloseRule && !isDriverChecked(hasCloseRule)) activeHardGates.push('Close gate: review + tomorrow plan required');
     return score;
-  }, [coreExecPoints, driverPoints, penaltyPoints, todaysLog.coreCompleted, workBlockMeta, ruleSet, driverChecksDerived, ruleState]);
+  }, [coreExecPoints, driverPoints, penaltyPoints, todaysLog.coreCompleted, workBlockMeta, ruleSet, driverChecksDerived, ruleState, workEarned]);
   const scoreBreakdownLive = useMemo(() => ({
     mandatoryEarned: driverPoints,
+    workEarned,
     penaltyLost: penaltyPoints,
-    rawScore: driverPoints - penaltyPoints,
+    rawScore: driverPoints + workEarned - penaltyPoints,
     finalScore: todayScore,
     capsApplied:[...activeHardGates],
     completedDoCount: ruleSet.doRules.filter(r => isDriverChecked(r)).length,
@@ -1866,9 +1864,11 @@ function App() {
         <Card title="Score Breakdown (Hybrid)">
           <div className="grid grid-cols-2 gap-2 text-xs text-slate-300">
             <div className="rounded-xl bg-white/5 p-2">Mandatory earned: <span className="font-semibold text-white">{driverPoints}/100</span></div>
+            <div className="rounded-xl bg-white/5 p-2">Work earned: <span className="font-semibold text-white">{workEarned}/40</span></div>
             <div className="rounded-xl bg-white/5 p-2">Penalty lost: <span className="font-semibold text-white">-{penaltyPoints}</span></div>
             <div className="rounded-xl bg-white/5 p-2">Broken killers: <span className="font-semibold text-white">{brokenKillerCount}</span></div>
             <div className="rounded-xl bg-white/5 p-2">Missed drivers: <span className="font-semibold text-white">{missedDriverCount}</span></div>
+            <div className="rounded-xl bg-white/5 p-2">Final: <span className="font-semibold text-white">{todayScore}</span></div>
           </div>
           {!!activeHardGates.length && <div className="mt-2 text-xs text-amber-300">Hard gates: {activeHardGates.join(' · ')}</div>}
         </Card>
@@ -2572,6 +2572,54 @@ function App() {
     );
   }
 
+  function renderRules() {
+    return (
+      <div className="space-y-4 fade-up">
+        <Card title="DO Rules (Earn)">
+          <div className="space-y-2">
+            {ruleSet.doRules.map(rule => (
+              <button key={rule.id} onClick={() => updateToday({ rulesState:{ ...ruleState, [rule.id]: !ruleState[rule.id] } })} className="w-full rounded-2xl bg-white/5 px-3 py-3 text-left text-sm tap">
+                <div className="flex items-center justify-between">
+                  <div>{rule.text}</div>
+                  <Badge tone={ruleState[rule.id] ? 'good' : 'default'}>+{rule.weight}</Badge>
+                </div>
+              </button>
+            ))}
+          </div>
+        </Card>
+        <Card title="DON’T Rules (Penalty)">
+          <div className="space-y-2">
+            {ruleSet.dontRules.map(rule => (
+              <button key={rule.id} onClick={() => updateToday({ rulesState:{ ...ruleState, [rule.id]: !ruleState[rule.id] } })} className="w-full rounded-2xl bg-white/5 px-3 py-3 text-left text-sm tap">
+                <div className="flex items-center justify-between">
+                  <div>{rule.text}</div>
+                  <Badge tone={ruleState[rule.id] ? 'bad' : 'default'}>{rule.weight}</Badge>
+                </div>
+              </button>
+            ))}
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  function renderSettings() {
+    return (
+      <div className="space-y-4 fade-up">
+        <Card title="AI Settings (Local only)">
+          <div className="grid gap-3">
+            <Toggle label="AI Enabled" checked={!!config.ai.enabled} onChange={() => setConfig(prev => ({ ...prev, ai:{ ...prev.ai, enabled:!prev.ai.enabled } }))} />
+            <Input label="Endpoint" value={config.ai.endpoint} onChange={v => setConfig(prev => ({ ...prev, ai:{ ...prev.ai, endpoint:v } }))} />
+            <Input label="Model" value={config.ai.model} onChange={v => setConfig(prev => ({ ...prev, ai:{ ...prev.ai, model:v } }))} />
+            <Input label="API Key" value={config.ai.apiKey} onChange={v => setConfig(prev => ({ ...prev, ai:{ ...prev.ai, apiKey:v } }))} />
+            <Input label="Site URL" value={config.ai.siteUrl || ''} onChange={v => setConfig(prev => ({ ...prev, ai:{ ...prev.ai, siteUrl:v } }))} />
+            <Input label="Site Name" value={config.ai.siteName || ''} onChange={v => setConfig(prev => ({ ...prev, ai:{ ...prev.ai, siteName:v } }))} />
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
   function renderHistory() {
     return (
       <div className="space-y-4 fade-up">
@@ -2916,14 +2964,10 @@ function App() {
       <div className="flex-1 overflow-y-auto hide-scroll px-4 content-pad">
         <TabErrorBoundary tabId={activeTab} onReset={() => setActiveTab('today')}>
           {activeTab === 'today' && renderToday()}
-          {activeTab === 'inbox' && renderInbox()}
-          {activeTab === 'command' && renderCommand()}
-          {activeTab === 'legal' && renderLegal()}
-          {activeTab === 'money' && renderMoney()}
-          {activeTab === 'business' && renderBusiness()}
+          {activeTab === 'rules' && renderRules()}
           {activeTab === 'history' && renderHistory()}
-          {activeTab === 'builder' && renderBuilder()}
-          {!['today','inbox','command','legal','money','business','history','builder'].includes(activeTab) && (
+          {activeTab === 'settings' && renderSettings()}
+          {!['today','rules','history','settings'].includes(activeTab) && (
             <Card title="Custom Tab">
               <div className="text-sm text-slate-400">This custom tab exists in navigation. Add modules via Builder or repurpose it later.</div>
             </Card>
