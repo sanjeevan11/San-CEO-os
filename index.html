@@ -389,6 +389,14 @@ const defaultData = {
   business: {
     leads: [
       { id:uid(), name:'Sample Lead', company:'Demo Studio', icp:'Photographer', source:'Outbound', stage:'Discovery', quoted:true, depositPaid:false, scopeSigned:false, nextFollowUp:isoToday(), caseStudyPotential:true, mrrValue:450, notes:'Needs structured follow-up.' }
+    ],
+    jobApplications: [
+      { id:uid(), targetRole:'Data Analyst', employer:'Example Corp', source:'LinkedIn', cvVersion:'v3', appliedAt:isoToday(), stage:'Applied', followUpDate:isoToday(), interviewDate:'', notes:'Tailor SQL proof bullets', outcome:'' }
+    ]
+  },
+  support: {
+    items: [
+      { id:uid(), type:'GP', title:'Book GP follow-up', appointmentDate:'', nextChase:isoToday(), status:'open', notes:'' }
     ]
   },
   kernel: {
@@ -506,6 +514,9 @@ function migrateState(configRaw, dataRaw) {
   if (!data.legal.waiting) data.legal.waiting = deepClone(defaultData.legal.waiting);
   if (!data.legal.promises) data.legal.promises = deepClone(defaultData.legal.promises);
   if (!data.legal.blockers) data.legal.blockers = deepClone(defaultData.legal.blockers);
+  if (!data.business.jobApplications) data.business.jobApplications = deepClone(defaultData.business.jobApplications);
+  if (!data.support) data.support = deepClone(defaultData.support);
+  if (!Array.isArray(data.support.items)) data.support.items = deepClone(defaultData.support.items);
   return { config, data };
 }
 
@@ -963,6 +974,27 @@ function App() {
   const followUpsDue = data.business.leads.filter(l => l.nextFollowUp && l.nextFollowUp <= todayKey && !['Lost', 'Live'].includes(l.stage));
   const caseStudyCount = data.business.leads.filter(l => l.caseStudyPotential).length;
   const mrr = data.business.leads.filter(l => ['Live', 'Build', 'Ready to Build'].includes(l.stage)).reduce((a,b) => a + Number(b.mrrValue || 0), 0);
+  const openLoopSignals = useMemo(() => {
+    const loops = [];
+    (data.legal.deadlines || []).forEach(d => {
+      const linked = (data.legal.correspondence || []).some(c => (c.subject || '').toLowerCase().includes((d.title || '').slice(0, 12).toLowerCase()));
+      if (!linked) loops.push(`Deadline without correspondence link: ${d.title}`);
+    });
+    (data.legal.waiting || []).forEach(w => { if (!w.chaseDate) loops.push(`Waiting item without chase date: ${w.item}`); });
+    (data.business.jobApplications || []).forEach(a => { if (!a.followUpDate) loops.push(`Application without follow-up: ${a.employer}`); });
+    return loops.slice(0, 8);
+  }, [data]);
+  const weeklyInsights = useMemo(() => {
+    const hist = (data.today.history || []).slice(-7);
+    const avg = hist.length ? Math.round(hist.reduce((a,b) => a + Number(b.score || 0), 0) / hist.length) : 0;
+    const sugarDays = hist.filter(h => h.sugarBreach || (h.weaknesses || []).some(w => /sugar/i.test(w))).length;
+    const deepDays = hist.filter(h => (h.workBlocks || []).some(b => Number(b.durationMin || 0) >= 50)).length;
+    return { avg, sugarDays, deepDays };
+  }, [data.today.history]);
+  const filenameEngine = (agency='Agency', subject='Subject', ext='pdf') => {
+    const d = new Date().toISOString().slice(0,10).replace(/-/g,'');
+    return `${d}_${agency.replace(/\s+/g,'')}_${subject.replace(/\s+/g,'')}_v01.${ext}`;
+  };
 
   const currentTabName = visibleTabs.find(t => t.id === activeTab)?.name || 'Today';
   const visibleWidgets = config.today.widgets;
@@ -1313,6 +1345,13 @@ function App() {
     }, holdMs);
   }
 
+  function reopenClosedDay() {
+    if (!todaysLog.completedAt) return alert('This day is not closed.');
+    if (!confirm('Reopen closed day for edits? This only clears close locks for today.')) return;
+    updateToday({ completedAt:null, lastClosedAt:null, closeSessionId:'', closeFingerprint:'' });
+    alert('Day reopened for edits.');
+  }
+
   const results = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     if (!q) return [];
@@ -1343,7 +1382,9 @@ function App() {
     pushIf(data.legal.blockers || [], 'Blocker', 'legal', x => x.action, x => x.unblockBy);
     pushIf(data.money.bills, 'Bill', 'money', x => x.name, x => x.dueDate);
     pushIf(data.money.expenses, 'Expense', 'money', x => x.category + ' ' + (x.notes || ''), x => x.date);
+    pushIf(data.support.items || [], 'Support', 'money', x => x.title, x => x.nextChase);
     pushIf(data.business.leads, 'Lead', 'business', x => (x.company || x.name) + ' / ' + x.stage, x => x.nextFollowUp);
+    pushIf(data.business.jobApplications || [], 'Application', 'business', x => `${x.employer} ${x.targetRole}`, x => x.followUpDate);
     pushIf(data.kernel.events || [], 'Event', 'inbox', x => x.rawText || x.sourceType, x => x.createdAt);
     return out.slice(0, 40);
   }, [searchQuery, data]);
@@ -1630,6 +1671,7 @@ function App() {
               <TextArea label="Tomorrow Plan" value={todaysLog.nextDayPlan} onChange={v => updateToday({ nextDayPlan:v })} placeholder="No day closes without tomorrow's plan." />
               <div className="flex gap-2">
                 <button onClick={endDay} disabled={closeBusy} className={`flex-1 rounded-2xl px-4 py-3 font-semibold tap ${closeBusy ? 'bg-white/10 text-slate-400' : 'bg-accent-500 text-navy-950'}`}>{closeBusy ? 'Closing…' : 'Close Day'}</button>
+                <button onClick={reopenClosedDay} className="rounded-2xl bg-white/10 px-4 py-3 text-sm tap">Reopen/Edit</button>
                 <button onClick={() => askAI('tomorrow')} className="rounded-2xl bg-white/10 px-4 py-3 text-sm tap">AI Tomorrow Plan</button>
               </div>
             </div>
@@ -1849,6 +1891,20 @@ function App() {
             ))}
           </div>
         </Card>
+
+        <Card title="Support / Appointments">
+          <div className="space-y-2">
+            {(data.support.items || []).map(item => (
+              <div key={item.id} className="rounded-2xl bg-white/5 p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-sm font-semibold">{item.type} · {item.title}</div>
+                  <Badge>{item.status}</Badge>
+                </div>
+                <div className="mt-1 text-xs text-slate-400">Appointment {prettifyDate(item.appointmentDate)} · Next chase {prettifyDate(item.nextChase)}</div>
+              </div>
+            ))}
+          </div>
+        </Card>
       </div>
     );
   }
@@ -1919,6 +1975,20 @@ function App() {
                   <Input label="MRR value" type="number" step="0.01" value={item.mrrValue} onChange={v => setData(prev => ({ ...prev, business:{ ...prev.business, leads: prev.business.leads.map(l => l.id === item.id ? { ...l, mrrValue:Number(v) } : l) } }))} />
                   <TextArea label="Notes" value={item.notes || ''} onChange={v => setData(prev => ({ ...prev, business:{ ...prev.business, leads: prev.business.leads.map(l => l.id === item.id ? { ...l, notes:v } : l) } }))} rows={2} />
                 </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        <Card title="Job Hunt Ops">
+          <div className="space-y-2">
+            {(data.business.jobApplications || []).map(item => (
+              <div key={item.id} className="rounded-2xl bg-white/5 p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-sm font-semibold">{item.employer} · {item.targetRole}</div>
+                  <Badge>{item.stage}</Badge>
+                </div>
+                <div className="mt-1 text-xs text-slate-400">Applied {prettifyDate(item.appliedAt)} · Follow-up {prettifyDate(item.followUpDate)} · CV {item.cvVersion}</div>
               </div>
             ))}
           </div>
@@ -1999,6 +2069,19 @@ function App() {
             ))}
           </div>
         </Card>
+        <Card title="Consequence / Open Loop Engine">
+          <div className="space-y-2 text-xs">
+            <div className="rounded-xl bg-white/5 p-2 text-slate-300">If delayed today: {mattersDueSoon.length ? 'legal risk increases' : 'execution drift accumulates'}.</div>
+            {openLoopSignals.map((x, i) => <div key={i} className="rounded-xl bg-white/5 p-2 text-slate-400">{x}</div>)}
+            {!openLoopSignals.length && <div className="rounded-xl bg-white/5 p-2 text-slate-400">No major open-loop alerts detected.</div>}
+          </div>
+        </Card>
+        <Card title="Filename Engine">
+          <div className="space-y-1 text-xs text-slate-300">
+            <div>{filenameEngine('Tribunal','WitnessStatement','pdf')}</div>
+            <div>{filenameEngine('UKVI','SupportLetter','docx')}</div>
+          </div>
+        </Card>
       </div>
     );
   }
@@ -2033,6 +2116,13 @@ function App() {
               <div className="mb-1 font-semibold">Template Locker</div>
               {(data.kernel.templateLocker || []).map(t => <div key={t.id}>{t.category}: {t.title}</div>)}
             </div>
+          </div>
+        </Card>
+        <Card title="Weekly Intelligence">
+          <div className="grid grid-cols-3 gap-2 text-xs">
+            <div className="rounded-xl bg-white/5 p-2">Avg Score: <span className="font-semibold">{weeklyInsights.avg}</span></div>
+            <div className="rounded-xl bg-white/5 p-2">Sugar Days: <span className="font-semibold">{weeklyInsights.sugarDays}</span></div>
+            <div className="rounded-xl bg-white/5 p-2">Deep Days: <span className="font-semibold">{weeklyInsights.deepDays}</span></div>
           </div>
         </Card>
       </div>
