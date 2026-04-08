@@ -75,15 +75,15 @@
     .tap{ -webkit-tap-highlight-color: transparent; }
     code{ word-break: break-word; }
   </style>
-  <link rel="manifest" href='data:application/manifest+json,{"name":"Stability OS","short_name":"Stability OS","display":"standalone","background_color":"#08111f","theme_color":"#08111f","start_url":"./"}'>
+  <link rel="manifest" href="./manifest.json">
 </head>
 <body>
 <div id="root"></div>
 
 <script type="text/babel">
-const { useState, useEffect, useMemo } = React;
+const { useState, useEffect, useMemo, useRef } = React;
 
-const APP_VERSION = 5;
+const APP_VERSION = 6;
 const LS = {
   config: 'stability_os_config_v5',
   data: 'stability_os_data_v5',
@@ -172,9 +172,12 @@ const defaultConfig = {
   },
   tabs: [
     { id:'today', name:'Today', archived:false },
+    { id:'inbox', name:'Inbox', archived:false },
+    { id:'command', name:'Command', archived:false },
     { id:'legal', name:'Legal', archived:false },
     { id:'money', name:'Money', archived:false },
     { id:'business', name:'Business', archived:false },
+    { id:'history', name:'History', archived:false },
     { id:'builder', name:'Builder', archived:false }
   ],
   today: {
@@ -676,9 +679,13 @@ function App() {
   const [builderSection, setBuilderSection] = useState('app');
   const [timerSeconds, setTimerSeconds] = useState(25 * 60);
   const [installNoteDismissed, setInstallNoteDismissed] = useState(false);
+  const [deferredInstallPrompt, setDeferredInstallPrompt] = useState(null);
+  const [isStandalone, setIsStandalone] = useState(window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone);
   const [aiBusy, setAiBusy] = useState(false);
+  const [closeBusy, setCloseBusy] = useState(false);
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiResult, setAiResult] = useState('');
+  const closeLockRef = useRef(false);
 
   const todayKey = isoToday();
   const todaysLog = data.today.dailyLogs[todayKey] || defaultData.today.dailyLogs[isoToday()];
@@ -698,6 +705,14 @@ function App() {
       }));
     }
   }, [todayKey]);
+
+  useEffect(() => {
+    const hashTab = (window.location.hash || '').replace('#','').trim();
+    if (hashTab && visibleTabs.some(t => t.id === hashTab)) setActiveTab(hashTab);
+  }, []);
+  useEffect(() => {
+    if (activeTab) window.history.replaceState(null, '', `#${activeTab}`);
+  }, [activeTab]);
 
   useEffect(() => {
     if (todaysLog && todaysLog.timerRunning) {
@@ -734,6 +749,25 @@ function App() {
     }
   }, [todaysLog.sleepHours]);
 
+  useEffect(() => {
+    const onInstallable = (e) => {
+      e.preventDefault();
+      setDeferredInstallPrompt(e);
+    };
+    const onDisplayMode = () => setIsStandalone(window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone);
+    window.addEventListener('beforeinstallprompt', onInstallable);
+    window.addEventListener('appinstalled', onDisplayMode);
+    window.matchMedia('(display-mode: standalone)').addEventListener('change', onDisplayMode);
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./service-worker.js').catch(() => null);
+    }
+    return () => {
+      window.removeEventListener('beforeinstallprompt', onInstallable);
+      window.removeEventListener('appinstalled', onDisplayMode);
+      window.matchMedia('(display-mode: standalone)').removeEventListener('change', onDisplayMode);
+    };
+  }, []);
+
   const updateToday = (patch) => {
     setData(prev => ({
       ...prev,
@@ -751,23 +785,44 @@ function App() {
   const ruleState = todaysLog.rulesState || {};
   const driverPointsRaw = ruleSet.doRules.reduce((acc, r) => acc + (ruleState[r.id] ? Number(r.weight || 0) : 0), 0);
   const penaltyRaw = ruleSet.dontRules.reduce((acc, r) => acc + (ruleState[r.id] ? Number(r.weight || 0) : 0), 0);
-  const driverPoints = Math.min(25, Math.max(0, driverPointsRaw));
-  const penaltyPoints = Math.min(40, Math.max(0, penaltyRaw * 5));
+  const driverPoints = Math.min(20, Math.max(0, driverPointsRaw));
+  const penaltyPoints = Math.min(35, Math.max(0, penaltyRaw * 5));
   const coreExecPoints =
-    (todaysLog.coreCompleted?.primary ? 20 : 0) +
-    (todaysLog.coreCompleted?.secondary ? 10 : 0) +
-    (todaysLog.coreCompleted?.deep ? 15 : 0) +
-    (todaysLog.coreCompleted?.admin ? 10 : 0) +
-    (todaysLog.coreCompleted?.review ? 10 : 0) +
-    (todaysLog.coreCompleted?.tomorrow ? 10 : 0);
+    (todaysLog.coreCompleted?.primary ? 18 : 0) +
+    (todaysLog.coreCompleted?.secondary ? 8 : 0) +
+    (todaysLog.coreCompleted?.deep ? 12 : 0) +
+    (todaysLog.coreCompleted?.admin ? 8 : 0) +
+    (todaysLog.coreCompleted?.review ? 7 : 0) +
+    (todaysLog.coreCompleted?.tomorrow ? 7 : 0);
+  const workBlockMeta = useMemo(() => {
+    const blocks = normalizeBlocks(todaysLog.workBlocks || []);
+    const strongBlocks = blocks.filter(b => Number(b.durationMin || 0) >= 50);
+    const retrievalBlocks = blocks.filter(b => /quiz|retrieval|recall|mock/i.test(String(b.topic || '') + ' ' + String(b.notes || '')));
+    const alignedBlocks = blocks.filter(b => {
+      const text = String(b.topic || '').toLowerCase();
+      return text.includes('sql') || text.includes('power bi') || text.includes('pl-300');
+    });
+    let points = 0;
+    if (strongBlocks.length >= 1) points += 8;
+    if (strongBlocks.length >= 2) points += 6;
+    if (retrievalBlocks.length >= 1) points += 5;
+    if (alignedBlocks.length >= 1) points += 6;
+    return {
+      points: Math.min(25, points),
+      hasMeaningfulBlock: strongBlocks.length > 0 || alignedBlocks.length > 0,
+      strongCount: strongBlocks.length,
+      retrievalCount: retrievalBlocks.length
+    };
+  }, [todaysLog.workBlocks]);
+  const activeHardGates = [];
 
   const todayScore = useMemo(() => {
-    let score = clamp(coreExecPoints + driverPoints - penaltyPoints, 0, 100);
-    const hardWarnings = [];
-    if (!todaysLog.coreCompleted?.primary) { score = Math.min(score, 60); hardWarnings.push('Primary MIT not completed'); }
-    if (!todaysLog.coreCompleted?.deep) { score = Math.min(score, 70); hardWarnings.push('Deep Block not completed'); }
+    let score = clamp(coreExecPoints + workBlockMeta.points + driverPoints - penaltyPoints, 0, 100);
+    activeHardGates.length = 0;
+    if (!todaysLog.coreCompleted?.primary) { score = Math.min(score, 65); activeHardGates.push('Primary MIT incomplete (cap 65)'); }
+    if (!workBlockMeta.hasMeaningfulBlock) { score = Math.min(score, 60); activeHardGates.push('No meaningful work block (cap 60)'); }
     return score;
-  }, [coreExecPoints, driverPoints, penaltyPoints, todaysLog.coreCompleted]);
+  }, [coreExecPoints, driverPoints, penaltyPoints, todaysLog.coreCompleted, workBlockMeta]);
 
   const streak = useMemo(() => {
     const hist = data.today.history || [];
@@ -821,6 +876,12 @@ function App() {
   const currentTabName = visibleTabs.find(t => t.id === activeTab)?.name || 'Today';
   const visibleWidgets = config.today.widgets;
   const quickDef = config.quickCapture.types.find(t => t.id === quickType);
+  const whatMattersNow = useMemo(() => {
+    if (!todaysLog.coreCompleted?.primary && todaysLog.primaryMit) return `Execute Primary MIT now: ${todaysLog.primaryMit}`;
+    if (mattersDueSoon.length) return `Legal critical: ${mattersDueSoon[0].title} due ${prettifyDate(mattersDueSoon[0].dueDate)}`;
+    if (followUpsDue.length) return `Revenue follow-up due: ${(followUpsDue[0].company || followUpsDue[0].name || 'Lead')}`;
+    return 'Protect deep work, close open loops, and keep admin in its time window.';
+  }, [todaysLog, mattersDueSoon, followUpsDue]);
 
   const appSummary = [
     `Mission: ${config.app.mission}`,
@@ -933,44 +994,67 @@ function App() {
   }
 
   useEffect(() => {
-    // Idempotent correction: replace Day 6 and ingest Day 7 as open day.
     setData(prev => {
       const history = [...(prev.today.history || [])];
-      const hasDay6Correct = history.some(h => Number(h.challengeDay) === 6 && h.sourceType === 'corrected_manual_dump');
-      const filtered = history.filter(h => Number(h.challengeDay) !== 6);
-      if (!hasDay6Correct) {
-        filtered.push({
-          id:uid(), challengeDay:6, date:'2026-04-06', sourceType:'corrected_manual_dump',
-          score:57,
-          wakeTime:'07:15', sleepHoursApprox:4, visualisationMinutes:5, meditationMinutes:20, waterIntakeMl:null, sugarBreach:true, noSocialMedia:true,
-          learningMinutes:315, primaryTopic:'Power BI', secondaryTopic:'T-SQL / SQL',
-          workBlocks: normalizeBlocks([
-            { topic:'Power BI', durationMin:60, time:'09:00' },{ topic:'Power BI', durationMin:60, time:'10:15' },{ topic:'Power BI', durationMin:45, time:'16:45' },{ topic:'Power BI', durationMin:35, time:'17:30' },
-            { topic:'T-SQL', durationMin:30, time:'19:35' },{ topic:'T-SQL', durationMin:20, time:'20:45' },{ topic:'schematic layer quiz', durationMin:40, time:'22:10' },{ topic:'SQL', durationMin:25, time:'23:00' }
-          ]),
-          wins:['no social media','visualisation done','meditation done','still achieved 315 minutes'],
-          weaknesses:['woke very late','severe sleep debt','learning quality shallow','new idea drift','sugar breach'],
-          lesson:'logged hours did not equal quality learning',
-          daySummary:'effort was high but depth was poor due to sleep debt and distraction'
-        });
-      }
-      const next = filtered.sort((a,b) => Number(a.challengeDay || 0) - Number(b.challengeDay || 0));
-      const todayLog = { ...makeEmptyDailyLog(), ...(prev.today.dailyLogs[todayKey] || {}) };
-      if (!todayLog.__day7Seeded) {
-        const blocks = normalizeBlocks([
-          { topic:'SQL', durationMin:30, time:'07:00' },{ topic:'SQL', durationMin:35, time:'08:50' },{ topic:'SQL', durationMin:10, time:'11:40' },
-          { topic:'SQL', durationMin:60, time:'13:30' },{ topic:'SQL', durationMin:23, time:'16:40' },{ topic:'Power BI', durationMin:70, time:'18:45' },{ topic:'Power BI', durationMin:60, time:'21:55' }
-        ]);
-        Object.assign(todayLog, {
-          __day7Seeded:true, wakeTime:'05:45', visualisationMinutes:5, meditationMinutes:5, waterIntakeMl:100, sugarBreach:true, noSocialMedia:true, adminBlock:'admin tasks only on time',
-          learningMinutes:288, primaryMit:'SQL learning', secondaryMit:'Power BI learning', deepBlock:'SQL-focused progression', workBlocks:blocks,
-          wins:['earlier wake than Day 6','strong SQL emphasis','no social media','admin stayed in time','more focused than previous day'],
-          weaknesses:['snoozed','low water','meditation too short','sugar breach','no clean uninterrupted 90-minute MIT confirmed'],
-          daySummary:'execution improved over Day 6, but still not sharp enough'
-        });
-      }
-      return { ...prev, today:{ ...prev.today, history:next, dailyLogs:{ ...prev.today.dailyLogs, [todayKey]: todayLog } } };
+      const day6Canonical = {
+        id: `day6-canonical-v${APP_VERSION}`,
+        challengeDay:6,
+        date:'2026-04-06',
+        sourceType:'canonical_manual_correction',
+        wakeTime:'07:15',
+        sleepHoursApprox:4,
+        sleptLate:true,
+        visualisationMinutes:5,
+        meditationMinutes:20,
+        sugarBreach:true,
+        noSocialMedia:true,
+        learningMinutes:315,
+        workBlocks: normalizeBlocks([
+          { topic:'Power BI', durationMin:60, time:'09:00' },{ topic:'Power BI', durationMin:60, time:'10:15' },{ topic:'Power BI', durationMin:45, time:'16:45' },{ topic:'Power BI', durationMin:35, time:'17:30' },
+          { topic:'T-SQL', durationMin:30, time:'19:35' },{ topic:'T-SQL', durationMin:20, time:'20:45' },{ topic:'schematic layer quiz', durationMin:40, time:'22:10' },{ topic:'SQL', durationMin:25, time:'23:00' }
+        ]),
+        wins: normalizeList(['no social media','visualisation done','meditation done','strong total logged study volume']),
+        weaknesses: normalizeList(['woke very late','severe sleep debt','shallow learning quality','new idea drift','sugar breach']),
+        daySummary:'effort was high but depth was poor because sleep debt and distraction reduced learning quality',
+        lesson:'hours logged did not equal depth of comprehension'
+      };
+      const day7Canonical = {
+        id: `day7-canonical-v${APP_VERSION}`,
+        challengeDay:7,
+        date:'2026-04-07',
+        sourceType:'canonical_manual_correction',
+        wakeTime:'05:45',
+        sleepHoursApprox:null,
+        snoozed:true,
+        visualisationMinutes:5,
+        meditationMinutes:10,
+        waterIntakeMl:100,
+        sugarBreach:true,
+        noSocialMedia:true,
+        learningMinutes:303,
+        primaryMit:'SQL learning',
+        secondaryMit:'Power BI learning',
+        deepBlock:'SQL-focused progression',
+        adminBlock:'admin tasks only on time',
+        workBlocks: normalizeBlocks([
+          { topic:'SQL', durationMin:30, time:'07:00' },{ topic:'SQL', durationMin:35, time:'08:50' },{ topic:'SQL', durationMin:10, time:'11:40' },{ topic:'SQL', durationMin:60, time:'13:30' },
+          { topic:'SQL', durationMin:23, time:'16:40' },{ topic:'Power BI', durationMin:70, time:'18:45' },{ topic:'Power BI', durationMin:60, time:'21:25' },{ topic:'Power BI quiz', durationMin:15, time:'23:10' }
+        ]),
+        wins: normalizeList(['better than Day 6','no social media','SQL was the main focus','admin stayed in time']),
+        weaknesses: normalizeList(['snoozed again','water too low','sugar breach','focus still not sharp']),
+        daySummary:'better focused than Day 6 but still below strong execution standard',
+        lesson:'improvement is visible, but execution quality still depends on better morning control and cleaner focus'
+      };
+
+      const filtered = history.filter(h => ![6,7].includes(Number(h.challengeDay || 0)));
+      filtered.push(day6Canonical, day7Canonical);
+      const nextHistory = filtered
+        .map(h => ({ ...h, wins: normalizeList(h.wins || []), weaknesses: normalizeList(h.weaknesses || []), workBlocks: normalizeBlocks(h.workBlocks || []) }))
+        .sort((a,b) => Number(a.challengeDay || 0) - Number(b.challengeDay || 0));
+
+      return { ...prev, today:{ ...prev.today, history:nextHistory } };
     });
+    setConfig(prev => ({ ...prev, challenge:{ ...prev.challenge, currentDay:8 } }));
   }, []);
 
   function exportBackup() {
@@ -1026,15 +1110,55 @@ function App() {
     setShowQuick(false);
   }
 
+  async function promptInstall() {
+    if (!deferredInstallPrompt) return;
+    deferredInstallPrompt.prompt();
+    try { await deferredInstallPrompt.userChoice; } catch {}
+    setDeferredInstallPrompt(null);
+  }
+
   function endDay() {
+    if (closeLockRef.current || closeBusy) {
+      alert('Close Day is already running. Please wait.');
+      return;
+    }
     if (!todaysLog.coreCompleted?.review || !todaysLog.coreCompleted?.tomorrow) {
       alert('Close day blocked: complete Day-End Review and Tomorrow Plan checkboxes.');
+      return;
+    }
+    if (!todaysLog.coreCompleted?.primary) {
+      alert('Close day blocked: Primary MIT must be completed.');
+      return;
+    }
+    if (!workBlockMeta.hasMeaningfulBlock) {
+      alert('Close day blocked: add at least one meaningful work block.');
       return;
     }
     if (config.challenge.endRequiresReview && (!todaysLog.review?.trim() || !(todaysLog.nextDayPlan?.trim() || (todaysLog.tomorrowChecklist || []).length))) {
       alert('End of day is blocked until you complete the review and tomorrow plan.');
       return;
     }
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    const inStandardWindow = (currentHour === 23) || (currentHour === 0 && currentMinute <= 55);
+    if (!inStandardWindow && !confirm('You are outside the standard close window (23:00–00:55). Close day anyway?')) {
+      return;
+    }
+    const lastClosedAt = todaysLog.lastClosedAt ? new Date(todaysLog.lastClosedAt).getTime() : 0;
+    const elapsed = now.getTime() - lastClosedAt;
+    if (lastClosedAt && elapsed < (12 * 60 * 60 * 1000)) {
+      alert('Day already closed recently. You can only close a day once in a 12-hour window unless you explicitly reopen/edit it.');
+      return;
+    }
+    const dayCloseFingerprint = `close:${todayKey}:${todayScore}:${(todaysLog.workBlocks || []).length}:${(todaysLog.tomorrowChecklist || []).length}`;
+    if (todaysLog.closeFingerprint === dayCloseFingerprint && todaysLog.completedAt) {
+      alert('Day already closed recently. You can only close a day once in a 12-hour window unless you explicitly reopen/edit it.');
+      return;
+    }
+    closeLockRef.current = true;
+    setCloseBusy(true);
+    const startedAt = Date.now();
     const snapshot = {
       id:uid(),
       date:todayKey,
@@ -1042,7 +1166,7 @@ function App() {
       challengeDay:config.challenge.currentDay,
       review:todaysLog.review,
       nextDayPlan:todaysLog.nextDayPlan,
-      scoreBreakdown:{ coreExecPoints, driverPoints, penaltyPoints, noSocialMediaMode: todaysLog.noSocialMedia ? 'behavioral_note' : 'none' },
+      scoreBreakdown:{ coreExecPoints, workBlockPoints:workBlockMeta.points, driverPoints, penaltyPoints, activeHardGates:[...activeHardGates] },
       primaryMit:todaysLog.primaryMit,
       secondaryMit:todaysLog.secondaryMit,
       workBlocks: normalizeBlocks(todaysLog.workBlocks || []),
@@ -1051,22 +1175,37 @@ function App() {
       daySummary: todaysLog.daySummary || '',
       health:{ ...todaysLog.health, sleep:todaysLog.sleepHours }
     };
-    setData(prev => ({
+    setData(prev => {
+      const existing = (prev.today.history || []).find(h => h.date === todayKey || Number(h.challengeDay) === Number(config.challenge.currentDay));
+      if (existing?.closeFingerprint === dayCloseFingerprint) return prev;
+      return ({
       ...prev,
       today: {
         ...prev.today,
-        history:[...prev.today.history, snapshot],
+        history:[...(prev.today.history || []).filter(h => !(h.date === todayKey || Number(h.challengeDay) === Number(config.challenge.currentDay))), { ...snapshot, closeFingerprint:dayCloseFingerprint }],
         dailyLogs:{
           ...prev.today.dailyLogs,
-          [todayKey]: { ...prev.today.dailyLogs[todayKey], completedAt:new Date().toISOString(), timerRunning:false }
+          [todayKey]: {
+            ...prev.today.dailyLogs[todayKey],
+            completedAt:new Date().toISOString(),
+            timerRunning:false,
+            lastClosedAt:new Date().toISOString(),
+            closeSessionId:uid(),
+            closeFingerprint:dayCloseFingerprint
+          }
         }
       }
-    }));
+    })});
     setConfig(prev => ({
       ...prev,
       challenge:{ ...prev.challenge, currentDay: prev.challenge.currentDay + 1 }
     }));
-    alert('Day closed and archived.');
+    const holdMs = Math.max(0, 2000 - (Date.now() - startedAt));
+    setTimeout(() => {
+      closeLockRef.current = false;
+      setCloseBusy(false);
+      alert('Day closed and archived.');
+    }, holdMs);
   }
 
   const results = useMemo(() => {
@@ -1183,6 +1322,16 @@ function App() {
             </div>
           </Card>
         )}
+
+        <Card title="Score Breakdown (Hybrid)">
+          <div className="grid grid-cols-2 gap-2 text-xs text-slate-300">
+            <div className="rounded-xl bg-white/5 p-2">Core: <span className="font-semibold text-white">{coreExecPoints}</span></div>
+            <div className="rounded-xl bg-white/5 p-2">Work Blocks: <span className="font-semibold text-white">{workBlockMeta.points}</span></div>
+            <div className="rounded-xl bg-white/5 p-2">Drivers: <span className="font-semibold text-white">{driverPoints}</span></div>
+            <div className="rounded-xl bg-white/5 p-2">Penalties: <span className="font-semibold text-white">-{penaltyPoints}</span></div>
+          </div>
+          {!!activeHardGates.length && <div className="mt-2 text-xs text-amber-300">Hard gates: {activeHardGates.join(' · ')}</div>}
+        </Card>
 
         {visibleWidgets.quote && (
           <Card title="Hourly Operating Quote" right={<Badge tone="warn">{new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</Badge>}>
@@ -1365,7 +1514,7 @@ function App() {
               <TextArea label="Day Review" value={todaysLog.review} onChange={v => updateToday({ review:v })} placeholder="What moved the needle? Where did you drift?" />
               <TextArea label="Tomorrow Plan" value={todaysLog.nextDayPlan} onChange={v => updateToday({ nextDayPlan:v })} placeholder="No day closes without tomorrow's plan." />
               <div className="flex gap-2">
-                <button onClick={endDay} className="flex-1 rounded-2xl bg-accent-500 px-4 py-3 font-semibold text-navy-950 tap">Close Day</button>
+                <button onClick={endDay} disabled={closeBusy} className={`flex-1 rounded-2xl px-4 py-3 font-semibold tap ${closeBusy ? 'bg-white/10 text-slate-400' : 'bg-accent-500 text-navy-950'}`}>{closeBusy ? 'Closing…' : 'Close Day'}</button>
                 <button onClick={() => askAI('tomorrow')} className="rounded-2xl bg-white/10 px-4 py-3 text-sm tap">AI Tomorrow Plan</button>
               </div>
             </div>
@@ -1623,6 +1772,62 @@ function App() {
                   <Input label="MRR value" type="number" step="0.01" value={item.mrrValue} onChange={v => setData(prev => ({ ...prev, business:{ ...prev.business, leads: prev.business.leads.map(l => l.id === item.id ? { ...l, mrrValue:Number(v) } : l) } }))} />
                   <TextArea label="Notes" value={item.notes || ''} onChange={v => setData(prev => ({ ...prev, business:{ ...prev.business, leads: prev.business.leads.map(l => l.id === item.id ? { ...l, notes:v } : l) } }))} rows={2} />
                 </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  function renderInbox() {
+    return (
+      <div className="space-y-4 fade-up">
+        <Card title="Universal Inbox Dump">
+          <div className="space-y-3">
+            <TextArea value={todaysLog.todayDump || ''} onChange={v => updateToday({ todayDump:v })} rows={8} placeholder="Dump anything: legal, waiting, body, ideas, tasks, leaks, appointments..." />
+            <div className="flex flex-wrap gap-2">
+              <button onClick={parseTodayDump} className="rounded-2xl bg-accent-500 px-4 py-3 text-sm font-semibold text-navy-950 tap">Parse this</button>
+              <button onClick={() => applyTodayDumpParsed(false)} disabled={!todaysLog.todayDumpParsed} className={`rounded-2xl px-4 py-3 text-sm tap ${todaysLog.todayDumpParsed ? 'bg-white/10' : 'bg-white/5 text-slate-500'}`}>Apply Parsed Update</button>
+            </div>
+          </div>
+        </Card>
+        <Card title="Needs Review">
+          <div className="text-sm text-slate-400">Low-confidence parser items can be parked here in future revisions. Current flow stays rules-first + manual confirmation.</div>
+        </Card>
+      </div>
+    );
+  }
+
+  function renderCommand() {
+    return (
+      <div className="space-y-4 fade-up">
+        <Card title="Command Chips">
+          <div className="flex flex-wrap gap-2">
+            {['What matters now?', 'Build tomorrow', 'Legal next 5', 'Why did I drift?', 'Highest leverage move'].map(chip => (
+              <button key={chip} onClick={() => setAiPrompt(chip)} className="rounded-2xl bg-white/10 px-3 py-2 text-xs tap">{chip}</button>
+            ))}
+          </div>
+        </Card>
+        <Card title="What Matters Now">
+          <div className="text-sm text-slate-200">{whatMattersNow}</div>
+        </Card>
+      </div>
+    );
+  }
+
+  function renderHistory() {
+    return (
+      <div className="space-y-4 fade-up">
+        <Card title="Day History">
+          <div className="space-y-2">
+            {(data.today.history || []).slice().reverse().map(item => (
+              <div key={item.id} className="rounded-2xl bg-white/5 p-3 text-sm">
+                <div className="flex items-center justify-between">
+                  <div className="font-semibold">Day {item.challengeDay || '—'} · {prettifyDate(item.date)}</div>
+                  <Badge>{item.score ?? '—'}%</Badge>
+                </div>
+                <div className="mt-1 text-xs text-slate-400">{item.daySummary || item.review || 'No summary'}</div>
               </div>
             ))}
           </div>
@@ -1919,20 +2124,26 @@ function App() {
         </div>
       </div>
 
-      {!installNoteDismissed && (
+      {!installNoteDismissed && !isStandalone && (
         <div className="mx-4 mb-3 rounded-2xl border border-white/10 bg-white/5 p-3 text-xs text-slate-300">
-          Host this file on GitHub Pages as <code>index.html</code>. This single-file version is app-like and persistent. For a true install prompt and offline cache, a separate manifest and service worker are normally used.
-          <button onClick={() => setInstallNoteDismissed(true)} className="ml-2 text-accent-400 tap">Hide</button>
+          Install Stability OS for full-screen mobile mode and offline shell.
+          <div className="mt-2 flex flex-wrap gap-2">
+            {deferredInstallPrompt ? <button onClick={promptInstall} className="rounded-xl bg-accent-500 px-3 py-2 text-xs font-semibold text-navy-950 tap">Install App</button> : <div className="text-slate-400">Use browser menu → “Add to Home screen”.</div>}
+            <button onClick={() => setInstallNoteDismissed(true)} className="text-accent-400 tap">Hide</button>
+          </div>
         </div>
       )}
 
       <div className="flex-1 overflow-y-auto hide-scroll px-4 content-pad">
         {activeTab === 'today' && renderToday()}
+        {activeTab === 'inbox' && renderInbox()}
+        {activeTab === 'command' && renderCommand()}
         {activeTab === 'legal' && renderLegal()}
         {activeTab === 'money' && renderMoney()}
         {activeTab === 'business' && renderBusiness()}
+        {activeTab === 'history' && renderHistory()}
         {activeTab === 'builder' && renderBuilder()}
-        {!['today','legal','money','business','builder'].includes(activeTab) && (
+        {!['today','inbox','command','legal','money','business','history','builder'].includes(activeTab) && (
           <Card title="Custom Tab">
             <div className="text-sm text-slate-400">This custom tab exists in navigation. Add modules via Builder or repurpose it later.</div>
           </Card>
@@ -1942,9 +2153,9 @@ function App() {
       <div className="fixed bottom-0 left-0 right-0 z-40">
         <div className="mx-auto max-w-md px-3 pb-[calc(10px+var(--safe-bottom))]">
           <div className="glass rounded-t-3xl rounded-b-none px-2 py-2 shadow-card">
-            <div className="grid grid-cols-5 gap-1">
-              {visibleTabs.slice(0,5).map(tab => (
-                <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`rounded-2xl px-2 py-3 text-xs font-medium tap ${activeTab === tab.id ? 'bg-accent-500 text-navy-950' : 'text-slate-400'}`}>
+            <div className="flex gap-1 overflow-x-auto hide-scroll">
+              {visibleTabs.map(tab => (
+                <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`shrink-0 rounded-2xl px-3 py-3 text-xs font-medium tap ${activeTab === tab.id ? 'bg-accent-500 text-navy-950' : 'text-slate-400'}`}>
                   {tab.name}
                 </button>
               ))}
