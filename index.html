@@ -686,8 +686,9 @@ function bind(){
   on('clearToday',()=>{d.rawTodayDump=''; d.parsePreviewToday=null; setActionStatus('today','ok','Cleared today dump.'); pushToast('Today dump cleared.','ok'); ui();});
   on('clearTomorrow',()=>{d.rawTomorrowDump=''; d.parsePreviewTomorrow=null; setActionStatus('tomorrow','ok','Cleared tomorrow dump.'); pushToast('Tomorrow dump cleared.','ok'); ui();});
   on('applyToday',()=>{
+    if(applyLock){ pushToast('Apply already in progress.','err'); return; }
     setBtnState('applyToday','working');
-    if(applyLock) return; applyLock=true;
+    applyLock=true;
     const p = d.parsePreviewToday || parseTodayDump(d.rawTodayDump);
     const fp = hashFinger('today|'+d.rawTodayDump+'|'+JSON.stringify(p));
     d.appliedFingerprints.todayDump = d.appliedFingerprints.todayDump || [];
