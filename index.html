@@ -52,6 +52,14 @@
     .toast.ok{border-color:rgba(108,227,157,.45)} .toast.err{border-color:rgba(255,127,120,.45)}
     .spin{display:inline-block;width:12px;height:12px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle}
     @keyframes spin{to{transform:rotate(360deg)}}
+    .hero{background:linear-gradient(140deg,rgba(56,190,255,.22),rgba(173,79,255,.2));border:1px solid rgba(127,213,255,.45);box-shadow:0 0 0 1px rgba(127,213,255,.2),0 20px 38px rgba(79,21,131,.35)}
+    .metric{padding:12px;border-radius:14px;color:#f7fbff}
+    .m-do{background:linear-gradient(140deg,rgba(40,217,170,.25),rgba(17,138,113,.2));border:1px solid rgba(81,255,217,.35)}
+    .m-learning{background:linear-gradient(140deg,rgba(68,164,255,.3),rgba(56,100,255,.2));border:1px solid rgba(128,197,255,.35)}
+    .m-task{background:linear-gradient(140deg,rgba(174,111,255,.28),rgba(93,47,189,.22));border:1px solid rgba(208,160,255,.35)}
+    .m-journal{background:linear-gradient(140deg,rgba(255,125,196,.28),rgba(171,55,123,.22));border:1px solid rgba(255,174,222,.35)}
+    .m-penalty{background:linear-gradient(140deg,rgba(255,136,136,.22),rgba(204,73,73,.2));border:1px solid rgba(255,164,164,.35)}
+    .pill-soft{display:inline-block;padding:4px 8px;border-radius:999px;background:rgba(255,255,255,.08);font-size:11px;margin:2px}
   </style>
 </head>
 <body>
@@ -73,7 +81,7 @@ const asArr=(x)=>Array.isArray(x)?x:[];
 const defaultState = ()=>({
   version: APP_VERSION,
   settings:{appTitle:'Stability Lite',activeGoalName:'Execution Sprint',goalLengthDays:30,currentDay:1,goalStartDate:todayKey(),
-    ai:{enabled:false,endpoint:'https://openrouter.ai/api/v1/chat/completions',model:'',apiKey:'',siteUrl:'',siteName:'Stability Lite',systemPrompt:'Refine summaries and next actions.'},
+    ai:{enabled:false,endpoint:'https://openrouter.ai/api/v1/chat/completions',model:'qwen/qwen3.6-plus:free',fallbackModel:'openrouter/free',apiKey:'',siteUrl:'',siteName:'Stability Lite',systemPrompt:'Refine summaries and next actions.'},
     ui:{themeVariant:'indigo',installNoticeDismissed:false,memoryMode:false,freshRunResetAt:''}
   },
   builder:{
@@ -81,21 +89,22 @@ const defaultState = ()=>({
     eveningQuestions:['What went well?','What slipped?','What will I improve tomorrow?'],
     nightQuestions:['Day review snapshot','Tomorrow plan summary'],
     doRules:[
-      {id:uid(),text:'Wake by target time',points:4},
-      {id:uid(),text:'Water after waking',points:4},
-      {id:uid(),text:'Meditation completed',points:4},
-      {id:uid(),text:'Visualisation completed',points:4},
-      {id:uid(),text:'First focus block completed',points:5},
-      {id:uid(),text:'Total learning target completed',points:5},
-      {id:uid(),text:'Day-end review completed',points:5},
-      {id:uid(),text:'Tomorrow plan completed',points:4}
+      {id:uid(),text:'Wake by target time',points:4,mode:'binary',target:360,targetUnit:'time'},
+      {id:uid(),text:'Water after waking',points:4,mode:'partial_quantity',target:400,targetUnit:'ml'},
+      {id:uid(),text:'Meditation completed',points:4,mode:'partial_minutes',target:20,targetUnit:'minutes'},
+      {id:uid(),text:'Visualisation completed',points:4,mode:'partial_minutes',target:5,targetUnit:'minutes'},
+      {id:uid(),text:'First focus block completed',points:5,mode:'partial_count',target:1,targetUnit:'count'},
+      {id:uid(),text:'Total learning target completed',points:5,mode:'partial_minutes',target:150,targetUnit:'minutes'},
+      {id:uid(),text:'Day-end review completed',points:5,mode:'binary',target:1,targetUnit:'boolean'},
+      {id:uid(),text:'Tomorrow plan completed',points:4,mode:'binary',target:1,targetUnit:'boolean'}
     ],
     dontRules:[
       {id:uid(),text:'Social media / reels / shorts',points:8},
       {id:uid(),text:'Sugar / biscuit / cake',points:5},
       {id:uid(),text:'Random research drift',points:5},
       {id:uid(),text:'AI drift',points:4},
-      {id:uid(),text:'Unplanned nap',points:3}
+      {id:uid(),text:'Unplanned nap',points:3},
+      {id:uid(),text:'Side-project drift during focus hours',points:4}
     ],
     learningBlockTemplates:[{id:uid(),title:'SQL Practice',minutes:45,category:'learning'},{id:uid(),title:'Power BI Build',minutes:60,category:'builder'}],
     scoring:{doMax:35,learningMax:25,taskMax:20,journalMax:20,dontPenaltyCap:25,taskTypePoints:{primary:6,secondary:4,admin:3,learning:4,review:3,misc:2}}
@@ -114,7 +123,9 @@ function ensureDay(day){
     rawTodayDump:'',rawTomorrowDump:'',parsePreviewToday:null,parsePreviewTomorrow:null,doChecked:{},dontChecked:{},learningBlocks:[],tomorrowBlocks:[],tasks:[],
     morningEntry:{},eveningEntry:{},nightEntry:{review:''},summary:'',wins:[],weaknesses:[],
     score:{doEarned:0,learningEarned:0,taskEarned:0,journalEarned:0,penaltyLost:0,final:0},
-    status:{closed:false,closedAt:null},appliedFingerprints:{todayDump:[],tomorrowDump:[]},tomorrowPlanSummary:''
+    status:{closed:false,closedAt:null},appliedFingerprints:{todayDump:[],tomorrowDump:[]},tomorrowPlanSummary:'',
+    parseFacts:{wakeTime:'',waterMl:0,meditationMin:0,visualisationMin:0,learningMinutes:0,dontTags:[]},
+    aiMeta:{modelUsed:'',providerError:'',used:false}
   }, day||{});
 }
 
@@ -145,30 +156,57 @@ function hashFinger(text){let h=2166136261; for(const c of String(text||'')){h^=
 
 function parseDump(text, mode='today'){
   const lines = String(text||'').split(/\n+/).map(v=>v.trim()).filter(Boolean);
-  const out = {suggestedDo:[],suggestedDont:[],learningBlocks:[],completedTasks:[],summary:'',wins:[],weaknesses:[],warnings:[],confidence:0.65,aiUsed:false,tomorrowTasks:[],priorities:[]};
+  const out = {suggestedDo:[],partialDo:[],suggestedDont:[],learningBlocks:[],completedTasks:[],summary:'',wins:[],weaknesses:[],warnings:[],confidence:0.65,aiUsed:false,tomorrowTasks:[],priorities:[],facts:{wakeTime:'',waterMl:0,meditationMin:0,visualisationMin:0,learningMinutes:0,dontTags:[]}};
   const topicMap=[
     ['power bi','Power BI'],['t sql','SQL / T-SQL'],['tsql','SQL / T-SQL'],['sql','SQL / T-SQL'],
     ['quiz','Quiz'],['revision','Revision'],['learning','Learning'],['meditation','Meditation'],['visualisation','Visualisation']
   ];
   for(const line of lines){
     const l = line.toLowerCase();
+    const minutes = parseDuration(line);
+    const time = parseClockTime(line);
     if(/done|finished|completed|achieved|wrapped|sent|submitted|closed|resolved|\[x\]|✅/.test(l)) out.completedTasks.push(line.replace(/^[-*]\s*/,''));
     if(/win|good|focused|strong|progress|kept|disciplined|on time/.test(l)) out.wins.push(line);
     if(/slip|weak|drift|late|miss|distract|delay|procrast|avoid|stuck/.test(l)) out.weaknesses.push(line);
-    if(/social media|reels|shorts|distraction|tab switching|random research|ai drift|nap/.test(l)) out.suggestedDont.push(line);
+    if(/social media|reels|shorts/.test(l)){ out.suggestedDont.push(line); out.facts.dontTags.push('social'); }
+    if(/random research|tab switching|distract|started building/.test(l)){ out.suggestedDont.push(line); out.facts.dontTags.push('research_drift'); }
+    if(/grok|chatgpt|ai drift|random ai/.test(l)){ out.suggestedDont.push(line); out.facts.dontTags.push('ai_drift'); }
+    if(/dozed|nap|doze/.test(l)){ out.suggestedDont.push(line); out.facts.dontTags.push('nap'); }
+    if(/side project|building app|tracking app/.test(l)){ out.suggestedDont.push(line); out.facts.dontTags.push('side_project'); }
     if(/sugar|biscuit|cake/.test(l)) out.suggestedDont.push(line);
     if(/do\b|completed\b|done\b/.test(l)) out.suggestedDo.push(line);
+    if(/woke|waked up|wake up/.test(l)){
+      out.suggestedDo.push('Wake by target time');
+      const w = parseClockTime(line.replace('.',':'));
+      if(w) out.facts.wakeTime = w;
+      if(/late/.test(l)) out.weaknesses.push(line);
+    }
+    if(/water/.test(l)){
+      const mm = l.match(/(\d+)\s*ml/);
+      if(mm) out.facts.waterMl += Number(mm[1]||0);
+      if(/after waking|done/.test(l)) out.suggestedDo.push('Water after waking');
+    }
+    if(/meditation/.test(l)){
+      out.suggestedDo.push('Meditation completed');
+      out.facts.meditationMin += minutes || 0;
+      if(minutes>0 && minutes<20) out.partialDo.push('Meditation completed');
+    }
+    if(/visuali[sz]ation|visualise|visualisation/.test(l)){
+      out.suggestedDo.push('Visualisation completed');
+      out.facts.visualisationMin += minutes || 0;
+      if(minutes>0 && minutes<5) out.partialDo.push('Visualisation completed');
+    }
 
-    const minutes = parseDuration(line);
-    const time = parseClockTime(line);
     let topic=''; for(const [k,v] of topicMap){ if(l.includes(k)){topic=v; break;}}
     if(topic && minutes>0) {
       const category = /meditation|visualisation/.test(l) ? 'wellbeing' : 'learning';
-      out.learningBlocks.push({id:uid(),label:topic,minutes,startTime:time,category,note:line,completed:true});
+      out.learningBlocks.push({id:uid(),label:topic,minutes,startTime:time,category,note:line,completed:true,quality:/distract|shallow/.test(l)?'low':'good'});
+      if(category==='learning') out.facts.learningMinutes += minutes;
     }
 
     if(mode==='tomorrow' && /tomorrow|next|plan|priority|must/.test(l)){
-      out.tomorrowTasks.push({id:uid(),title:line.replace(/^[-*]\s*/,''),type:/primary/.test(l)?'primary':'misc',completed:false,priority:/high|urgent|must/.test(l)?'high':'medium',dueDate:'',tag:'',notes:''});
+      const t = /primary/.test(l)?'primary':/secondary/.test(l)?'secondary':/admin/.test(l)?'admin':/review/.test(l)?'review':/learning|study|sql|power bi/.test(l)?'learning':'misc';
+      out.tomorrowTasks.push({id:uid(),title:line.replace(/^[-*]\s*/,''),type:t,completed:false,priority:/high|urgent|must/.test(l)?'high':'medium',dueDate:'',tag:'',notes:''});
       if(/primary|urgent|must/.test(l)) out.priorities.push(line);
     }
   }
@@ -177,6 +215,7 @@ function parseDump(text, mode='today'){
   out.suggestedDont = [...new Set(out.suggestedDont)].slice(0,8);
   out.wins = [...new Set(out.wins)].slice(0,6);
   out.weaknesses = [...new Set(out.weaknesses)].slice(0,6);
+  out.facts.dontTags = [...new Set(out.facts.dontTags)];
   out.summary = lines.slice(0,3).join(' | ') || 'No summary generated yet.';
   if(lines.length<2){ out.warnings.push('Very short dump; parser confidence reduced.'); out.confidence=0.35; }
   if(lines.length>10) out.confidence=0.85;
@@ -187,16 +226,26 @@ const parseTomorrowDump = (text)=>parseDump(text,'tomorrow');
 
 function safeAIRefine(preview, raw){
   const ai = state.settings.ai;
-  if(!ai.enabled || !ai.endpoint || !ai.model || !ai.apiKey) return Promise.resolve({...preview,warnings:[...(preview.warnings||[]),'AI unavailable: fill endpoint/model/key or enable AI.'],aiUsed:false});
-  const body = {model:ai.model,messages:[{role:'system',content:ai.systemPrompt||'Refine parser output.'},{role:'user',content:`Raw dump:\n${raw}\n\nCurrent JSON:\n${JSON.stringify(preview)}`}],temperature:.2};
-  return fetch(ai.endpoint,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+ai.apiKey,'HTTP-Referer':ai.siteUrl||'','X-Title':ai.siteName||'Stability Lite'},body:JSON.stringify(body)})
-    .then(r=>r.json()).then(j=>{
-      const txt = j?.choices?.[0]?.message?.content || '';
-      const m = txt.match(/\{[\s\S]*\}/);
-      if(!m) throw new Error('No JSON from AI');
-      const parsed = JSON.parse(m[0]);
-      return Object.assign({}, preview, parsed, {aiUsed:true});
-    }).catch(err=>({...preview,warnings:[...(preview.warnings||[]),`AI refine failed: ${err.message}`],aiUsed:false}));
+  if(!ai.enabled || !ai.endpoint || !ai.model || !ai.apiKey) return Promise.resolve({...preview,warnings:[...(preview.warnings||[]),'AI unavailable: fill endpoint/model/key or enable AI.'],aiUsed:false,providerError:'AI disabled or missing settings.',modelUsed:''});
+  const prompt = `Preserve deterministic facts from local parse, improve categorization and summary, do not invent events.\nReturn JSON only with keys: summary,wins,weaknesses,oneCorrection,nextAction,motivationalLine,tomorrowSummary,firstBlock,fallbackPlan,focusGuardrail,confidence,warnings.`;
+  const tryModel = (modelName) => {
+    const body = {model:modelName,messages:[{role:'system',content:ai.systemPrompt||prompt},{role:'user',content:`Raw dump:\n${raw}\n\nLocal parse JSON:\n${JSON.stringify(preview)}`}],temperature:.2};
+    return fetch(ai.endpoint,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+ai.apiKey,'HTTP-Referer':ai.siteUrl||'','X-Title':ai.siteName||'Stability Lite'},body:JSON.stringify(body)})
+      .then(r=>{ if(!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      .then(j=>{
+        const txt = j?.choices?.[0]?.message?.content || '';
+        const m = txt.match(/\{[\s\S]*\}/);
+        if(!m) throw new Error('No JSON from AI');
+        const parsed = JSON.parse(m[0]);
+        return Object.assign({}, preview, parsed, {aiUsed:true,modelUsed:modelName,providerError:''});
+      });
+  };
+  return tryModel(ai.model).catch(firstErr=>{
+    if(ai.fallbackModel && ai.fallbackModel !== ai.model){
+      return tryModel(ai.fallbackModel).catch(secondErr=>Object.assign({}, preview, {aiUsed:false,modelUsed:'',providerError:`Primary model failed (${firstErr.message}); fallback failed (${secondErr.message}).`,warnings:[...(preview.warnings||[]),`AI refine failed on both models.`]}));
+    }
+    return Object.assign({}, preview, {aiUsed:false,modelUsed:'',providerError:`AI refine failed: ${firstErr.message}`,warnings:[...(preview.warnings||[]),`AI refine failed: ${firstErr.message}`]});
+  });
 }
 
 function fromOldState(){
@@ -221,7 +270,7 @@ function fromOldState(){
     if(dontRules.length) out.builder.dontRules = dontRules;
     if(Array.isArray(rawConfig.today?.morningQuestions)) out.builder.morningQuestions = rawConfig.today.morningQuestions;
     if(Array.isArray(rawConfig.today?.eveningQuestions)) out.builder.eveningQuestions = rawConfig.today.eveningQuestions;
-    if(rawConfig.ai) out.settings.ai = Object.assign(out.settings.ai,{enabled:!!rawConfig.ai.enabled,endpoint:rawConfig.ai.endpoint||out.settings.ai.endpoint,model:rawConfig.ai.model||'',apiKey:rawConfig.ai.apiKey||'',siteUrl:rawConfig.ai.siteUrl||'',siteName:rawConfig.ai.siteName||'Stability Lite',systemPrompt:rawConfig.ai.systemMode||out.settings.ai.systemPrompt});
+    if(rawConfig.ai) out.settings.ai = Object.assign(out.settings.ai,{enabled:!!rawConfig.ai.enabled,endpoint:rawConfig.ai.endpoint||out.settings.ai.endpoint,model:rawConfig.ai.model||out.settings.ai.model,fallbackModel:rawConfig.ai.fallbackModel||out.settings.ai.fallbackModel,apiKey:rawConfig.ai.apiKey||'',siteUrl:rawConfig.ai.siteUrl||'',siteName:rawConfig.ai.siteName||'Stability Lite',systemPrompt:rawConfig.ai.systemMode||out.settings.ai.systemPrompt});
   }
   if(rawData?.today?.dailyLogs){
     Object.entries(rawData.today.dailyLogs).forEach(([d,v])=>{
@@ -319,6 +368,8 @@ function hydrate(s){
   out.archive = Object.assign(d.archive,out.archive||{});
   out.builder.scoring = Object.assign(d.builder.scoring, out.builder.scoring||{});
   out.builder.scoring.taskTypePoints = Object.assign({primary:6,secondary:4,admin:3,learning:4,review:3,misc:2}, out.builder.scoring.taskTypePoints||{});
+  out.settings.ai = Object.assign(d.settings.ai, out.settings.ai||{});
+  out.builder.doRules = asArr(out.builder.doRules).map(r=>Object.assign({mode:'binary',target:1,targetUnit:'boolean'},r));
   Object.keys(out.days).forEach(k=>out.days[k]=ensureDay(out.days[k]));
   if(!out.days[todayKey()]) out.days[todayKey()] = ensureDay();
   out.settings.ui = Object.assign(d.settings.ui,out.settings.ui||{});
@@ -401,13 +452,30 @@ function applyFreshRunResetIfNeeded(){
 
 function computeScore(d){
   const sc = state.builder.scoring;
-  const doPoints = clamp(state.builder.doRules.reduce((sum,r)=>sum + (d.doChecked[r.id]?Number(r.points||0):0),0),0,sc.doMax);
+  const facts = d.parseFacts || {};
+  const getRuleProgress = (r) => {
+    if(d.doChecked[r.id]) return 1;
+    const text = String(r.text||'').toLowerCase();
+    if(text.includes('wake')) return facts.wakeTime ? 1 : 0;
+    if(text.includes('water')) return clamp((Number(facts.waterMl||0)/Number(r.target||400)),0,1);
+    if(text.includes('meditation')) return clamp((Number(facts.meditationMin||0)/Number(r.target||20)),0,1);
+    if(text.includes('visualisation') || text.includes('visualization')) return clamp((Number(facts.visualisationMin||0)/Number(r.target||5)),0,1);
+    if(text.includes('first focus')) return d.learningBlocks.some(b=>b.completed && Number(b.minutes||0)>=25) ? 1 : 0;
+    if(text.includes('total learning')) return clamp((Number(facts.learningMinutes||0)/Number(r.target||150)),0,1);
+    if(text.includes('day-end review')) return d.nightEntry?.review ? 1 : 0;
+    if(text.includes('tomorrow plan')) return (d.tomorrowPlanSummary || d.rawTomorrowDump || '').trim() ? 1 : 0;
+    return 0;
+  };
+  const doPoints = clamp(state.builder.doRules.reduce((sum,r)=>sum + (Number(r.points||0) * getRuleProgress(r)),0),0,sc.doMax);
   const learnDone = d.learningBlocks.filter(b=>b.completed).reduce((s,b)=>s+Number(b.minutes||0),0);
-  const learningPoints = clamp(Math.round((learnDone/180)*sc.learningMax),0,sc.learningMax);
+  const targetLearnMin = Number((state.builder.doRules.find(r=>String(r.text||'').toLowerCase().includes('total learning'))?.target)||150);
+  const blockBonus = d.learningBlocks.filter(b=>b.completed && (b.quality||'good')!=='low').length >= 2 ? 2 : 0;
+  const learningPoints = clamp(Math.round((learnDone/Math.max(1,targetLearnMin))*sc.learningMax) + blockBonus,0,sc.learningMax);
   const taskPoints = clamp(d.tasks.filter(t=>t.completed).reduce((s,t)=>s+Number(sc.taskTypePoints[t.type]||2),0),0,sc.taskMax);
   const journalFilled = (Object.values(d.morningEntry).some(Boolean)?1:0)+(Object.values(d.eveningEntry).some(Boolean)?1:0)+(d.nightEntry.review?1:0);
   const journalPoints = clamp(Math.round((journalFilled/3)*sc.journalMax),0,sc.journalMax);
-  const penalty = clamp(state.builder.dontRules.reduce((sum,r)=>sum+(d.dontChecked[r.id]?Number(r.points||0):0),0),0,sc.dontPenaltyCap);
+  const clusteredDont = uniqueBy(Object.entries(d.dontChecked||{}).filter(([,v])=>v).map(([k])=>k), x=>x);
+  const penalty = clamp(clusteredDont.reduce((sum,id)=>sum+Number((state.builder.dontRules.find(r=>r.id===id)||{}).points||0),0),0,sc.dontPenaltyCap);
   d.score = {doEarned:doPoints,learningEarned:learningPoints,taskEarned:taskPoints,journalEarned:journalPoints,penaltyLost:penalty,final:clamp(doPoints+learningPoints+taskPoints+journalPoints-penalty,0,100)};
 }
 
@@ -459,13 +527,17 @@ function renderDashboard(d){
   const doTotal = state.builder.doRules.length;
   const dontTotal = state.builder.dontRules.length;
   return `
+  <section class="glass card hero" style="margin-top:10px">
+    <div class="title">Final Score</div>
+    <div class="big" style="font-size:58px;line-height:1">${d.score.final}</div>
+    <div class="muted">Final = DO + Learning + Tasks + Journal - Penalty</div>
+  </section>
   <section class="row" style="margin-top:10px">
-    <div class="glass card"><div class="title">Final Score</div><div class="big">${d.score.final}</div></div>
-    <div class="glass card"><div class="title">Do</div><div class="big">${d.score.doEarned}</div></div>
-    <div class="glass card"><div class="title">Learning</div><div class="big">${d.score.learningEarned}</div></div>
-    <div class="glass card"><div class="title">Tasks</div><div class="big">${d.score.taskEarned}</div></div>
-    <div class="glass card"><div class="title">Journal</div><div class="big">${d.score.journalEarned}</div></div>
-    <div class="glass card"><div class="title danger">Penalty</div><div class="big danger">-${d.score.penaltyLost}</div></div>
+    <div class="metric m-do"><div class="title">DO</div><div class="big">${d.score.doEarned}</div></div>
+    <div class="metric m-learning"><div class="title">Learning</div><div class="big">${d.score.learningEarned}</div></div>
+    <div class="metric m-task"><div class="title">Tasks</div><div class="big">${d.score.taskEarned}</div></div>
+    <div class="metric m-journal"><div class="title">Journal</div><div class="big">${d.score.journalEarned}</div></div>
+    <div class="metric m-penalty"><div class="title">Penalty</div><div class="big">-${d.score.penaltyLost}</div></div>
   </section>
   <section class="glass card" style="margin-top:10px"><div class="title">Today Summary</div>
     <div class="row">
@@ -510,10 +582,42 @@ function renderDumpCards(d){
   </section>
   <section class="glass card" style="margin-top:10px"><div class="title">Parse Preview</div>
     <div class="row">
-      <div class="item"><div class="k">Today preview</div><pre>${esc(JSON.stringify(d.parsePreviewToday||{},null,2))}</pre></div>
-      <div class="item"><div class="k">Tomorrow preview</div><pre>${esc(JSON.stringify(d.parsePreviewTomorrow||{},null,2))}</pre></div>
+      <div class="item"><div class="k">Today analysis</div>${renderTodayPreview(d.parsePreviewToday)}</div>
+      <div class="item"><div class="k">Tomorrow analysis</div>${renderTomorrowPreview(d.parsePreviewTomorrow)}</div>
     </div>
   </section>`;
+}
+function renderTodayPreview(p){
+  if(!p) return '<div class="muted">No today preview yet.</div>';
+  return `
+    <div><strong>Wake:</strong> ${esc(p.facts?.wakeTime || 'Not detected')}</div>
+    <div><strong>DO detected:</strong> ${(p.suggestedDo||[]).map(x=>`<span class="pill-soft">${esc(x)}</span>`).join('') || '—'}</div>
+    <div><strong>Partial DO:</strong> ${(p.partialDo||[]).map(x=>`<span class="pill-soft">${esc(x)}</span>`).join('') || '—'}</div>
+    <div><strong>DON’T breaches:</strong> ${(p.suggestedDont||[]).map(x=>`<span class="pill-soft">${esc(x)}</span>`).join('') || '—'}</div>
+    <div><strong>Learning minutes:</strong> ${Number(p.facts?.learningMinutes||0)} (${(p.learningBlocks||[]).length} blocks)</div>
+    <div><strong>Completed actions:</strong> ${(p.completedTasks||[]).map(t=>`<span class="pill-soft">${esc(t.title||t)}</span>`).join('') || '—'}</div>
+    <div><strong>Wins:</strong> ${(p.wins||[]).slice(0,3).map(x=>`<span class="pill-soft">${esc(x)}</span>`).join('') || '—'}</div>
+    <div><strong>Weaknesses:</strong> ${(p.weaknesses||[]).slice(0,3).map(x=>`<span class="pill-soft">${esc(x)}</span>`).join('') || '—'}</div>
+    <div><strong>AI:</strong> ${p.aiUsed ? `Used (${esc(p.modelUsed||'model unknown')})` : 'Local only'} ${p.providerError?`• ${esc(p.providerError)}`:''}</div>
+    <div><strong>Confidence:</strong> ${Math.round(Number(p.confidence||0)*100)}%</div>
+    <details><summary>Debug JSON</summary><pre>${esc(JSON.stringify(p,null,2))}</pre></details>
+  `;
+}
+function renderTomorrowPreview(p){
+  if(!p) return '<div class="muted">No tomorrow preview yet.</div>';
+  const primary = (p.tomorrowTasks||[]).find(t=>t.type==='primary');
+  const secondary = (p.tomorrowTasks||[]).find(t=>t.type==='secondary');
+  return `
+    <div><strong>Primary candidate:</strong> ${esc(primary?.title || '—')}</div>
+    <div><strong>Secondary candidate:</strong> ${esc(secondary?.title || '—')}</div>
+    <div><strong>Learning/Admin/Review:</strong> ${(p.tomorrowTasks||[]).filter(t=>['learning','admin','review'].includes(t.type)).map(t=>`<span class="pill-soft">${esc(t.title)}</span>`).join('') || '—'}</div>
+    <div><strong>Estimated blocks:</strong> ${(p.learningBlocks||[]).length}</div>
+    <div><strong>Priority hints:</strong> ${(p.priorities||[]).map(x=>`<span class="pill-soft">${esc(x)}</span>`).join('') || '—'}</div>
+    <div><strong>AI plan:</strong> ${esc(p.tomorrowSummary || p.summary || '—')}</div>
+    <div><strong>AI:</strong> ${p.aiUsed ? `Used (${esc(p.modelUsed||'model unknown')})` : 'Local only'} ${p.providerError?`• ${esc(p.providerError)}`:''}</div>
+    <div><strong>Confidence:</strong> ${Math.round(Number(p.confidence||0)*100)}%</div>
+    <details><summary>Debug JSON</summary><pre>${esc(JSON.stringify(p,null,2))}</pre></details>
+  `;
 }
 
 function renderLearningBlocks(d){
@@ -585,15 +689,24 @@ function renderJournal(d){
     </div>
   </section>
   <section class="glass card" style="margin-top:10px"><div class="title">History</div>
-    <div class="list">${history.map(h=>`<button class="btn" data-act="openHistory" data-day="${h}">${h} • score ${state.days[h]?.score?.final||0}</button>`).join('')}</div>
+    <div class="list">${history.map(h=>`<button class="btn" data-act="openHistory" data-day="${h}">${h} • score ${state.days[h]?.score?.final||0} • DO ${Object.values(state.days[h]?.doChecked||{}).filter(Boolean).length}/${state.builder.doRules.length} • DON'T ${Object.values(state.days[h]?.dontChecked||{}).filter(Boolean).length} • learn ${state.days[h]?.learningBlocks?.filter?.(b=>b.completed).reduce((s,b)=>s+Number(b.minutes||0),0)||0}m • ${(state.days[h]?.summary||'').slice(0,42)}</button>`).join('')}</div>
   </section>`;
 }
 
 function renderIdeas(){
+  const byCategory = {};
+  const byUrgency = {};
+  state.ideas.forEach(i=>{ byCategory[i.category||'uncategorized']=(byCategory[i.category||'uncategorized']||0)+1; byUrgency[i.urgency||'normal']=(byUrgency[i.urgency||'normal']||0)+1; });
+  const archivedCount = state.ideas.filter(i=>i.archived).length;
   return `<section class="glass card" style="margin-top:10px"><div class="title">Idea Parking</div>
+    <div class="item">
+      <div><strong>By Category:</strong> ${Object.entries(byCategory).map(([k,v])=>`<span class="pill-soft">${esc(k)}:${v}</span>`).join('')||'—'}</div>
+      <div><strong>By Urgency:</strong> ${Object.entries(byUrgency).map(([k,v])=>`<span class="pill-soft">${esc(k)}:${v}</span>`).join('')||'—'}</div>
+      <div><strong>Archived:</strong> ${archivedCount}</div>
+    </div>
     <div class="list">${state.ideas.map((it,i)=>`<div class="item"><strong>${esc(it.title)}</strong> ${it.important?'<span class="pill">Important later</span>':''}
-      <div class="muted">${esc(it.description||'')}</div><div class="muted">${esc(it.tag||'')} • ${esc(it.urgency||'normal')} • ${esc(it.createdAt||'')}</div>
-      <div class="row"><button class="btn" data-act="ideaEdit" data-i="${i}">Edit</button><button class="btn" data-act="ideaArchive" data-i="${i}">${it.archived?'Unarchive':'Archive'}</button><button class="btn" data-act="ideaTask" data-i="${i}">Convert to task</button><button class="btn" data-act="ideaImportant" data-i="${i}">Important later</button><button class="btn warn" data-act="ideaDel" data-i="${i}">Delete</button></div></div>`).join('') || '<div class="muted">No ideas yet.</div>'}</div>
+      <div class="muted">${esc(it.description||'')}</div><div class="muted">${esc(it.category||'uncategorized')} • ${esc(it.tag||'')} • ${esc(it.urgency||'normal')} • ${esc(it.createdAt||'')}</div>
+      <div class="row"><button class="btn" data-act="ideaEdit" data-i="${i}">Edit</button><button class="btn" data-act="ideaClassify" data-i="${i}">AI classify</button><button class="btn" data-act="ideaArchive" data-i="${i}">${it.archived?'Unarchive':'Archive'}</button><button class="btn" data-act="ideaTask" data-i="${i}">Convert to task</button><button class="btn" data-act="ideaImportant" data-i="${i}">Important later</button><button class="btn warn" data-act="ideaDel" data-i="${i}">Delete</button></div></div>`).join('') || '<div class="muted">No ideas yet.</div>'}</div>
     <button class="btn" id="addIdea">Add idea</button>
   </section>`;
 }
@@ -633,6 +746,7 @@ function renderBuilder(){
     <label><input id="aiEnabled" type="checkbox" ${state.settings.ai.enabled?'checked':''}/> Enable AI</label>
     <label>Endpoint<input id="aiEndpoint" value="${esc(state.settings.ai.endpoint)}"/></label>
     <label>Model<input id="aiModel" value="${esc(state.settings.ai.model)}"/></label>
+    <label>Fallback Model<input id="aiFallbackModel" value="${esc(state.settings.ai.fallbackModel||'')}"/></label>
     <label>API key<input id="aiKey" value="${esc(state.settings.ai.apiKey)}"/></label>
     <label>Site URL<input id="aiSiteUrl" value="${esc(state.settings.ai.siteUrl)}"/></label>
     <label>Site Name<input id="aiSiteName" value="${esc(state.settings.ai.siteName)}"/></label>
@@ -681,8 +795,8 @@ function bind(){
   if(byId('rawTomorrowDump')) byId('rawTomorrowDump').oninput=e=>{d.rawTomorrowDump=e.target.value;save();};
   on('parseToday',()=>{ setBtnState('parseToday','working'); d.parsePreviewToday=parseTodayDump(d.rawTodayDump); d.parsePreviewToday.aiUsed=false; setActionStatus('today','ok','Parsed locally.'); pushToast('Today dump parsed.','ok'); setBtnState('parseToday','done'); ui();});
   on('parseTomorrow',()=>{ setBtnState('parseTomorrow','working'); d.parsePreviewTomorrow=parseTomorrowDump(d.rawTomorrowDump); d.parsePreviewTomorrow.aiUsed=false; setActionStatus('tomorrow','ok','Tomorrow dump parsed.'); pushToast('Tomorrow dump parsed.','ok'); setBtnState('parseTomorrow','done'); ui();});
-  on('aiToday',async()=>{ setBtnState('aiToday','working'); setActionStatus('today','', 'AI refine working...'); const local = parseTodayDump(d.rawTodayDump); const refined = await safeAIRefine(local, d.rawTodayDump); d.parsePreviewToday = Object.assign({}, local, refined, {aiUsed:!!refined.aiUsed, providerError: refined.aiUsed ? '' : (refined.warnings||[]).slice(-1)[0]||''}); if(!d.parsePreviewToday.aiUsed) pushToast(d.parsePreviewToday.providerError || 'AI failed; local parse kept.','err'); else pushToast('AI refine complete (today).','ok'); setActionStatus('today', d.parsePreviewToday.aiUsed ? 'ok' : 'err', d.parsePreviewToday.aiUsed ? 'AI refine complete.' : 'AI failed; local parse kept.'); setBtnState('aiToday','done'); ui();});
-  on('aiTomorrow',async()=>{ setBtnState('aiTomorrow','working'); setActionStatus('tomorrow','', 'AI refine working...'); const local = parseTomorrowDump(d.rawTomorrowDump); const refined = await safeAIRefine(local, d.rawTomorrowDump); d.parsePreviewTomorrow = Object.assign({}, local, refined, {aiUsed:!!refined.aiUsed, providerError: refined.aiUsed ? '' : (refined.warnings||[]).slice(-1)[0]||''}); if(!d.parsePreviewTomorrow.aiUsed) pushToast(d.parsePreviewTomorrow.providerError || 'AI failed; local parse kept.','err'); else pushToast('AI refine complete (tomorrow).','ok'); setActionStatus('tomorrow', d.parsePreviewTomorrow.aiUsed ? 'ok' : 'err', d.parsePreviewTomorrow.aiUsed ? 'AI refine tomorrow complete.' : 'AI failed; local parse kept.'); setBtnState('aiTomorrow','done'); ui();});
+  on('aiToday',async()=>{ setBtnState('aiToday','working'); setActionStatus('today','', 'AI refine working...'); const local = parseTodayDump(d.rawTodayDump); const refined = await safeAIRefine(local, d.rawTodayDump); d.parsePreviewToday = Object.assign({}, local, refined, {aiUsed:!!refined.aiUsed, providerError: refined.providerError || (refined.aiUsed ? '' : (refined.warnings||[]).slice(-1)[0]||''), modelUsed: refined.modelUsed || ''}); d.aiMeta = {used:!!d.parsePreviewToday.aiUsed, modelUsed:d.parsePreviewToday.modelUsed||'', providerError:d.parsePreviewToday.providerError||''}; if(!d.parsePreviewToday.aiUsed) pushToast(d.parsePreviewToday.providerError || 'AI failed; local parse kept.','err'); else pushToast(`AI refine complete (today) via ${d.parsePreviewToday.modelUsed}.`,'ok'); setActionStatus('today', d.parsePreviewToday.aiUsed ? 'ok' : 'err', d.parsePreviewToday.aiUsed ? `AI refine complete via ${d.parsePreviewToday.modelUsed}.` : 'AI failed; local parse kept.'); setBtnState('aiToday','done'); ui();});
+  on('aiTomorrow',async()=>{ setBtnState('aiTomorrow','working'); setActionStatus('tomorrow','', 'AI refine working...'); const local = parseTomorrowDump(d.rawTomorrowDump); const refined = await safeAIRefine(local, d.rawTomorrowDump); d.parsePreviewTomorrow = Object.assign({}, local, refined, {aiUsed:!!refined.aiUsed, providerError: refined.providerError || (refined.aiUsed ? '' : (refined.warnings||[]).slice(-1)[0]||''), modelUsed: refined.modelUsed || ''}); if(!d.parsePreviewTomorrow.aiUsed) pushToast(d.parsePreviewTomorrow.providerError || 'AI failed; local parse kept.','err'); else pushToast(`AI refine complete (tomorrow) via ${d.parsePreviewTomorrow.modelUsed}.`,'ok'); setActionStatus('tomorrow', d.parsePreviewTomorrow.aiUsed ? 'ok' : 'err', d.parsePreviewTomorrow.aiUsed ? `AI refine tomorrow complete via ${d.parsePreviewTomorrow.modelUsed}.` : 'AI failed; local parse kept.'); setBtnState('aiTomorrow','done'); ui();});
   on('clearToday',()=>{d.rawTodayDump=''; d.parsePreviewToday=null; setActionStatus('today','ok','Cleared today dump.'); pushToast('Today dump cleared.','ok'); ui();});
   on('clearTomorrow',()=>{d.rawTomorrowDump=''; d.parsePreviewTomorrow=null; setActionStatus('tomorrow','ok','Cleared tomorrow dump.'); pushToast('Tomorrow dump cleared.','ok'); ui();});
   on('applyToday',()=>{
@@ -697,9 +811,15 @@ function bind(){
     d.appliedFingerprints.todayDump.push(fp);
     d.learningBlocks = uniqueBy([...d.learningBlocks, ...asArr(p.learningBlocks)], b=>`${String(b.label||'').toLowerCase()}|${Number(b.minutes)||0}|${b.startTime||''}|${String(b.category||'').toLowerCase()}`);
     d.tasks = uniqueBy([...d.tasks, ...asArr(p.completedTasks)], t=>`${String(t.title||'').toLowerCase()}|${t.type||''}|${t.tomorrow?'t':''}`);
+    d.parseFacts = Object.assign({}, d.parseFacts||{}, p.facts||{});
+    if((p.facts?.wakeTime) && !d.morningEntry.wakeTime) d.morningEntry.wakeTime = p.facts.wakeTime;
     d.summary = p.summary || d.summary; d.wins = [...new Set([...(d.wins||[]),...(p.wins||[])])]; d.weaknesses=[...new Set([...(d.weaknesses||[]),...(p.weaknesses||[])])];
     state.builder.doRules.forEach(r=>{ if((p.suggestedDo||[]).some(s=>s.toLowerCase().includes((r.text||'').toLowerCase().split(' ')[0]))) d.doChecked[r.id]=true;});
-    state.builder.dontRules.forEach(r=>{ if((p.suggestedDont||[]).some(s=>s.toLowerCase().includes((r.text||'').toLowerCase().split(' ')[0]))) d.dontChecked[r.id]=true;});
+    state.builder.dontRules.forEach(r=>{
+      const t = String(r.text||'').toLowerCase();
+      const tagHit = (p.facts?.dontTags||[]).some(tag=>t.includes(tag.split('_')[0]) || (tag==='research_drift' && t.includes('research')) || (tag==='side_project' && t.includes('side-project')));
+      if(tagHit || (p.suggestedDont||[]).some(s=>s.toLowerCase().includes(t.split(' ')[0]))) d.dontChecked[r.id]=true;
+    });
     setActionStatus('today','ok','Applied preview to today. Undo is available.');
     pushToast('Applied parsed update to today.','ok');
     applyLock=false; setBtnState('applyToday','done'); ui();
@@ -763,11 +883,11 @@ function bind(){
   ['scDo','scLearn','scTask','scJournal','scPenalty'].forEach(id=>{const el=byId(id); if(el) el.oninput=()=>{const s=state.builder.scoring; s.doMax=Number(v('scDo')||35);s.learningMax=Number(v('scLearn')||25);s.taskMax=Number(v('scTask')||20);s.journalMax=Number(v('scJournal')||20);s.dontPenaltyCap=Number(v('scPenalty')||25); save();};});
   document.querySelectorAll('[data-tasktype]').forEach(el=>el.oninput=()=>{state.builder.scoring.taskTypePoints[el.dataset.tasktype]=Number(el.value||0); save();});
 
-  [['aiEndpoint','endpoint'],['aiModel','model'],['aiKey','apiKey'],['aiSiteUrl','siteUrl'],['aiSiteName','siteName'],['aiPrompt','systemPrompt']].forEach(([id,key])=>{const el=byId(id); if(el) el.oninput=()=>{state.settings.ai[key]=el.value; save();};});
+  [['aiEndpoint','endpoint'],['aiModel','model'],['aiFallbackModel','fallbackModel'],['aiKey','apiKey'],['aiSiteUrl','siteUrl'],['aiSiteName','siteName'],['aiPrompt','systemPrompt']].forEach(([id,key])=>{const el=byId(id); if(el) el.oninput=()=>{state.settings.ai[key]=el.value; save();};});
   const aiE = byId('aiEnabled'); if(aiE) aiE.onchange=()=>{state.settings.ai.enabled=aiE.checked; save();};
 
   on('addTpl',()=>{state.builder.learningBlockTemplates.push({id:uid(),title:prompt('Title','New template')||'New template',minutes:Number(prompt('Minutes','45')||45),category:prompt('Category','learning')||'learning'}); ui();});
-  on('addIdea',()=>{state.ideas.unshift({id:uid(),title:prompt('Idea title','')||'Untitled',description:prompt('Description','')||'',tag:prompt('Tag','')||'',createdAt:new Date().toISOString().slice(0,10),urgency:prompt('Urgency (low/normal/high)','normal')||'normal',note:'',archived:false,important:false}); ui();});
+  on('addIdea',()=>{state.ideas.unshift({id:uid(),title:prompt('Idea title','')||'Untitled',description:prompt('Description','')||'',category:prompt('Category','strategy')||'strategy',tag:prompt('Tag','')||'',createdAt:new Date().toISOString().slice(0,10),urgency:prompt('Urgency (low/normal/high)','normal')||'normal',note:'',archived:false,important:false}); ui();});
 
   on('exportJson',()=>{ setBtnState('exportJson','working'); const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='stability-lite-backup.json'; a.click(); URL.revokeObjectURL(a.href); pushToast('Backup exported.','ok'); if(MEMORY_MODE) pushToast('Memory mode active: export is from temporary session state.','err'); setBtnState('exportJson','done');});
   on('importJson',()=>{ setBtnState('importJson','working'); byId('importFile').click(); setBtnState('importJson','done');});
@@ -804,7 +924,19 @@ function handleAction(ds){
     case 'taskEdit': {const a=arrForScope(); const t=a[i]; t.title=prompt('Title',t.title)||t.title; t.type=prompt('Type',t.type)||t.type; t.priority=prompt('Priority',t.priority)||t.priority; t.dueDate=prompt('Due date',t.dueDate)||t.dueDate; t.tag=prompt('Tag',t.tag)||t.tag; t.notes=prompt('Notes',t.notes)||t.notes; replaceScope(a);} break;
     case 'taskDel': {const a=arrForScope(); a.splice(i,1); replaceScope(a);} break;
     case 'openHistory': modalDay = ds.day; break;
-    case 'ideaEdit': {const x=state.ideas[i]; x.title=prompt('Title',x.title)||x.title; x.description=prompt('Description',x.description)||x.description; x.tag=prompt('Tag',x.tag)||x.tag; x.urgency=prompt('Urgency',x.urgency)||x.urgency; x.note=prompt('Note',x.note)||x.note;} break;
+    case 'ideaEdit': {const x=state.ideas[i]; x.title=prompt('Title',x.title)||x.title; x.description=prompt('Description',x.description)||x.description; x.category=prompt('Category',x.category||'strategy')||x.category||'strategy'; x.tag=prompt('Tag',x.tag)||x.tag; x.urgency=prompt('Urgency',x.urgency)||x.urgency; x.note=prompt('Note',x.note)||x.note;} break;
+    case 'ideaClassify': {
+      const idea = state.ideas[i];
+      const local = {summary:'',wins:[],weaknesses:[],warnings:[]};
+      safeAIRefine(local, `Classify this idea: ${idea.title}\n${idea.description}\nReturn JSON with category, urgency, decision.`).then(r=>{
+        idea.category = r.category || idea.category || 'strategy';
+        idea.urgency = r.urgency || idea.urgency || 'normal';
+        idea.note = [idea.note||'', r.decision ? `AI: ${r.decision}` : ''].filter(Boolean).join(' | ');
+        pushToast(`Idea classified${r.modelUsed?` via ${r.modelUsed}`:''}.`, r.aiUsed?'ok':'err');
+        ui();
+      });
+      return;
+    }
     case 'ideaArchive': state.ideas[i].archived=!state.ideas[i].archived; break;
     case 'ideaTask': d.tasks.push({id:uid(),title:state.ideas[i].title,type:'misc',completed:false,priority:'medium',dueDate:'',tag:state.ideas[i].tag||'idea',notes:state.ideas[i].description||''}); break;
     case 'ideaImportant': state.ideas[i].important=!state.ideas[i].important; break;
