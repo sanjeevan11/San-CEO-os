@@ -2,1820 +2,1076 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover" />
-  <meta name="theme-color" content="#08111f" />
-  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b1226" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Stability OS" />
-  <title>Stability OS</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            navy: {950:'#040915',900:'#08111f',850:'#0c1727',800:'#101d31',750:'#172539',700:'#1d2f47'},
-            accent: {300:'#f8d987',400:'#f2c45a',500:'#e5ad34',600:'#c88c17'}
-          },
-          boxShadow: {
-            card: '0 12px 36px rgba(0,0,0,.32)',
-            glow: '0 0 0 1px rgba(229,173,52,.18), 0 10px 30px rgba(0,0,0,.35)'
-          }
-        }
-      }
-    }
-  </script>
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <meta name="apple-mobile-web-app-title" content="Stability Lite" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <title>Stability Lite</title>
+  <link rel="manifest" href="./manifest.json" />
   <style>
     :root{
-      --safe-top: env(safe-area-inset-top, 12px);
-      --safe-bottom: env(safe-area-inset-bottom, 12px);
+      --bg:#070d1b;--bg2:#0f1a33;--panel:rgba(18,30,56,.74);--panel2:rgba(30,45,79,.60);--text:#eef3ff;
+      --muted:#9eb1d8;--teal:#41d9cf;--cyan:#57b6ff;--violet:#9f8fff;--warn:#ff7f78;
+      --ok:#6ce39d;--safe-top:env(safe-area-inset-top,12px);--safe-bottom:env(safe-area-inset-bottom,12px);
+      --radius-xl:22px;--radius-lg:16px;--radius-md:12px;
     }
-    html, body, #root { height:100%; }
-    body{
-      margin:0;
-      color:#edf2fb;
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      overscroll-behavior-y:none;
+    *{box-sizing:border-box} html,body{height:100%}
+    body{margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif;color:var(--text);
+      -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
       background:
-        radial-gradient(circle at top left, rgba(229,173,52,.08), transparent 24%),
-        radial-gradient(circle at top right, rgba(45,212,191,.05), transparent 22%),
-        linear-gradient(180deg, #040915 0%, #08111f 30%, #091223 100%);
+        radial-gradient(1200px 520px at -6% -8%, rgba(62,130,255,.28) 0%, transparent 60%),
+        radial-gradient(860px 420px at 108% 0%, rgba(173,88,255,.22) 0%, transparent 64%),
+        radial-gradient(680px 320px at 52% -12%, rgba(59,220,208,.18) 0%, transparent 62%),
+        linear-gradient(180deg,var(--bg),#091327 60%,#0b1324);
     }
+    #app{max-width:980px;margin:0 auto;padding:calc(var(--safe-top) + 14px) 14px calc(var(--safe-bottom) + 96px)}
     .glass{
-      background: rgba(16,29,49,.86);
-      border: 1px solid rgba(255,255,255,.08);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      box-shadow: 0 12px 36px rgba(0,0,0,.28);
+      background:linear-gradient(165deg,rgba(24,38,70,.84),rgba(17,29,58,.74));
+      border:1px solid rgba(174,205,255,.18);
+      backdrop-filter:blur(14px);
+      border-radius:var(--radius-xl);
+      box-shadow:0 18px 36px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.05);
     }
-    .glass-soft{
-      background: rgba(11,22,39,.96);
-      border: 1px solid rgba(255,255,255,.08);
+    .row{display:flex;gap:10px;flex-wrap:wrap}.row>*{flex:1 1 180px}
+    .card{padding:16px}
+    .title{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;font-weight:700}
+    .big{font-size:34px;font-weight:800;letter-spacing:-.02em}
+    .pill{padding:7px 10px;border-radius:999px;background:rgba(255,255,255,.08);font-size:12px}
+    .btn{
+      border:1px solid rgba(165,197,251,.24);
+      background:linear-gradient(145deg,rgba(47,71,116,.62),rgba(28,47,87,.58));
+      color:var(--text);padding:11px 13px;border-radius:var(--radius-md);cursor:pointer;
+      transition:transform .12s ease, box-shadow .2s ease, border-color .2s ease, opacity .2s ease;
+      box-shadow:0 8px 16px rgba(3,8,18,.24), inset 0 1px 0 rgba(255,255,255,.05);
+      font-weight:600;
     }
-    .top-safe{ padding-top: calc(var(--safe-top) + 12px); }
-    .bottom-safe{ padding-bottom: calc(var(--safe-bottom) + 12px); }
-    .content-pad{ padding-bottom: calc(106px + var(--safe-bottom)); }
-    .hide-scroll::-webkit-scrollbar{ display:none; }
-    .hide-scroll{ scrollbar-width:none; -ms-overflow-style:none; }
-    input, textarea, select { font-size:16px; }
-    .fade-up{ animation: fadeUp .2s ease-out; }
-    @keyframes fadeUp{
-      from{ opacity:.45; transform: translateY(8px); }
-      to{ opacity:1; transform: translateY(0); }
+    .btn:hover{border-color:rgba(141,197,255,.48);box-shadow:0 10px 20px rgba(3,8,18,.32), 0 0 0 1px rgba(105,184,255,.14) inset}
+    .btn:active,.btn.pressed{transform:translateY(1px) scale(.985)}
+    .btn.primary{background:linear-gradient(140deg,#3a92ff,#2fe2d5);color:#061124;border:none;font-weight:800}
+    .btn.warn{background:linear-gradient(140deg,rgba(255,127,120,.20),rgba(177,72,72,.22));border-color:rgba(255,127,120,.42)}
+    .btn.is-working{box-shadow:0 0 0 1px rgba(116,214,255,.44) inset,0 0 24px rgba(80,188,255,.32)}
+    .btn.is-success{box-shadow:0 0 0 1px rgba(108,227,157,.55) inset,0 0 22px rgba(108,227,157,.28)}
+    .btn.is-error{box-shadow:0 0 0 1px rgba(255,127,120,.55) inset,0 0 22px rgba(255,127,120,.26)}
+    .btn:disabled{opacity:.56;cursor:not-allowed;pointer-events:none}
+    input,textarea,select{
+      width:100%;background:rgba(2,8,21,.45);border:1px solid rgba(163,192,245,.22);color:var(--text);border-radius:var(--radius-md);padding:11px;font:inherit;
+      transition:border-color .2s ease, box-shadow .2s ease;
     }
-    .pulse-dot{ animation: pulse 1.5s infinite; }
-    @keyframes pulse{
-      0%,100%{ opacity:.5; transform: scale(1); }
-      50%{ opacity:1; transform: scale(1.15); }
+    input:focus,textarea:focus,select:focus{outline:none;border-color:rgba(102,205,255,.6);box-shadow:0 0 0 3px rgba(65,177,255,.16)}
+    textarea{min-height:90px;resize:vertical}
+    label{display:block;font-size:12px;color:var(--muted);margin:8px 0}
+    .list{display:grid;gap:8px}
+    .item{
+      background:linear-gradient(155deg,rgba(10,21,45,.84),rgba(10,18,37,.78));
+      border:1px solid rgba(151,188,251,.16);padding:11px;border-radius:var(--radius-md);
     }
-    .tap{ -webkit-tap-highlight-color: transparent; }
-    code{ word-break: break-word; }
+    .nav{position:fixed;left:0;right:0;bottom:0;padding:8px 10px calc(var(--safe-bottom) + 8px);display:flex;justify-content:center;background:linear-gradient(180deg,transparent,rgba(3,8,18,.88) 34%);z-index:40}
+    .nav .inner{
+      display:flex;gap:7px;background:rgba(6,14,30,.88);border:1px solid rgba(156,191,255,.23);padding:6px;border-radius:14px;
+      box-shadow:0 14px 28px rgba(0,0,0,.34);overflow:auto;max-width:min(980px,100vw - 20px)
+    }
+    .tab{padding:10px 12px;border-radius:10px;border:none;background:transparent;color:var(--muted);font-weight:700}
+    .tab.active{background:linear-gradient(130deg,#2f8cff,#44d8cc);color:#081226;box-shadow:0 10px 18px rgba(28,147,255,.35)}
+    .muted{color:var(--muted)} .danger{color:var(--warn)} .ok{color:var(--ok)}
+    .hidden{display:none}
+    .modal{position:fixed;inset:0;background:rgba(3,7,16,.7);display:flex;align-items:center;justify-content:center;padding:14px}
+    .modal-body{max-height:85vh;overflow:auto;max-width:760px;width:100%}
+    .k{font-size:12px;color:var(--muted)}
+    progress{width:100%;height:10px}
+    .status{font-size:12px;margin-top:8px;color:var(--muted)}
+    .status.ok{color:var(--ok)}
+    .status.err{color:var(--warn)}
+    .banner{margin-top:10px;padding:10px 12px;border-radius:12px;background:linear-gradient(140deg,rgba(87,182,255,.18),rgba(76,130,255,.12));border:1px solid rgba(87,182,255,.38);font-size:13px}
+    .toast-wrap{position:fixed;right:14px;top:calc(var(--safe-top) + 10px);z-index:50;display:grid;gap:8px}
+    .toast{padding:10px 12px;border-radius:12px;background:rgba(14,26,50,.95);border:1px solid rgba(150,188,255,.35);font-size:12px;max-width:320px}
+    .toast.ok{border-color:rgba(108,227,157,.45)} .toast.err{border-color:rgba(255,127,120,.45)}
+    .spin{display:inline-block;width:12px;height:12px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .hero{position:relative;overflow:hidden;background:linear-gradient(140deg,rgba(56,190,255,.22),rgba(173,79,255,.2));border:1px solid rgba(127,213,255,.45);box-shadow:0 0 0 1px rgba(127,213,255,.2),0 20px 38px rgba(79,21,131,.35)}
+    .hero::after{content:'';position:absolute;inset:-40% -40% auto auto;width:62%;height:120%;background:linear-gradient(120deg,rgba(255,255,255,.16),rgba(255,255,255,0));transform:rotate(16deg);pointer-events:none}
+    .metric{padding:12px;border-radius:14px;color:#f7fbff;box-shadow:0 10px 24px rgba(9,18,37,.38)}
+    .m-do{background:linear-gradient(140deg,rgba(40,217,170,.25),rgba(17,138,113,.2));border:1px solid rgba(81,255,217,.35)}
+    .m-learning{background:linear-gradient(140deg,rgba(68,164,255,.3),rgba(56,100,255,.2));border:1px solid rgba(128,197,255,.35)}
+    .m-task{background:linear-gradient(140deg,rgba(174,111,255,.28),rgba(93,47,189,.22));border:1px solid rgba(208,160,255,.35)}
+    .m-journal{background:linear-gradient(140deg,rgba(255,125,196,.28),rgba(171,55,123,.22));border:1px solid rgba(255,174,222,.35)}
+    .m-penalty{background:linear-gradient(140deg,rgba(255,136,136,.22),rgba(204,73,73,.2));border:1px solid rgba(255,164,164,.35)}
+    .pill-soft{display:inline-block;padding:4px 8px;border-radius:999px;background:rgba(255,255,255,.08);font-size:11px;margin:2px}
+    .section{margin-top:10px}
+    .section .title{margin-bottom:6px}
+    .fade-in{animation:fade .26s ease}
+    @keyframes fade{from{opacity:.65;transform:translateY(2px)}to{opacity:1;transform:none}}
+    .status-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:999px;font-size:11px;background:rgba(255,255,255,.08);margin-left:6px}
+    .status-chip.ok{color:var(--ok);border:1px solid rgba(108,227,157,.35)}
+    .status-chip.err{color:var(--warn);border:1px solid rgba(255,127,120,.35)}
   </style>
-  <link rel="manifest" href='data:application/manifest+json,{"name":"Stability OS","short_name":"Stability OS","display":"standalone","background_color":"#08111f","theme_color":"#08111f","start_url":"./"}'>
 </head>
 <body>
-<div id="root"></div>
+<div id="app"></div>
+<div class="toast-wrap" id="toastWrap"></div>
+<div class="nav"><div class="inner" id="bottomNav"></div></div>
+<script>
+(()=>{
+'use strict';
+const APP_VERSION = 7;
+const LS_NEW = 'stability_lite_state_v1';
+const LS_OLD = ['stability_os_data_v5','stability_os_config_v5','stability_os_data_v4','stability_os_config_v4'];
+const uid = ()=>Math.random().toString(36).slice(2,9)+Date.now().toString(36).slice(-5);
+const todayKey = ()=>new Date().toISOString().slice(0,10);
+const deep = (x)=>JSON.parse(JSON.stringify(x));
+const clamp = (n,a,b)=>Math.max(a,Math.min(b,n));
+const asArr=(x)=>Array.isArray(x)?x:[];
 
-<script type="text/babel">
-const { useState, useEffect, useMemo } = React;
-
-const APP_VERSION = 4;
-const LS = {
-  config: 'stability_os_config_v4',
-  data: 'stability_os_data_v4'
-};
-
-const uid = () => Math.random().toString(36).slice(2,10) + Date.now().toString(36).slice(-4);
-const isoToday = () => new Date().toISOString().slice(0,10);
-const todayObj = () => new Date(isoToday() + 'T00:00:00');
-const deepClone = (x) => JSON.parse(JSON.stringify(x));
-const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
-const asCurrency = (n) => '£' + Number(n || 0).toFixed(2);
-const reorder = (arr, from, to) => {
-  const next = [...arr];
-  const [moved] = next.splice(from, 1);
-  next.splice(to, 0, moved);
-  return next;
-};
-const prettifyDate = (v) => {
-  if (!v) return '—';
-  try { return new Date(v + (v.length === 10 ? 'T00:00:00' : '')).toLocaleDateString(undefined, { day:'numeric', month:'short', year:'numeric' }); }
-  catch { return v; }
-};
-const diffDays = (dateStr) => {
-  if (!dateStr) return 9999;
-  const target = new Date(dateStr + 'T00:00:00');
-  return Math.ceil((target - todayObj()) / 86400000);
-};
-
-const hourlyQuotes = {
-  dawn: [
-    "Win the first hour or the day starts negotiating against you.",
-    "Mood is irrelevant. Structure first, emotion second.",
-    "The morning MIT is the hinge of the whole system."
-  ],
-  day: [
-    "Pressure is not the enemy. Diffusion is.",
-    "Do the highest-leverage thing before you touch noise.",
-    "One brutal focused block beats six half-started efforts."
-  ],
-  evening: [
-    "No day closes incomplete. Convert today into tomorrow.",
-    "Review is not optional. Memory without structure becomes anxiety.",
-    "You do not earn shutdown until tomorrow is already loaded."
-  ]
-};
-
-function getHourlyQuote() {
-  const hour = new Date().getHours();
-  const bucket = hour < 10 ? 'dawn' : hour < 18 ? 'day' : 'evening';
-  const list = hourlyQuotes[bucket];
-  return list[hour % list.length];
-}
-
-const defaultConfig = {
+const defaultState = ()=>({
   version: APP_VERSION,
-  app: {
-    title: 'Stability OS',
-    subtitle: 'War-room command center',
-    mission: 'Protect downside, stay lawful, build stability, execute hard.',
-    focusStyle: 'Direct, skeptical, action-first, ruthless but sustainable.'
+  settings:{appTitle:'Stability Lite',activeGoalName:'Execution Sprint',goalLengthDays:30,currentDay:1,goalStartDate:todayKey(),
+    ai:{enabled:false,endpoint:'https://openrouter.ai/api/v1/chat/completions',model:'qwen/qwen3.6-plus:free',fallbackModel:'openrouter/free',apiKey:'',siteUrl:'',siteName:'Stability Lite',systemPrompt:'Refine summaries and next actions.'},
+    ui:{themeVariant:'indigo',installNoticeDismissed:false,memoryMode:false,freshRunResetAt:''}
   },
-  profile: {
-    strengths: 'Persistent, evidence-driven, resourceful, high pain tolerance, willing to self-direct.',
-    weaknesses: 'Overwhelm across multiple fronts, emotional drift, scattered execution, novelty-chasing, busywork, weak sleep discipline, emotional over-processing.',
-    supportStyle: 'Force prioritisation, reduce noise, lock onto MIT, block day closure without review + tomorrow plan, default to MIT-only mode when sleep is poor.'
-  },
-  userSettings: {
-    name: '',
-    setupComplete: false,
-    wakeTime: '06:00',
-    sleepTarget: 7,
-    weeklyReviewDay: 'Sunday',
-    weeklyReviewTime: '19:00',
-    emergencyFundTarget: 2000,
-    lanes: ['Legal', 'One ICP', 'One Delivery'],
-    modules: { challenge:true, aiCoach:true, healthWidgets:true, businessCRM:true, motivation:true }
-  },
-  challenge: {
-    goalName: '30 Day Stability Reset',
-    goalDays: 30,
-    currentDay: 1,
-    startedAt: isoToday(),
-    endRequiresReview: true
-  },
-  tabs: [
-    { id:'today', name:'Today', archived:false },
-    { id:'legal', name:'Legal', archived:false },
-    { id:'money', name:'Money', archived:false },
-    { id:'business', name:'Business', archived:false },
-    { id:'builder', name:'Builder', archived:false }
-  ],
-  today: {
-    mitLabels: {
-      primary: 'Primary MIT',
-      secondary: 'Secondary MIT',
-      deep: 'Deep Block',
-      admin: 'Admin / Evidence'
-    },
-    ruleSets: [{
-      id:'default',
-      name:'Default Rule Set',
-      doRules: [
-        { id:uid(), text:'Drink 3L water', weight:1 },
-        { id:uid(), text:'Complete one deep work block', weight:2 },
-        { id:uid(), text:'Finish day review + tomorrow plan', weight:2 },
-        { id:uid(), text:'Protect legal/admin slot', weight:1 }
-      ],
-      dontRules: [
-        { id:uid(), text:'No random scrolling', weight:2 },
-        { id:uid(), text:'No alcohol', weight:2 },
-        { id:uid(), text:'No busywork before MIT', weight:2 }
-      ]
-    }],
-    activeRuleSetId: 'default',
-    scheduleBlocks: [
-      { id:uid(), name:'Wake + Reset', start:'06:00', end:'06:30' },
-      { id:uid(), name:'Primary MIT', start:'06:30', end:'08:00' },
-      { id:uid(), name:'Secondary MIT', start:'08:15', end:'09:15' },
-      { id:uid(), name:'Admin / Evidence', start:'11:00', end:'11:30' },
-      { id:uid(), name:'Deep Block', start:'15:00', end:'17:00' },
-      { id:uid(), name:'Shutdown', start:'20:30', end:'21:00' }
+  builder:{
+    morningQuestions:['What matters most today?','Biggest risk?','How will I protect focus?'],
+    eveningQuestions:['What went well?','What slipped?','What will I improve tomorrow?'],
+    nightQuestions:['Day review snapshot','Tomorrow plan summary'],
+    doRules:[
+      {id:uid(),text:'Wake by target time',points:4,mode:'binary',target:360,targetUnit:'time'},
+      {id:uid(),text:'Water after waking',points:4,mode:'partial_quantity',target:400,targetUnit:'ml'},
+      {id:uid(),text:'Meditation completed',points:4,mode:'partial_minutes',target:20,targetUnit:'minutes'},
+      {id:uid(),text:'Visualisation completed',points:4,mode:'partial_minutes',target:5,targetUnit:'minutes'},
+      {id:uid(),text:'First focus block completed',points:5,mode:'partial_count',target:1,targetUnit:'count'},
+      {id:uid(),text:'Total learning target completed',points:5,mode:'partial_minutes',target:150,targetUnit:'minutes'},
+      {id:uid(),text:'Day-end review completed',points:5,mode:'binary',target:1,targetUnit:'boolean'},
+      {id:uid(),text:'Tomorrow plan completed',points:4,mode:'binary',target:1,targetUnit:'boolean'}
     ],
-    scoreWeights: {
-      primaryMit: 20,
-      secondaryMit: 10,
-      deepBlock: 15,
-      adminBlock: 10,
-      review: 15,
-      nextPlan: 15,
-      rules: 15
-    },
-    widgets: {
-      progress: true,
-      score: true,
-      streak: true,
-      quote: true,
-      mission: true,
-      coreExecution: true,
-      focusTimer: true,
-      rules: true,
-      schedule: true,
-      journal: true,
-      health: true,
-      ai: true,
-      history: true
-    },
-    morningQuestions: [
-      'What must go right today?',
-      'What is the real bottleneck?',
-      'What will I refuse to waste time on?'
+    dontRules:[
+      {id:uid(),text:'Social media / reels / shorts',points:8},
+      {id:uid(),text:'Sugar / biscuit / cake',points:5},
+      {id:uid(),text:'Random research drift',points:5},
+      {id:uid(),text:'AI drift',points:4},
+      {id:uid(),text:'Unplanned nap',points:3},
+      {id:uid(),text:'Side-project drift during focus hours',points:4}
     ],
-    eveningQuestions: [
-      'What moved the needle today?',
-      'Where did I drift or hesitate?',
-      'What must tomorrow start with?'
-    ]
+    learningBlockTemplates:[{id:uid(),title:'SQL Practice',minutes:45,category:'learning'},{id:uid(),title:'Power BI Build',minutes:60,category:'builder'}],
+    scoring:{doMax:35,learningMax:25,taskMax:20,journalMax:20,dontPenaltyCap:25,taskTypePoints:{primary:6,secondary:4,admin:3,learning:4,review:3,misc:2}}
   },
-  health: {
-    widgets: [
-      { id:'sleep', name:'Sleep Hours', type:'number' },
-      { id:'meds', name:'Meds Taken', type:'checkbox' },
-      { id:'pain', name:'Pain', type:'rating' },
-      { id:'mood', name:'Mood', type:'rating' },
-      { id:'walk', name:'Walk / Workout', type:'checkbox' },
-      { id:'alcohol', name:'Alcohol', type:'checkbox' },
-      { id:'appointments', name:'Appointments', type:'text' }
-    ],
-    badDayRules: {
-      sleepBelow: 6,
-      moodAtOrBelow: 2,
-      painAtOrAbove: 4,
-      consecutiveBadDaysBanner: 3
-    }
-  },
-  legal: {
-    matterTypes: ['ET', 'County Court', 'NRM', 'Immigration', 'Police', 'Regulator'],
-    priorities: ['Critical', 'High', 'Medium', 'Low'],
-    statuses: ['Open', 'Drafting', 'Waiting', 'Filed', 'Closed'],
-    exhibitStatuses: ['need', 'drafted', 'final', 'filed'],
-    correspondenceStatuses: ['No reply', 'Waiting', 'Responded', 'Closed'],
-    riskThresholds: { criticalDays: 7 }
-  },
-  money: {
-    categories: ['Food', 'Travel', 'Phone', 'Health', 'Legal', 'Business', 'Essentials', 'Other'],
-    thresholds: { lowCash: 150, weeklySpendWarn: 120 }
-  },
-  business: {
-    stages: ['New', 'Contacted', 'Discovery', 'Proposal', 'Awaiting Deposit', 'Ready to Build', 'Build', 'Live', 'Lost'],
-    gatingRule: {
-      buildStage: 'Build',
-      requiresDeposit: true,
-      requiresScope: true
-    }
-  },
-  quickCapture: {
-    types: [
-      {
-        id:'deadline',
-        name:'Deadline',
-        target:'legal.deadlines',
-        fields:[
-          { name:'title', label:'Title', type:'text' },
-          { name:'matterType', label:'Matter Type', type:'select', optionsFrom:'legal.matterTypes' },
-          { name:'dueDate', label:'Due Date', type:'date' },
-          { name:'priority', label:'Priority', type:'select', optionsFrom:'legal.priorities' },
-          { name:'status', label:'Status', type:'select', optionsFrom:'legal.statuses' },
-          { name:'notes', label:'Notes', type:'textarea' }
-        ]
-      },
-      {
-        id:'exhibit',
-        name:'Exhibit',
-        target:'legal.exhibits',
-        fields:[
-          { name:'code', label:'Exhibit Code', type:'text' },
-          { name:'documentDate', label:'Document Date', type:'date' },
-          { name:'category', label:'Category', type:'text' },
-          { name:'description', label:'Short Description', type:'textarea' },
-          { name:'relevance', label:'Relevance', type:'textarea' },
-          { name:'filename', label:'Filename', type:'text' },
-          { name:'source', label:'Source', type:'text' },
-          { name:'status', label:'Status', type:'select', optionsFrom:'legal.exhibitStatuses' }
-        ]
-      },
-      {
-        id:'expense',
-        name:'Expense',
-        target:'money.expenses',
-        fields:[
-          { name:'date', label:'Date', type:'date' },
-          { name:'category', label:'Category', type:'select', optionsFrom:'money.categories' },
-          { name:'amount', label:'Amount', type:'currency' },
-          { name:'notes', label:'Notes', type:'textarea' }
-        ]
-      },
-      {
-        id:'lead',
-        name:'Lead',
-        target:'business.leads',
-        fields:[
-          { name:'name', label:'Name', type:'text' },
-          { name:'company', label:'Company', type:'text' },
-          { name:'icp', label:'ICP', type:'text' },
-          { name:'source', label:'Source', type:'text' },
-          { name:'stage', label:'Stage', type:'select', optionsFrom:'business.stages' },
-          { name:'quoted', label:'Quoted?', type:'checkbox' },
-          { name:'depositPaid', label:'Deposit paid?', type:'checkbox' },
-          { name:'scopeSigned', label:'Scope signed?', type:'checkbox' },
-          { name:'nextFollowUp', label:'Next follow-up', type:'date' },
-          { name:'caseStudyPotential', label:'Case study potential', type:'checkbox' },
-          { name:'mrrValue', label:'MRR value', type:'currency' },
-          { name:'notes', label:'Notes', type:'textarea' }
-        ]
-      }
-    ]
-  },
-  ai: {
-    enabled: true,
-    endpoint: 'https://openrouter.ai/api/v1/chat/completions',
-    model: 'qwen/qwen3.6-plus:free',
-    apiKey: '',
-    siteUrl: '',
-    siteName: 'Stability OS',
-    systemMode: 'Relentless operator coach with focus on discipline, downside protection, and execution.'
-  }
-};
+  days:{},
+  taskBoard:{backlog:[],templates:[]},
+  ideas:[],
+  backups:{},
+  archive:{legacyHistory:[]},
+  migration:{status:'fresh',notes:[],migratedAt:new Date().toISOString()},
+  _legacy:{}
+});
 
-const defaultData = {
-  legal: {
-    deadlines: [
-      { id:uid(), title:'Review upcoming filing bundle', matterType:'ET', dueDate:isoToday(), priority:'High', status:'Open', notes:'Tighten chronology and missing exhibits.' }
-    ],
-    chronology: [
-      { id:uid(), date:isoToday(), event:'Drafted key chronology update', matterType:'ET', source:'Self note', notes:'Need to attach 2 exhibits.', linkedExhibit:'' }
-    ],
-    exhibits: [
-      { id:uid(), code:'EX-001', documentDate:isoToday(), category:'Medical', description:'Initial supporting document', relevance:'Supports chronology', filename:'20260404_EX001.pdf', source:'Local file', status:'drafted' }
-    ],
-    correspondence: [
-      { id:uid(), who:'Tribunal / solicitor / regulator', matterType:'ET', dateSent:isoToday(), subject:'Status follow-up', replyDue:isoToday(), responseStatus:'Waiting', notes:'Check response tomorrow.' }
-    ]
-  },
-  money: {
-    cashOnHand: 120,
-    income: [{ id:uid(), source:'Support payment', amount:49, date:isoToday(), recurring:true }],
-    bills: [{ id:uid(), name:'Phone', amount:15, dueDate:isoToday(), essential:true, paid:false }],
-    expenses: [{ id:uid(), date:isoToday(), category:'Food', amount:6.5, notes:'Basic groceries' }]
-  },
-  business: {
-    leads: [
-      { id:uid(), name:'Sample Lead', company:'Demo Studio', icp:'Photographer', source:'Outbound', stage:'Discovery', quoted:true, depositPaid:false, scopeSigned:false, nextFollowUp:isoToday(), caseStudyPotential:true, mrrValue:450, notes:'Needs structured follow-up.' }
-    ]
-  },
-  today: {
-    dailyLogs: {
-      [isoToday()]: {
-        primaryMit:'',
-        secondaryMit:'',
-        deepBlock:'',
-        adminBlock:'',
-        wip:['Legal', 'One ICP', 'One Delivery'],
-        sleepHours:0,
-        mitOnlyMode:false,
-        timerPreset:25,
-        timerRunning:false,
-        rulesState:{},
-        journalMorning:{},
-        journalEvening:{},
-        review:'',
-        nextDayPlan:'',
-        health:{ sleep:0, meds:false, pain:2, mood:3, walk:false, alcohol:false, appointments:'' },
-        aiLog:[],
-        completedAt:null
-      }
-    },
-    history:[]
-  }
-};
-
-function safeRead(key, fallback){
-  try{
-    const raw = localStorage.getItem(key);
-    if(!raw) return deepClone(fallback);
-    const parsed = JSON.parse(raw);
-    return parsed ?? deepClone(fallback);
-  } catch {
-    return deepClone(fallback);
-  }
-}
-function safeWrite(key, value){ localStorage.setItem(key, JSON.stringify(value)); }
-function usePersistentState(key, fallback){
-  const [value, setValue] = useState(() => safeRead(key, fallback));
-  useEffect(() => { safeWrite(key, value); }, [key, value]);
-  return [value, setValue];
-}
-function resolveOptions(config, optionsFrom){
-  if(!optionsFrom) return [];
-  const [group, name] = optionsFrom.split('.');
-  return (config[group] && config[group][name]) ? config[group][name] : [];
-}
-function getRuleSet(config){
-  return config.today.ruleSets.find(r => r.id === config.today.activeRuleSetId) || config.today.ruleSets[0];
+function ensureDay(day){
+  return Object.assign({
+    rawTodayDump:'',rawTomorrowDump:'',parsePreviewToday:null,parsePreviewTomorrow:null,doChecked:{},dontChecked:{},learningBlocks:[],tomorrowBlocks:[],tasks:[],
+    morningEntry:{},eveningEntry:{},nightEntry:{review:''},summary:'',wins:[],weaknesses:[],
+    score:{doEarned:0,learningEarned:0,taskEarned:0,journalEarned:0,penaltyLost:0,final:0},
+    status:{closed:false,closedAt:null},appliedFingerprints:{todayDump:[],tomorrowDump:[]},tomorrowPlanSummary:'',
+    parseFacts:{wakeTime:'',waterMl:0,meditationMin:0,visualisationMin:0,learningMinutes:0,dontTags:[]},
+    aiMeta:{modelUsed:'',providerError:'',used:false}
+  }, day||{});
 }
 
-function Card({title, right, children, className=''}) {
-  return (
-    <div className={`glass rounded-3xl p-4 ${className}`}>
-      {(title || right) && (
-        <div className="flex items-center justify-between mb-3">
-          <div className="text-sm font-semibold tracking-wide text-slate-200">{title}</div>
-          <div>{right}</div>
-        </div>
-      )}
-      {children}
-    </div>
-  );
+function parseDuration(txt){
+  const re = /(\d+(?:\.\d+)?)\s*(hours?|hrs?|hr|h|minutes?|mins?|min|m)\b/i;
+  const m = String(txt||'').match(re);
+  if(!m) return 0;
+  const n = Number(m[1]||0); if(!Number.isFinite(n)) return 0;
+  const u = m[2].toLowerCase();
+  return /h|hour|hr/.test(u) ? Math.round(n*60) : Math.round(n);
 }
-function SmallStat({label, value, accent=false, sub=''}) {
-  return (
-    <div className="glass-soft rounded-3xl p-4 min-h-[92px] flex flex-col justify-center">
-      <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400">{label}</div>
-      <div className={`text-4xl font-bold mt-1 ${accent ? 'text-accent-500' : 'text-white'}`}>{value}</div>
-      {sub ? <div className="text-xs text-slate-500 mt-1">{sub}</div> : null}
-    </div>
-  );
+function parseClockTime(line){
+  const s = String(line||'');
+  const m = s.match(/\b(\d{1,2})(?::(\d{2}))\s*(am|pm)?\b/i);
+  if(!m) return '';
+  const hRaw = Number(m[1]); const mm = Number(m[2]||0); const ap=(m[3]||'').toLowerCase();
+  const matched = m[0];
+  if(!matched.includes(':') && !ap) return '';
+  const after = s.slice((m.index||0)+matched.length).trim().toLowerCase();
+  if(!matched.includes(':') && /^(min|mins|minutes|m|hour|hr|h)\b/.test(after)) return '';
+  let h = hRaw;
+  if(ap==='pm' && h<12) h+=12;
+  if(ap==='am' && h===12) h=0;
+  if(h>23 || mm>59) return '';
+  return String(h).padStart(2,'0')+':'+String(mm).padStart(2,'0');
 }
-function Input({label, value, onChange, type='text', placeholder='', step}) {
-  return (
-    <label className="block">
-      {label ? <div className="text-xs text-slate-400 mb-1">{label}</div> : null}
-      <input
-        type={type}
-        value={value ?? ''}
-        step={step}
-        placeholder={placeholder}
-        onChange={e => onChange(e.target.value)}
-        className="w-full rounded-2xl border border-white/10 bg-navy-850 px-4 py-3 text-white outline-none focus:border-accent-500"
-      />
-    </label>
-  );
-}
-function TextArea({label, value, onChange, placeholder='', rows=3}) {
-  return (
-    <label className="block">
-      {label ? <div className="text-xs text-slate-400 mb-1">{label}</div> : null}
-      <textarea
-        rows={rows}
-        value={value ?? ''}
-        placeholder={placeholder}
-        onChange={e => onChange(e.target.value)}
-        className="w-full rounded-2xl border border-white/10 bg-navy-850 px-4 py-3 text-white outline-none focus:border-accent-500"
-      />
-    </label>
-  );
-}
-function Select({label, value, onChange, options=[]}) {
-  return (
-    <label className="block">
-      {label ? <div className="text-xs text-slate-400 mb-1">{label}</div> : null}
-      <select
-        value={value ?? ''}
-        onChange={e => onChange(e.target.value)}
-        className="w-full rounded-2xl border border-white/10 bg-navy-850 px-4 py-3 text-white outline-none focus:border-accent-500"
-      >
-        <option value="">Select…</option>
-        {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-      </select>
-    </label>
-  );
-}
-function Toggle({label, checked, onChange}) {
-  return (
-    <button onClick={onChange} className="w-full flex items-center justify-between rounded-2xl border border-white/10 bg-navy-850 px-4 py-3 text-left tap">
-      <span className="text-sm text-white">{label}</span>
-      <span className={`inline-flex h-7 w-12 items-center rounded-full transition ${checked ? 'bg-accent-500 justify-end' : 'bg-slate-600 justify-start'} px-1`}>
-        <span className="h-5 w-5 rounded-full bg-white"></span>
-      </span>
-    </button>
-  );
-}
-function Badge({children, tone='default'}) {
-  const map = {
-    default:'bg-white/5 text-slate-300 border-white/10',
-    good:'bg-teal-500/10 text-teal-300 border-teal-400/20',
-    warn:'bg-amber-500/10 text-amber-300 border-amber-400/20',
-    bad:'bg-red-500/10 text-red-300 border-red-400/20'
-  };
-  return <span className={`rounded-full border px-2.5 py-1 text-[11px] ${map[tone] || map.default}`}>{children}</span>;
-}
-function ArrayManager({title, items, onChange, placeholder='Add item'}) {
-  const [draft, setDraft] = useState('');
-  const add = () => {
-    if(!draft.trim()) return;
-    onChange([...(items || []), draft.trim()]);
-    setDraft('');
-  };
-  return (
-    <Card title={title}>
-      <div className="space-y-2">
-        {(items || []).map((item, i) => (
-          <div key={i} className="flex items-center gap-2">
-            <input
-              value={item}
-              onChange={e => {
-                const next = [...items];
-                next[i] = e.target.value;
-                onChange(next);
-              }}
-              className="flex-1 rounded-2xl border border-white/10 bg-navy-850 px-3 py-2 text-sm text-white"
-            />
-            <button onClick={() => i > 0 && onChange(reorder(items, i, i - 1))} className="rounded-2xl bg-white/5 px-3 py-2 text-xs tap">↑</button>
-            <button onClick={() => i < items.length - 1 && onChange(reorder(items, i, i + 1))} className="rounded-2xl bg-white/5 px-3 py-2 text-xs tap">↓</button>
-            <button onClick={() => onChange(items.filter((_, idx) => idx !== i))} className="rounded-2xl bg-red-500/10 px-3 py-2 text-xs text-red-300 tap">Del</button>
-          </div>
-        ))}
-        <div className="flex gap-2">
-          <input value={draft} onChange={e => setDraft(e.target.value)} placeholder={placeholder} className="flex-1 rounded-2xl border border-white/10 bg-navy-850 px-3 py-2 text-sm text-white" />
-          <button onClick={add} className="rounded-2xl bg-accent-500 px-4 py-2 text-sm font-semibold text-navy-950 tap">Add</button>
-        </div>
-      </div>
-    </Card>
-  );
-}
-function QuickForm({config, typeDef, value, onChange}) {
-  if(!typeDef) return null;
-  const setField = (name, val) => onChange({...value, [name]: val});
-  return (
-    <div className="space-y-3">
-      {typeDef.fields.map(field => {
-        const options = field.optionsFrom ? resolveOptions(config, field.optionsFrom) : (field.options || []);
-        if(field.type === 'textarea') return <TextArea key={field.name} label={field.label} value={value[field.name] || ''} onChange={v => setField(field.name, v)} />;
-        if(field.type === 'select') return <Select key={field.name} label={field.label} value={value[field.name] || ''} onChange={v => setField(field.name, v)} options={options} />;
-        if(field.type === 'checkbox') return <Toggle key={field.name} label={field.label} checked={!!value[field.name]} onChange={() => setField(field.name, !value[field.name])} />;
-        if(field.type === 'rating') return <Select key={field.name} label={field.label} value={String(value[field.name] ?? '')} onChange={v => setField(field.name, Number(v))} options={['1', '2', '3', '4', '5']} />;
-        if(field.type === 'currency') return <Input key={field.name} label={field.label} value={value[field.name] ?? ''} type="number" step="0.01" onChange={v => setField(field.name, Number(v))} />;
-        return <Input key={field.name} label={field.label} value={value[field.name] ?? ''} type={field.type || 'text'} onChange={v => setField(field.name, v)} />;
-      })}
-    </div>
-  );
-}
+function hashFinger(text){let h=2166136261; for(const c of String(text||'')){h^=c.charCodeAt(0); h+= (h<<1)+(h<<4)+(h<<7)+(h<<8)+(h<<24);} return (h>>>0).toString(16);}
 
-function App() {
-  const [config, setConfig] = usePersistentState(LS.config, defaultConfig);
-  const [data, setData] = usePersistentState(LS.data, defaultData);
-
-  const [activeTab, setActiveTab] = useState('today');
-  const [showSearch, setShowSearch] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [showQuick, setShowQuick] = useState(false);
-  const [quickType, setQuickType] = useState('deadline');
-  const [quickValue, setQuickValue] = useState({ date: isoToday() });
-  const [builderSection, setBuilderSection] = useState('app');
-  const [timerSeconds, setTimerSeconds] = useState(25 * 60);
-  const [installNoteDismissed, setInstallNoteDismissed] = useState(false);
-  const [aiBusy, setAiBusy] = useState(false);
-  const [aiPrompt, setAiPrompt] = useState('');
-  const [aiResult, setAiResult] = useState('');
-
-  const todayKey = isoToday();
-  const todaysLog = data.today.dailyLogs[todayKey] || defaultData.today.dailyLogs[isoToday()];
-  const ruleSet = getRuleSet(config);
-  const visibleTabs = config.tabs.filter(t => !t.archived);
-  const currentDay = config.challenge.currentDay;
-  const goalProgress = clamp((currentDay / Math.max(config.challenge.goalDays, 1)) * 100, 0, 100);
-
-  useEffect(() => {
-    if (!data.today.dailyLogs[todayKey]) {
-      setData(prev => ({
-        ...prev,
-        today: {
-          ...prev.today,
-          dailyLogs: { ...prev.today.dailyLogs, [todayKey]: deepClone(defaultData.today.dailyLogs[isoToday()]) }
-        }
-      }));
-    }
-  }, [todayKey]);
-
-  useEffect(() => {
-    if (todaysLog && todaysLog.timerRunning) {
-      const timer = setInterval(() => {
-        setTimerSeconds(s => {
-          if (s <= 1) {
-            setData(prev => ({
-              ...prev,
-              today: {
-                ...prev.today,
-                dailyLogs: {
-                  ...prev.today.dailyLogs,
-                  [todayKey]: { ...prev.today.dailyLogs[todayKey], timerRunning:false }
-                }
-              }
-            }));
-            return 0;
-          }
-          return s - 1;
-        });
-      }, 1000);
-      return () => clearInterval(timer);
-    }
-  }, [todaysLog?.timerRunning, todayKey]);
-
-  useEffect(() => {
-    const preset = todaysLog?.timerPreset || 25;
-    if (!todaysLog?.timerRunning) setTimerSeconds(preset * 60);
-  }, [todaysLog?.timerPreset]);
-
-  useEffect(() => {
-    if (Number(todaysLog.sleepHours || 0) < 6 && !todaysLog.mitOnlyMode) {
-      updateToday({ mitOnlyMode:true });
-    }
-  }, [todaysLog.sleepHours]);
-
-  const updateToday = (patch) => {
-    setData(prev => ({
-      ...prev,
-      today: {
-        ...prev.today,
-        dailyLogs: {
-          ...prev.today.dailyLogs,
-          [todayKey]: { ...prev.today.dailyLogs[todayKey], ...patch }
-        }
-      }
-    }));
-  };
-  const setHealthField = (name, value) => updateToday({ health: { ...todaysLog.health, [name]: value } });
-
-  const ruleState = todaysLog.rulesState || {};
-  const allRules = [
-    ...ruleSet.doRules.map(r => ({...r, kind:'do'})),
-    ...ruleSet.dontRules.map(r => ({...r, kind:'dont'}))
+function parseDump(text, mode='today'){
+  const lines = String(text||'').split(/\n+/).map(v=>v.trim()).filter(Boolean);
+  const out = {suggestedDo:[],partialDo:[],suggestedDont:[],learningBlocks:[],completedTasks:[],summary:'',wins:[],weaknesses:[],warnings:[],confidence:0.65,aiUsed:false,tomorrowTasks:[],priorities:[],facts:{wakeTime:'',waterMl:0,meditationMin:0,visualisationMin:0,learningMinutes:0,dontTags:[]}};
+  const topicMap=[
+    ['power bi','Power BI'],['t sql','SQL / T-SQL'],['tsql','SQL / T-SQL'],['sql','SQL / T-SQL'],
+    ['quiz','Quiz'],['revision','Revision'],['learning','Learning'],['meditation','Meditation'],['visualisation','Visualisation']
   ];
-  const checkedRulesWeight = allRules.reduce((acc, rule) => acc + (ruleState[rule.id] ? Number(rule.weight || 1) : 0), 0);
-  const totalRulesWeight = Math.max(1, allRules.reduce((acc, rule) => acc + Number(rule.weight || 1), 0));
-
-  const todayScore = useMemo(() => {
-    const w = config.today.scoreWeights;
-    let score = 0;
-    if (todaysLog.primaryMit?.trim()) score += Number(w.primaryMit || 0);
-    if (todaysLog.secondaryMit?.trim()) score += Number(w.secondaryMit || 0);
-    if (todaysLog.deepBlock?.trim()) score += Number(w.deepBlock || 0);
-    if (todaysLog.adminBlock?.trim()) score += Number(w.adminBlock || 0);
-    if (todaysLog.review?.trim()) score += Number(w.review || 0);
-    if (todaysLog.nextDayPlan?.trim()) score += Number(w.nextPlan || 0);
-    score += Math.round((checkedRulesWeight / totalRulesWeight) * Number(w.rules || 0));
-    return clamp(Math.round(score), 0, 100);
-  }, [todaysLog, ruleState, config]);
-
-  const streak = useMemo(() => {
-    const hist = data.today.history || [];
-    let count = 0;
-    for (let i = hist.length - 1; i >= 0; i--) {
-      if (hist[i].score >= 70) count += 1;
-      else break;
+  for(const line of lines){
+    const l = line.toLowerCase();
+    const minutes = parseDuration(line);
+    const time = parseClockTime(line);
+    if(/done|finished|completed|achieved|wrapped|sent|submitted|closed|resolved|\[x\]|✅/.test(l)) out.completedTasks.push(line.replace(/^[-*]\s*/,''));
+    if(/win|good|focused|strong|progress|kept|disciplined|on time/.test(l)) out.wins.push(line);
+    if(/slip|weak|drift|late|miss|distract|delay|procrast|avoid|stuck/.test(l)) out.weaknesses.push(line);
+    if(/social media|reels|shorts/.test(l)){ out.suggestedDont.push(line); out.facts.dontTags.push('social'); }
+    if(/random research|tab switching|distract|started building/.test(l)){ out.suggestedDont.push(line); out.facts.dontTags.push('research_drift'); }
+    if(/grok|chatgpt|ai drift|random ai/.test(l)){ out.suggestedDont.push(line); out.facts.dontTags.push('ai_drift'); }
+    if(/dozed|nap|doze/.test(l)){ out.suggestedDont.push(line); out.facts.dontTags.push('nap'); }
+    if(/side project|building app|tracking app/.test(l)){ out.suggestedDont.push(line); out.facts.dontTags.push('side_project'); }
+    if(/sugar|biscuit|cake/.test(l)) out.suggestedDont.push(line);
+    if(/do\b|completed\b|done\b/.test(l)) out.suggestedDo.push(line);
+    if(/woke|waked up|wake up/.test(l)){
+      out.suggestedDo.push('Wake by target time');
+      const w = parseClockTime(line.replace('.',':'));
+      if(w) out.facts.wakeTime = w;
+      if(/late/.test(l)) out.weaknesses.push(line);
     }
-    return count;
-  }, [data.today.history]);
-
-  const badDayCount = useMemo(() => {
-    const hist = (data.today.history || []).slice(-10).map(x => x.health || {});
-    const current = todaysLog.health || {};
-    const all = [...hist, { ...current, sleep: todaysLog.sleepHours }];
-    const threshold = config.health.badDayRules;
-    let consecutive = 0;
-    for (let i = all.length - 1; i >= 0; i--) {
-      const item = all[i];
-      const bad =
-        (Number(item.sleep || 0) < Number(threshold.sleepBelow)) ||
-        (Number(item.mood || 5) <= Number(threshold.moodAtOrBelow)) ||
-        (Number(item.pain || 1) >= Number(threshold.painAtOrAbove)) ||
-        !!item.alcohol;
-      if (bad) consecutive += 1;
-      else break;
+    if(/water/.test(l)){
+      const mm = l.match(/(\d+)\s*ml/);
+      if(mm) out.facts.waterMl += Number(mm[1]||0);
+      if(/after waking|done/.test(l)) out.suggestedDo.push('Water after waking');
     }
-    return consecutive;
-  }, [data.today.history, todaysLog.health, todaysLog.sleepHours, config]);
-
-  const mattersDueSoon = data.legal.deadlines.filter(d => diffDays(d.dueDate) <= Number(config.legal.riskThresholds.criticalDays || 7) && !['Filed', 'Closed'].includes(d.status));
-  const unanswered = data.legal.correspondence.filter(c => ['No reply', 'Waiting'].includes(c.responseStatus));
-  const missingExhibits = data.legal.exhibits.filter(e => e.status === 'need');
-  const legalTop3 = [...data.legal.deadlines].sort((a,b) => (a.dueDate || '').localeCompare(b.dueDate || '')).slice(0,3);
-
-  const essentialBills = data.money.bills.filter(b => b.essential);
-  const monthlyEssentials = essentialBills.reduce((a,b) => a + Number(b.amount || 0), 0);
-  const spendThisWeek = data.money.expenses.filter(x => {
-    if (!x.date) return false;
-    const diff = Math.floor((todayObj() - new Date(x.date + 'T00:00:00')) / 86400000);
-    return diff >= 0 && diff < 7;
-  }).reduce((a,b) => a + Number(b.amount || 0), 0);
-  const runwayDays = monthlyEssentials > 0 ? Math.floor((Number(data.money.cashOnHand || 0) / monthlyEssentials) * 30) : 0;
-  const emergencyPct = clamp((Number(data.money.cashOnHand || 0) / Number(config.userSettings.emergencyFundTarget || 2000)) * 100, 0, 999);
-
-  const stageCounts = config.business.stages.reduce((acc, stage) => ({ ...acc, [stage]: data.business.leads.filter(l => l.stage === stage).length }), {});
-  const followUpsDue = data.business.leads.filter(l => l.nextFollowUp && l.nextFollowUp <= todayKey && !['Lost', 'Live'].includes(l.stage));
-  const caseStudyCount = data.business.leads.filter(l => l.caseStudyPotential).length;
-  const mrr = data.business.leads.filter(l => ['Live', 'Build', 'Ready to Build'].includes(l.stage)).reduce((a,b) => a + Number(b.mrrValue || 0), 0);
-
-  const currentTabName = visibleTabs.find(t => t.id === activeTab)?.name || 'Today';
-  const visibleWidgets = config.today.widgets;
-  const quickDef = config.quickCapture.types.find(t => t.id === quickType);
-
-  const appSummary = [
-    `Mission: ${config.app.mission}`,
-    `Profile strengths: ${config.profile.strengths}`,
-    `Profile weaknesses: ${config.profile.weaknesses}`,
-    `Support style: ${config.profile.supportStyle}`,
-    `Current goal: ${config.challenge.goalName} Day ${config.challenge.currentDay}/${config.challenge.goalDays}`,
-    `Today score: ${todayScore}`,
-    `Primary MIT: ${todaysLog.primaryMit || 'none'}`,
-    `Secondary MIT: ${todaysLog.secondaryMit || 'none'}`,
-    `Deep block: ${todaysLog.deepBlock || 'none'}`,
-    `Admin block: ${todaysLog.adminBlock || 'none'}`,
-    `Due soon legal items: ${mattersDueSoon.map(x => x.title).join('; ') || 'none'}`,
-    `Follow-ups due: ${followUpsDue.map(x => x.company || x.name).join('; ') || 'none'}`,
-    `Cash on hand: ${data.money.cashOnHand}`
-  ].join('\n');
-
-  async function askAI(mode) {
-    if (!config.ai.enabled) {
-      setAiResult('AI is disabled in Builder > AI Settings.');
-      return;
+    if(/meditation/.test(l)){
+      out.suggestedDo.push('Meditation completed');
+      out.facts.meditationMin += minutes || 0;
+      if(minutes>0 && minutes<20) out.partialDo.push('Meditation completed');
     }
-    if (!config.ai.apiKey) {
-      setAiResult('No API key saved. Add your OpenRouter key inside Builder > AI Settings. Keep it out of the public HTML.');
-      return;
+    if(/visuali[sz]ation|visualise|visualisation/.test(l)){
+      out.suggestedDo.push('Visualisation completed');
+      out.facts.visualisationMin += minutes || 0;
+      if(minutes>0 && minutes<5) out.partialDo.push('Visualisation completed');
     }
-    setAiBusy(true);
-    setAiResult('');
-    const prompts = {
-      motivation: 'Give a ruthless but sustainable motivational push for the next 2 hours. No fluff. Force focus, discipline, and execution.',
-      next: 'Based on the context, give the single highest-leverage next action right now, why it matters, and what to ignore for the next 90 minutes.',
-      tomorrow: `Using today context and this journal review:\n${todaysLog.review || 'No review yet.'}\nDraft tomorrow plan with one MIT, one secondary MIT, one deep block, one admin block, and one rule to enforce.`,
-      legal: 'Turn the legal context into top 5 precise next actions. Separate hard deadlines, evidence gaps, and correspondence follow-ups.',
-      business: 'Draft a concise business follow-up message for the most urgent lead and give one revenue-focused next action.',
-      journal: `Synthesize today's journal and health state into: (1) the real problem, (2) one correction for tomorrow, (3) one warning. Morning: ${JSON.stringify(todaysLog.journalMorning)} Evening: ${JSON.stringify(todaysLog.journalEvening)}`,
-      custom: aiPrompt || 'Help me execute better today.'
-    };
 
-    try {
-      const body = {
-        model: config.ai.model,
-        messages: [
-          { role:'system', content:`${config.ai.systemMode}\nUse this operating context.\n${appSummary}` },
-          { role:'user', content: prompts[mode] || aiPrompt || 'Help me execute better today.' }
-        ]
-      };
-      const res = await fetch(config.ai.endpoint, {
-        method:'POST',
-        headers:{
-          'Content-Type':'application/json',
-          'Authorization': `Bearer ${config.ai.apiKey}`,
-          ...(config.ai.siteUrl ? { 'HTTP-Referer': config.ai.siteUrl } : {}),
-          ...(config.ai.siteName ? { 'X-Title': config.ai.siteName } : {})
-        },
-        body: JSON.stringify(body)
+    let topic=''; for(const [k,v] of topicMap){ if(l.includes(k)){topic=v; break;}}
+    if(topic && minutes>0) {
+      const category = /meditation|visualisation/.test(l) ? 'wellbeing' : 'learning';
+      out.learningBlocks.push({id:uid(),label:topic,minutes,startTime:time,category,note:line,completed:true,quality:/distract|shallow/.test(l)?'low':'good'});
+      if(category==='learning') out.facts.learningMinutes += minutes;
+    }
+
+    if(mode==='tomorrow' && /tomorrow|next|plan|priority|must/.test(l)){
+      const t = /primary/.test(l)?'primary':/secondary/.test(l)?'secondary':/admin/.test(l)?'admin':/review/.test(l)?'review':/learning|study|sql|power bi/.test(l)?'learning':'misc';
+      out.tomorrowTasks.push({id:uid(),title:line.replace(/^[-*]\s*/,''),type:t,completed:false,priority:/high|urgent|must/.test(l)?'high':'medium',dueDate:'',tag:'',notes:''});
+      if(/primary|urgent|must/.test(l)) out.priorities.push(line);
+    }
+  }
+  out.completedTasks = [...new Set(out.completedTasks)].map(t=>({id:uid(),title:t,type:'review',completed:true,priority:'medium',dueDate:'',tag:'',notes:''}));
+  out.suggestedDo = [...new Set(out.suggestedDo)].slice(0,8);
+  out.suggestedDont = [...new Set(out.suggestedDont)].slice(0,8);
+  out.wins = [...new Set(out.wins)].slice(0,6);
+  out.weaknesses = [...new Set(out.weaknesses)].slice(0,6);
+  out.facts.dontTags = [...new Set(out.facts.dontTags)];
+  out.summary = lines.slice(0,3).join(' | ') || 'No summary generated yet.';
+  if(lines.length<2){ out.warnings.push('Very short dump; parser confidence reduced.'); out.confidence=0.35; }
+  if(lines.length>10) out.confidence=0.85;
+  return out;
+}
+const parseTodayDump = (text)=>parseDump(text,'today');
+const parseTomorrowDump = (text)=>parseDump(text,'tomorrow');
+
+function safeAIRefine(preview, raw){
+  const ai = state.settings.ai;
+  if(!ai.enabled || !ai.endpoint || !ai.model || !ai.apiKey) return Promise.resolve({...preview,warnings:[...(preview.warnings||[]),'AI unavailable: fill endpoint/model/key or enable AI.'],aiUsed:false,providerError:'AI disabled or missing settings.',modelUsed:''});
+  const prompt = `Preserve deterministic facts from local parse, improve categorization and summary, do not invent events.\nReturn JSON only with keys: summary,wins,weaknesses,oneCorrection,nextAction,motivationalLine,tomorrowSummary,firstBlock,fallbackPlan,focusGuardrail,confidence,warnings.`;
+  const tryModel = (modelName) => {
+    const body = {model:modelName,messages:[{role:'system',content:ai.systemPrompt||prompt},{role:'user',content:`Raw dump:\n${raw}\n\nLocal parse JSON:\n${JSON.stringify(preview)}`}],temperature:.2};
+    return fetch(ai.endpoint,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+ai.apiKey,'HTTP-Referer':ai.siteUrl||'','X-Title':ai.siteName||'Stability Lite'},body:JSON.stringify(body)})
+      .then(r=>{ if(!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      .then(j=>{
+        const txt = j?.choices?.[0]?.message?.content || '';
+        const m = txt.match(/\{[\s\S]*\}/);
+        if(!m) throw new Error('No JSON from AI');
+        const parsed = JSON.parse(m[0]);
+        return Object.assign({}, preview, parsed, {aiUsed:true,modelUsed:modelName,providerError:''});
       });
-      const json = await res.json();
-      const text = json?.choices?.[0]?.message?.content || json?.error?.message || 'No AI response.';
-      setAiResult(text);
-      updateToday({
-        aiLog: [{ id:uid(), mode, text, at:new Date().toISOString() }, ...(todaysLog.aiLog || [])].slice(0, 20)
-      });
-    } catch (e) {
-      setAiResult('AI request failed. Check API key, model, endpoint, and network.');
-    } finally {
-      setAiBusy(false);
+  };
+  return tryModel(ai.model).catch(firstErr=>{
+    if(ai.fallbackModel && ai.fallbackModel !== ai.model){
+      return tryModel(ai.fallbackModel).catch(secondErr=>Object.assign({}, preview, {aiUsed:false,modelUsed:'',providerError:`Primary model failed (${firstErr.message}); fallback failed (${secondErr.message}).`,warnings:[...(preview.warnings||[]),`AI refine failed on both models.`]}));
     }
-  }
-
-  function exportBackup() {
-    const payload = { exportedAt:new Date().toISOString(), config, data };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type:'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'stability_os_backup.json';
-    a.click();
-  }
-  function importBackup(file) {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const json = JSON.parse(reader.result);
-        if (json.config && json.data) {
-          setConfig(json.config);
-          setData(json.data);
-          alert('Backup imported.');
-        } else {
-          alert('Invalid backup file.');
-        }
-      } catch {
-        alert('Could not parse backup file.');
-      }
-    };
-    reader.readAsText(file);
-  }
-  function wipeAll() {
-    if (!confirm('Wipe all app data? This cannot be undone.')) return;
-    setConfig(deepClone(defaultConfig));
-    setData(deepClone(defaultData));
-  }
-  function resetDemo() {
-    if (!confirm('Reset data to demo state?')) return;
-    setData(deepClone(defaultData));
-  }
-
-  function saveQuickCapture() {
-    const typeDef = config.quickCapture.types.find(t => t.id === quickType);
-    if (!typeDef) return;
-    const payload = { id:uid(), ...quickValue };
-    setData(prev => {
-      const next = deepClone(prev);
-      if (typeDef.target === 'legal.deadlines') next.legal.deadlines.unshift(payload);
-      if (typeDef.target === 'legal.exhibits') next.legal.exhibits.unshift(payload);
-      if (typeDef.target === 'money.expenses') next.money.expenses.unshift(payload);
-      if (typeDef.target === 'business.leads') next.business.leads.unshift(payload);
-      return next;
-    });
-    setQuickValue({ date:todayKey });
-    setShowQuick(false);
-  }
-
-  function endDay() {
-    if (config.challenge.endRequiresReview && (!todaysLog.review?.trim() || !todaysLog.nextDayPlan?.trim())) {
-      alert('End of day is blocked until you complete the review and tomorrow plan.');
-      return;
-    }
-    const snapshot = {
-      id:uid(),
-      date:todayKey,
-      score:todayScore,
-      challengeDay:config.challenge.currentDay,
-      review:todaysLog.review,
-      nextDayPlan:todaysLog.nextDayPlan,
-      primaryMit:todaysLog.primaryMit,
-      secondaryMit:todaysLog.secondaryMit,
-      health:{ ...todaysLog.health, sleep:todaysLog.sleepHours }
-    };
-    setData(prev => ({
-      ...prev,
-      today: {
-        ...prev.today,
-        history:[...prev.today.history, snapshot],
-        dailyLogs:{
-          ...prev.today.dailyLogs,
-          [todayKey]: { ...prev.today.dailyLogs[todayKey], completedAt:new Date().toISOString(), timerRunning:false }
-        }
-      }
-    }));
-    setConfig(prev => ({
-      ...prev,
-      challenge:{ ...prev.challenge, currentDay: prev.challenge.currentDay + 1 }
-    }));
-    alert('Day closed and archived.');
-  }
-
-  const results = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    if (!q) return [];
-    const out = [];
-    const pushIf = (items, type, tab, getTitle, getDate) => {
-      items.forEach(item => {
-        const hay = JSON.stringify(item).toLowerCase();
-        if (hay.includes(q)) {
-          out.push({
-            id:uid(),
-            type,
-            tab,
-            title:getTitle(item),
-            date:getDate ? getDate(item) : '',
-            item
-          });
-        }
-      });
-    };
-    pushIf(data.today.history || [], 'History', 'today', x => x.review || x.primaryMit || 'History item', x => x.date);
-    pushIf(Object.values(data.today.dailyLogs || {}), 'Daily Log', 'today', x => x.primaryMit || x.secondaryMit || 'Daily log', _ => todayKey);
-    pushIf(data.legal.deadlines, 'Deadline', 'legal', x => x.title, x => x.dueDate);
-    pushIf(data.legal.exhibits, 'Exhibit', 'legal', x => x.code + ' ' + (x.description || ''), x => x.documentDate);
-    pushIf(data.legal.chronology, 'Chronology', 'legal', x => x.event, x => x.date);
-    pushIf(data.legal.correspondence, 'Correspondence', 'legal', x => x.subject, x => x.dateSent);
-    pushIf(data.money.bills, 'Bill', 'money', x => x.name, x => x.dueDate);
-    pushIf(data.money.expenses, 'Expense', 'money', x => x.category + ' ' + (x.notes || ''), x => x.date);
-    pushIf(data.business.leads, 'Lead', 'business', x => (x.company || x.name) + ' / ' + x.stage, x => x.nextFollowUp);
-    return out.slice(0, 40);
-  }, [searchQuery, data]);
-
-  function updateLeadStage(leadId, stage) {
-    setData(prev => {
-      const next = deepClone(prev);
-      next.business.leads = next.business.leads.map(lead => {
-        if (lead.id !== leadId) return lead;
-        if (
-          stage === config.business.gatingRule.buildStage &&
-          config.business.gatingRule.requiresDeposit &&
-          (!lead.depositPaid || !lead.scopeSigned)
-        ) {
-          alert('Build stage blocked. Deposit paid and scope signed are both required.');
-          return lead;
-        }
-        return { ...lead, stage };
-      });
-      return next;
-    });
-  }
-
-  function editRule(setId, kind, ruleId, key, value) {
-    setConfig(prev => {
-      const next = deepClone(prev);
-      const rs = next.today.ruleSets.find(r => r.id === setId);
-      const arr = kind === 'do' ? rs.doRules : rs.dontRules;
-      const item = arr.find(r => r.id === ruleId);
-      item[key] = value;
-      return next;
-    });
-  }
-  function addRule(setId, kind) {
-    const text = prompt('Rule text');
-    if (!text) return;
-    setConfig(prev => {
-      const next = deepClone(prev);
-      const rs = next.today.ruleSets.find(r => r.id === setId);
-      if (kind === 'do') rs.doRules.push({ id:uid(), text, weight:1 });
-      else rs.dontRules.push({ id:uid(), text, weight:1 });
-      return next;
-    });
-  }
-
-  function renderToday() {
-    return (
-      <div className="space-y-4 fade-up">
-        <div className="flex items-start justify-between">
-          <div>
-            <div className="text-3xl font-bold tracking-tight">{config.app.title}</div>
-            <div className="mt-1 text-slate-400">{new Date().toLocaleDateString(undefined, { weekday:'long', day:'numeric', month:'short' })}</div>
-          </div>
-          <div className="text-right">
-            <div className="text-xs uppercase tracking-[0.18em] text-slate-500">Goal</div>
-            <div className="text-sm text-accent-400">{config.challenge.goalName}</div>
-          </div>
-        </div>
-
-        {badDayCount >= Number(config.health.badDayRules.consecutiveBadDaysBanner) && (
-          <Card className="border-red-400/20">
-            <div className="text-sm text-red-300 font-semibold">Warning: {badDayCount} consecutive bad-day signals.</div>
-            <div className="text-xs text-slate-400 mt-1">Use MIT-only mode. Avoid heavy decisions. Protect sleep and downside.</div>
-          </Card>
-        )}
-
-        {(visibleWidgets.score || visibleWidgets.streak) && (
-          <div className="grid grid-cols-2 gap-3">
-            {visibleWidgets.score && <SmallStat label="Score" value={todayScore} accent />}
-            {visibleWidgets.streak && <SmallStat label="Streak" value={streak} sub="70+ score days" />}
-          </div>
-        )}
-
-        {visibleWidgets.progress && (
-          <Card title="Progress Dashboard">
-            <div className="space-y-3">
-              <div>
-                <div className="flex justify-between text-xs text-slate-400"><span>Goal day progress</span><span>Day {currentDay}/{config.challenge.goalDays}</span></div>
-                <div className="mt-2 h-3 rounded-full bg-white/5 overflow-hidden"><div className="h-full bg-accent-500" style={{ width:`${goalProgress}%` }}></div></div>
-              </div>
-              <div>
-                <div className="flex justify-between text-xs text-slate-400"><span>Today completion</span><span>{todayScore}%</span></div>
-                <div className="mt-2 h-3 rounded-full bg-white/5 overflow-hidden"><div className="h-full bg-teal-400" style={{ width:`${todayScore}%` }}></div></div>
-              </div>
-            </div>
-          </Card>
-        )}
-
-        {visibleWidgets.quote && (
-          <Card title="Hourly Operating Quote" right={<Badge tone="warn">{new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</Badge>}>
-            <div className="text-sm italic text-slate-200">{getHourlyQuote()}</div>
-          </Card>
-        )}
-
-        {visibleWidgets.mission && (
-          <Card title="Mission / Mode">
-            <div className="text-sm text-slate-200">{config.app.mission}</div>
-            <div className="text-xs text-slate-500 mt-2">{config.profile.supportStyle}</div>
-          </Card>
-        )}
-
-        {visibleWidgets.coreExecution && (
-          <Card title="Core Execution">
-            <div className="grid gap-3">
-              <Input label={config.today.mitLabels.primary} value={todaysLog.primaryMit} onChange={v => updateToday({ primaryMit:v })} placeholder="Define the one thing that matters most." />
-              <Input label={config.today.mitLabels.secondary} value={todaysLog.secondaryMit} onChange={v => updateToday({ secondaryMit:v })} placeholder="Useful, but not above the MIT." />
-              <Input label={config.today.mitLabels.deep} value={todaysLog.deepBlock} onChange={v => updateToday({ deepBlock:v })} placeholder="Deep work target" />
-              <Input label={config.today.mitLabels.admin} value={todaysLog.adminBlock} onChange={v => updateToday({ adminBlock:v })} placeholder="Admin or evidence block" />
-
-              <div className="grid grid-cols-2 gap-3">
-                <Input label="Sleep hours" type="number" step="0.5" value={todaysLog.sleepHours} onChange={v => updateToday({ sleepHours:Number(v) })} />
-                <Toggle label="MIT-only mode" checked={!!todaysLog.mitOnlyMode} onChange={() => updateToday({ mitOnlyMode:!todaysLog.mitOnlyMode })} />
-              </div>
-
-              <Card className="bg-transparent">
-                <div className="text-xs uppercase tracking-[0.18em] text-slate-500">WIP-3</div>
-                <div className="mt-2 grid grid-cols-3 gap-2">
-                  {todaysLog.wip.map((lane, i) => (
-                    <div key={i} className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-center text-sm">{lane}</div>
-                  ))}
-                </div>
-              </Card>
-
-              <Card title="What Matters Now">
-                <div className="text-sm text-slate-200">
-                  {todaysLog.mitOnlyMode
-                    ? `${config.today.mitLabels.primary}: ${todaysLog.primaryMit || 'Set the MIT now.'}`
-                    : mattersDueSoon[0]?.title || followUpsDue[0]?.company || todaysLog.primaryMit || 'Define the MIT and execute it before drift begins.'}
-                </div>
-              </Card>
-            </div>
-          </Card>
-        )}
-
-        {visibleWidgets.focusTimer && (
-          <Card title="Deep Block Focus">
-            <div className="text-center">
-              <div className="text-6xl font-light tracking-tight">{String(Math.floor(timerSeconds / 60)).padStart(2,'0')}:{String(timerSeconds % 60).padStart(2,'0')}</div>
-              <div className="mt-4 flex justify-center gap-2">
-                {[25,50,90].map(n => (
-                  <button
-                    key={n}
-                    onClick={() => { updateToday({ timerPreset:n, timerRunning:false }); setTimerSeconds(n * 60); }}
-                    className={`rounded-full px-4 py-2 text-sm tap ${todaysLog.timerPreset === n ? 'bg-accent-500 text-navy-950' : 'bg-white/5 text-slate-300'}`}
-                  >{n}m</button>
-                ))}
-              </div>
-              <div className="mt-4 flex justify-center gap-2">
-                <button onClick={() => updateToday({ timerRunning:!todaysLog.timerRunning })} className="rounded-2xl bg-accent-500 px-8 py-3 font-semibold text-navy-950 tap">
-                  {todaysLog.timerRunning ? 'Pause' : 'Start'}
-                </button>
-                <button onClick={() => { updateToday({ timerRunning:false }); setTimerSeconds((todaysLog.timerPreset || 25) * 60); }} className="rounded-2xl bg-white/10 px-5 py-3 tap">Reset</button>
-              </div>
-            </div>
-          </Card>
-        )}
-
-        {visibleWidgets.rules && (
-          <Card title="Operating Rules">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div>
-                <div className="mb-2 text-sm font-semibold text-teal-300">DO</div>
-                <div className="space-y-2">
-                  {ruleSet.doRules.map(rule => (
-                    <button
-                      key={rule.id}
-                      onClick={() => updateToday({ rulesState:{ ...ruleState, [rule.id]: !ruleState[rule.id] } })}
-                      className="w-full flex items-center gap-3 rounded-2xl border border-white/10 bg-navy-850 px-3 py-3 text-left tap"
-                    >
-                      <span className={`inline-flex h-5 w-5 items-center justify-center rounded border ${ruleState[rule.id] ? 'border-teal-400 bg-teal-400/20 text-teal-300' : 'border-white/20'}`}>{ruleState[rule.id] ? '✓' : ''}</span>
-                      <span className="flex-1 text-sm">{rule.text}</span>
-                      <span className="text-xs text-slate-500">w{rule.weight}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <div className="mb-2 text-sm font-semibold text-red-300">DON'T</div>
-                <div className="space-y-2">
-                  {ruleSet.dontRules.map(rule => (
-                    <button
-                      key={rule.id}
-                      onClick={() => updateToday({ rulesState:{ ...ruleState, [rule.id]: !ruleState[rule.id] } })}
-                      className="w-full flex items-center gap-3 rounded-2xl border border-white/10 bg-navy-850 px-3 py-3 text-left tap"
-                    >
-                      <span className={`inline-flex h-5 w-5 items-center justify-center rounded border ${ruleState[rule.id] ? 'border-red-400 bg-red-400/20 text-red-300' : 'border-white/20'}`}>{ruleState[rule.id] ? '✓' : ''}</span>
-                      <span className="flex-1 text-sm">{rule.text}</span>
-                      <span className="text-xs text-slate-500">w{rule.weight}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </Card>
-        )}
-
-        {visibleWidgets.schedule && (
-          <Card title="Schedule / Timeline">
-            <div className="space-y-2">
-              {config.today.scheduleBlocks.map(block => (
-                <div key={block.id} className="flex items-center gap-3 rounded-2xl bg-white/5 px-3 py-3">
-                  <div className="w-28 text-xs text-slate-400">{block.start}–{block.end}</div>
-                  <div className="h-2 w-2 rounded-full bg-accent-500 pulse-dot"></div>
-                  <div className="text-sm">{block.name}</div>
-                </div>
-              ))}
-            </div>
-          </Card>
-        )}
-
-        {visibleWidgets.health && config.userSettings.modules.healthWidgets && (
-          <Card title="Health / Capacity">
-            <div className="grid gap-3">
-              {config.health.widgets.map(widget => {
-                const key = widget.id;
-                if (widget.type === 'checkbox') return <Toggle key={key} label={widget.name} checked={!!todaysLog.health[key]} onChange={() => setHealthField(key, !todaysLog.health[key])} />;
-                if (widget.type === 'rating') return <Select key={key} label={widget.name} value={String(todaysLog.health[key] ?? '')} onChange={v => setHealthField(key, Number(v))} options={['1','2','3','4','5']} />;
-                if (widget.type === 'number') return <Input key={key} label={widget.name} type="number" step="0.5" value={todaysLog.health[key] ?? ''} onChange={v => setHealthField(key, Number(v))} />;
-                return <Input key={key} label={widget.name} value={todaysLog.health[key] ?? ''} onChange={v => setHealthField(key, v)} />;
-              })}
-            </div>
-          </Card>
-        )}
-
-        {visibleWidgets.journal && (
-          <Card title="Power Journal">
-            <div className="space-y-4">
-              <div>
-                <div className="mb-2 text-sm font-semibold text-slate-200">Morning</div>
-                <div className="space-y-3">
-                  {config.today.morningQuestions.map((q, idx) => (
-                    <TextArea key={idx} label={q} value={todaysLog.journalMorning[idx] || ''} onChange={v => updateToday({ journalMorning:{ ...todaysLog.journalMorning, [idx]:v } })} rows={2} />
-                  ))}
-                </div>
-              </div>
-              <div>
-                <div className="mb-2 text-sm font-semibold text-slate-200">Evening</div>
-                <div className="space-y-3">
-                  {config.today.eveningQuestions.map((q, idx) => (
-                    <TextArea key={idx} label={q} value={todaysLog.journalEvening[idx] || ''} onChange={v => updateToday({ journalEvening:{ ...todaysLog.journalEvening, [idx]:v } })} rows={2} />
-                  ))}
-                </div>
-              </div>
-              <TextArea label="Day Review" value={todaysLog.review} onChange={v => updateToday({ review:v })} placeholder="What moved the needle? Where did you drift?" />
-              <TextArea label="Tomorrow Plan" value={todaysLog.nextDayPlan} onChange={v => updateToday({ nextDayPlan:v })} placeholder="No day closes without tomorrow's plan." />
-              <div className="flex gap-2">
-                <button onClick={endDay} className="flex-1 rounded-2xl bg-accent-500 px-4 py-3 font-semibold text-navy-950 tap">Close Day</button>
-                <button onClick={() => askAI('tomorrow')} className="rounded-2xl bg-white/10 px-4 py-3 text-sm tap">AI Tomorrow Plan</button>
-              </div>
-            </div>
-          </Card>
-        )}
-
-        {visibleWidgets.ai && config.userSettings.modules.aiCoach && (
-          <Card title="AI Coach">
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-2">
-                <button onClick={() => askAI('motivation')} className="rounded-2xl bg-white/5 px-3 py-3 text-sm tap">Ruthless Focus</button>
-                <button onClick={() => askAI('next')} className="rounded-2xl bg-white/5 px-3 py-3 text-sm tap">Next Action</button>
-                <button onClick={() => askAI('legal')} className="rounded-2xl bg-white/5 px-3 py-3 text-sm tap">Legal Next Steps</button>
-                <button onClick={() => askAI('business')} className="rounded-2xl bg-white/5 px-3 py-3 text-sm tap">Business Draft</button>
-                <button onClick={() => askAI('journal')} className="col-span-2 rounded-2xl bg-white/5 px-3 py-3 text-sm tap">Journal Synthesis</button>
-              </div>
-              <TextArea label="Custom AI prompt" value={aiPrompt} onChange={setAiPrompt} rows={3} placeholder="Ask for a schedule, hard coaching, summary, or draft." />
-              <button onClick={() => askAI('custom')} className="w-full rounded-2xl bg-accent-500 px-4 py-3 font-semibold text-navy-950 tap">{aiBusy ? 'Working…' : 'Run AI'}</button>
-              <div className="rounded-2xl border border-white/10 bg-navy-850 p-4 text-sm text-slate-200 whitespace-pre-wrap min-h-[96px]">
-                {aiResult || 'AI output will appear here. Save your API key inside Builder > AI Settings on your own device.'}
-              </div>
-            </div>
-          </Card>
-        )}
-
-        {visibleWidgets.history && (
-          <Card title="Recent Performance">
-            <div className="space-y-2">
-              {(data.today.history || []).slice(-5).reverse().map(item => (
-                <div key={item.id} className="rounded-2xl bg-white/5 px-3 py-3">
-                  <div className="flex justify-between">
-                    <div className="text-sm font-medium">Day {item.challengeDay} · {prettifyDate(item.date)}</div>
-                    <Badge tone={item.score >= 70 ? 'good' : item.score >= 50 ? 'warn' : 'bad'}>{item.score}%</Badge>
-                  </div>
-                  <div className="mt-1 text-xs text-slate-400">{item.review || 'No review saved.'}</div>
-                </div>
-              ))}
-              {(data.today.history || []).length === 0 && <div className="text-sm text-slate-500">No completed days yet.</div>}
-            </div>
-          </Card>
-        )}
-      </div>
-    );
-  }
-
-  function renderLegal() {
-    return (
-      <div className="space-y-4 fade-up">
-        <Card title="Legal Dashboard Summary" right={<Badge tone={mattersDueSoon.length ? 'warn' : 'good'}>{mattersDueSoon.length} due soon</Badge>}>
-          <div className="grid grid-cols-2 gap-3">
-            <SmallStat label="Deadlines" value={data.legal.deadlines.length} />
-            <SmallStat label="Exhibits" value={data.legal.exhibits.length} />
-            <SmallStat label="Unanswered" value={unanswered.length} />
-            <SmallStat label="Missing" value={missingExhibits.length} />
-          </div>
-        </Card>
-
-        <Card title="Risk Flags">
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between"><span>Critical soon / overdue</span><Badge tone={mattersDueSoon.length ? 'warn' : 'good'}>{mattersDueSoon.length}</Badge></div>
-            <div className="flex justify-between"><span>Missing exhibits</span><Badge tone={missingExhibits.length ? 'warn' : 'good'}>{missingExhibits.length}</Badge></div>
-            <div className="flex justify-between"><span>Unanswered correspondence</span><Badge tone={unanswered.length ? 'warn' : 'good'}>{unanswered.length}</Badge></div>
-          </div>
-        </Card>
-
-        <Card title="Top 3 Legal Actions">
-          <div className="space-y-2">
-            {legalTop3.map(item => (
-              <div key={item.id} className="rounded-2xl bg-white/5 px-3 py-3">
-                <div className="flex justify-between gap-2">
-                  <div className="text-sm">{item.title}</div>
-                  <Badge tone={item.priority === 'Critical' ? 'bad' : item.priority === 'High' ? 'warn' : 'default'}>{item.priority}</Badge>
-                </div>
-                <div className="mt-1 text-xs text-slate-400">{item.matterType} · due {prettifyDate(item.dueDate)}</div>
-              </div>
-            ))}
-          </div>
-        </Card>
-
-        <Card title="Deadlines">
-          <div className="space-y-2">
-            {data.legal.deadlines.map(item => (
-              <div key={item.id} className="rounded-2xl bg-white/5 px-3 py-3">
-                <div className="flex justify-between gap-2">
-                  <div className="font-medium text-sm">{item.title}</div>
-                  <Badge>{item.status}</Badge>
-                </div>
-                <div className="mt-1 text-xs text-slate-400">{item.matterType} · {prettifyDate(item.dueDate)} · {item.priority}</div>
-                {item.notes ? <div className="mt-2 text-xs text-slate-300">{item.notes}</div> : null}
-              </div>
-            ))}
-          </div>
-        </Card>
-
-        <Card title="Chronology">
-          <div className="space-y-2">
-            {data.legal.chronology.map(item => (
-              <div key={item.id} className="rounded-2xl bg-white/5 px-3 py-3">
-                <div className="font-medium text-sm">{item.event}</div>
-                <div className="mt-1 text-xs text-slate-400">{prettifyDate(item.date)} · {item.matterType} · {item.source}</div>
-                {item.notes ? <div className="mt-2 text-xs text-slate-300">{item.notes}</div> : null}
-              </div>
-            ))}
-          </div>
-        </Card>
-
-        <Card title="Exhibits">
-          <div className="space-y-2">
-            {data.legal.exhibits.map(item => (
-              <div key={item.id} className="rounded-2xl bg-white/5 px-3 py-3">
-                <div className="flex justify-between gap-2">
-                  <div className="font-medium text-sm">{item.code} · {item.description}</div>
-                  <Badge>{item.status}</Badge>
-                </div>
-                <div className="mt-1 text-xs text-slate-400">{item.category} · {prettifyDate(item.documentDate)} · {item.filename}</div>
-              </div>
-            ))}
-          </div>
-        </Card>
-
-        <Card title="Correspondence">
-          <div className="space-y-2">
-            {data.legal.correspondence.map(item => (
-              <div key={item.id} className="rounded-2xl bg-white/5 px-3 py-3">
-                <div className="font-medium text-sm">{item.subject}</div>
-                <div className="mt-1 text-xs text-slate-400">{item.who} · {item.matterType} · sent {prettifyDate(item.dateSent)} · due {prettifyDate(item.replyDue)}</div>
-                <div className="mt-1">
-                  <Badge tone={['No reply', 'Waiting'].includes(item.responseStatus) ? 'warn' : 'good'}>{item.responseStatus}</Badge>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-      </div>
-    );
-  }
-
-  function renderMoney() {
-    return (
-      <div className="space-y-4 fade-up">
-        <Card title="Money Dashboard">
-          <div className="grid grid-cols-2 gap-3">
-            <SmallStat label="Cash" value={asCurrency(data.money.cashOnHand)} accent />
-            <SmallStat label="Runway" value={runwayDays} sub="days" />
-            <SmallStat label="Essentials" value={asCurrency(monthlyEssentials)} sub="monthly" />
-            <SmallStat label="Weekly spend" value={asCurrency(spendThisWeek)} />
-          </div>
-          <div className="mt-4">
-            <div className="flex justify-between text-xs text-slate-400"><span>Emergency fund progress</span><span>{Math.round(emergencyPct)}%</span></div>
-            <div className="mt-2 h-3 rounded-full bg-white/5 overflow-hidden"><div className="h-full bg-accent-500" style={{ width:`${Math.min(emergencyPct, 100)}%` }}></div></div>
-          </div>
-        </Card>
-
-        <Card title="Cash + Targets">
-          <div className="grid gap-3">
-            <Input label="Cash on hand" type="number" step="0.01" value={data.money.cashOnHand} onChange={v => setData(prev => ({ ...prev, money:{ ...prev.money, cashOnHand:Number(v) } }))} />
-            <Input label="Emergency fund target" type="number" step="1" value={config.userSettings.emergencyFundTarget} onChange={v => setConfig(prev => ({ ...prev, userSettings:{ ...prev.userSettings, emergencyFundTarget:Number(v) } }))} />
-          </div>
-        </Card>
-
-        <Card title="Bills">
-          <div className="space-y-2">
-            {data.money.bills.map(item => (
-              <div key={item.id} className="rounded-2xl bg-white/5 px-3 py-3">
-                <div className="flex justify-between gap-2">
-                  <div className="font-medium text-sm">{item.name}</div>
-                  <Badge tone={item.paid ? 'good' : item.essential ? 'warn' : 'default'}>{item.paid ? 'Paid' : 'Due'}</Badge>
-                </div>
-                <div className="mt-1 text-xs text-slate-400">{asCurrency(item.amount)} · due {prettifyDate(item.dueDate)} · {item.essential ? 'Essential' : 'Optional'}</div>
-              </div>
-            ))}
-          </div>
-        </Card>
-
-        <Card title="Expenses">
-          <div className="space-y-2">
-            {data.money.expenses.map(item => (
-              <div key={item.id} className="rounded-2xl bg-white/5 px-3 py-3">
-                <div className="flex justify-between gap-2">
-                  <div className="font-medium text-sm">{item.category}</div>
-                  <div className="text-sm">{asCurrency(item.amount)}</div>
-                </div>
-                <div className="mt-1 text-xs text-slate-400">{prettifyDate(item.date)} · {item.notes || '—'}</div>
-              </div>
-            ))}
-          </div>
-        </Card>
-      </div>
-    );
-  }
-
-  function renderBusiness() {
-    return (
-      <div className="space-y-4 fade-up">
-        <Card title="Business Dashboard">
-          <div className="grid grid-cols-2 gap-3">
-            <SmallStat label="Leads" value={data.business.leads.length} />
-            <SmallStat label="Follow-ups due" value={followUpsDue.length} />
-            <SmallStat label="Case studies" value={caseStudyCount} />
-            <SmallStat label="MRR" value={asCurrency(mrr)} accent />
-          </div>
-        </Card>
-
-        <Card title="Pipeline by Stage">
-          <div className="space-y-2">
-            {config.business.stages.map(stage => {
-              const count = stageCounts[stage] || 0;
-              const pct = data.business.leads.length ? (count / data.business.leads.length) * 100 : 0;
-              return (
-                <div key={stage}>
-                  <div className="flex justify-between text-xs text-slate-400"><span>{stage}</span><span>{count}</span></div>
-                  <div className="mt-1 h-2 rounded-full bg-white/5 overflow-hidden"><div className="h-full bg-accent-500" style={{ width:`${pct}%` }}></div></div>
-                </div>
-              );
-            })}
-          </div>
-        </Card>
-
-        <Card title="Urgent Follow-ups">
-          <div className="space-y-2">
-            {followUpsDue.map(item => (
-              <div key={item.id} className="rounded-2xl bg-white/5 px-3 py-3">
-                <div className="flex justify-between gap-2">
-                  <div className="font-medium text-sm">{item.company || item.name}</div>
-                  <Badge tone="warn">{prettifyDate(item.nextFollowUp)}</Badge>
-                </div>
-                <div className="mt-1 text-xs text-slate-400">{item.stage} · {item.icp} · {asCurrency(item.mrrValue || 0)}</div>
-              </div>
-            ))}
-            {followUpsDue.length === 0 && <div className="text-sm text-slate-500">No follow-ups due today.</div>}
-          </div>
-        </Card>
-
-        <Card title="Lead CRM">
-          <div className="space-y-3">
-            {data.business.leads.map(item => (
-              <div key={item.id} className="rounded-3xl bg-white/5 p-4">
-                <div className="flex justify-between gap-2">
-                  <div>
-                    <div className="font-medium">{item.company || item.name}</div>
-                    <div className="text-xs text-slate-400">{item.icp} · {item.source}</div>
-                  </div>
-                  <Badge tone={item.stage === 'Live' ? 'good' : item.stage === 'Lost' ? 'bad' : 'default'}>{item.stage}</Badge>
-                </div>
-
-                <div className="mt-3 grid gap-3">
-                  <Select label="Stage" value={item.stage} onChange={v => updateLeadStage(item.id, v)} options={config.business.stages} />
-                  <div className="grid grid-cols-2 gap-2">
-                    <Toggle label="Quoted" checked={!!item.quoted} onChange={() => setData(prev => ({ ...prev, business:{ ...prev.business, leads: prev.business.leads.map(l => l.id === item.id ? { ...l, quoted:!l.quoted } : l) } }))} />
-                    <Toggle label="Deposit paid" checked={!!item.depositPaid} onChange={() => setData(prev => ({ ...prev, business:{ ...prev.business, leads: prev.business.leads.map(l => l.id === item.id ? { ...l, depositPaid:!l.depositPaid } : l) } }))} />
-                    <Toggle label="Scope signed" checked={!!item.scopeSigned} onChange={() => setData(prev => ({ ...prev, business:{ ...prev.business, leads: prev.business.leads.map(l => l.id === item.id ? { ...l, scopeSigned:!l.scopeSigned } : l) } }))} />
-                    <Toggle label="Case study potential" checked={!!item.caseStudyPotential} onChange={() => setData(prev => ({ ...prev, business:{ ...prev.business, leads: prev.business.leads.map(l => l.id === item.id ? { ...l, caseStudyPotential:!l.caseStudyPotential } : l) } }))} />
-                  </div>
-                  <Input label="Next follow-up" type="date" value={item.nextFollowUp} onChange={v => setData(prev => ({ ...prev, business:{ ...prev.business, leads: prev.business.leads.map(l => l.id === item.id ? { ...l, nextFollowUp:v } : l) } }))} />
-                  <Input label="MRR value" type="number" step="0.01" value={item.mrrValue} onChange={v => setData(prev => ({ ...prev, business:{ ...prev.business, leads: prev.business.leads.map(l => l.id === item.id ? { ...l, mrrValue:Number(v) } : l) } }))} />
-                  <TextArea label="Notes" value={item.notes || ''} onChange={v => setData(prev => ({ ...prev, business:{ ...prev.business, leads: prev.business.leads.map(l => l.id === item.id ? { ...l, notes:v } : l) } }))} rows={2} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-      </div>
-    );
-  }
-
-  function renderBuilder() {
-    return (
-      <div className="space-y-4 fade-up">
-        <Card title="Builder / Customize Mode" right={<Badge>Config-driven</Badge>}>
-          <div className="grid grid-cols-2 gap-2">
-            {[
-              ['app','App'],
-              ['tabs','Tabs'],
-              ['rules','Rules'],
-              ['workflow','Workflow'],
-              ['today','Today'],
-              ['ai','AI'],
-              ['data','Data']
-            ].map(([id, label]) => (
-              <button key={id} onClick={() => setBuilderSection(id)} className={`rounded-2xl px-3 py-3 text-sm tap ${builderSection === id ? 'bg-accent-500 text-navy-950' : 'bg-white/5 text-slate-300'}`}>
-                {label}
-              </button>
-            ))}
-          </div>
-        </Card>
-
-        {builderSection === 'app' && (
-          <>
-            <Card title="App Settings">
-              <div className="grid gap-3">
-                <Input label="App title" value={config.app.title} onChange={v => setConfig(prev => ({ ...prev, app:{ ...prev.app, title:v } }))} />
-                <Input label="Subtitle" value={config.app.subtitle} onChange={v => setConfig(prev => ({ ...prev, app:{ ...prev.app, subtitle:v } }))} />
-                <Input label="Mission" value={config.app.mission} onChange={v => setConfig(prev => ({ ...prev, app:{ ...prev.app, mission:v } }))} />
-                <Input label="Focus style" value={config.app.focusStyle} onChange={v => setConfig(prev => ({ ...prev, app:{ ...prev.app, focusStyle:v } }))} />
-                <Input label="Your name" value={config.userSettings.name} onChange={v => setConfig(prev => ({ ...prev, userSettings:{ ...prev.userSettings, name:v } }))} />
-                <Input label="Wake time" type="time" value={config.userSettings.wakeTime} onChange={v => setConfig(prev => ({ ...prev, userSettings:{ ...prev.userSettings, wakeTime:v } }))} />
-                <Input label="Sleep target" type="number" step="0.5" value={config.userSettings.sleepTarget} onChange={v => setConfig(prev => ({ ...prev, userSettings:{ ...prev.userSettings, sleepTarget:Number(v) } }))} />
-                <Input label="Weekly review day" value={config.userSettings.weeklyReviewDay} onChange={v => setConfig(prev => ({ ...prev, userSettings:{ ...prev.userSettings, weeklyReviewDay:v } }))} />
-                <Input label="Weekly review time" type="time" value={config.userSettings.weeklyReviewTime} onChange={v => setConfig(prev => ({ ...prev, userSettings:{ ...prev.userSettings, weeklyReviewTime:v } }))} />
-                <Input label="Emergency fund target" type="number" value={config.userSettings.emergencyFundTarget} onChange={v => setConfig(prev => ({ ...prev, userSettings:{ ...prev.userSettings, emergencyFundTarget:Number(v) } }))} />
-                <TextArea label="Strengths" value={config.profile.strengths} onChange={v => setConfig(prev => ({ ...prev, profile:{ ...prev.profile, strengths:v } }))} rows={3} />
-                <TextArea label="Weaknesses / choke points" value={config.profile.weaknesses} onChange={v => setConfig(prev => ({ ...prev, profile:{ ...prev.profile, weaknesses:v } }))} rows={3} />
-                <TextArea label="Support style" value={config.profile.supportStyle} onChange={v => setConfig(prev => ({ ...prev, profile:{ ...prev.profile, supportStyle:v } }))} rows={3} />
-                <Toggle label="Challenge tracking enabled" checked={!!config.userSettings.modules.challenge} onChange={() => setConfig(prev => ({ ...prev, userSettings:{ ...prev.userSettings, modules:{ ...prev.userSettings.modules, challenge:!prev.userSettings.modules.challenge } } }))} />
-                <Toggle label="AI coach enabled" checked={!!config.userSettings.modules.aiCoach} onChange={() => setConfig(prev => ({ ...prev, userSettings:{ ...prev.userSettings, modules:{ ...prev.userSettings.modules, aiCoach:!prev.userSettings.modules.aiCoach } } }))} />
-                <Toggle label="Health widgets enabled" checked={!!config.userSettings.modules.healthWidgets} onChange={() => setConfig(prev => ({ ...prev, userSettings:{ ...prev.userSettings, modules:{ ...prev.userSettings.modules, healthWidgets:!prev.userSettings.modules.healthWidgets } } }))} />
-                <Toggle label="Business CRM enabled" checked={!!config.userSettings.modules.businessCRM} onChange={() => setConfig(prev => ({ ...prev, userSettings:{ ...prev.userSettings, modules:{ ...prev.userSettings.modules, businessCRM:!prev.userSettings.modules.businessCRM } } }))} />
-              </div>
-            </Card>
-
-            <Card title="Challenge / Goal">
-              <div className="grid gap-3">
-                <Input label="Goal name" value={config.challenge.goalName} onChange={v => setConfig(prev => ({ ...prev, challenge:{ ...prev.challenge, goalName:v } }))} />
-                <Input label="Goal days" type="number" value={config.challenge.goalDays} onChange={v => setConfig(prev => ({ ...prev, challenge:{ ...prev.challenge, goalDays:Number(v) } }))} />
-                <Input label="Current day" type="number" value={config.challenge.currentDay} onChange={v => setConfig(prev => ({ ...prev, challenge:{ ...prev.challenge, currentDay:Number(v) } }))} />
-                <Toggle label="End day requires review + tomorrow plan" checked={!!config.challenge.endRequiresReview} onChange={() => setConfig(prev => ({ ...prev, challenge:{ ...prev.challenge, endRequiresReview:!prev.challenge.endRequiresReview } }))} />
-              </div>
-            </Card>
-          </>
-        )}
-
-        {builderSection === 'tabs' && (
-          <Card title="Tab Manager">
-            <div className="space-y-2">
-              {config.tabs.map((tab, i) => (
-                <div key={tab.id} className="flex items-center gap-2">
-                  <input value={tab.name} onChange={e => setConfig(prev => {
-                    const next = deepClone(prev);
-                    next.tabs[i].name = e.target.value;
-                    return next;
-                  })} className="flex-1 rounded-2xl border border-white/10 bg-navy-850 px-3 py-2 text-sm text-white" />
-                  <button onClick={() => i > 0 && setConfig(prev => ({ ...prev, tabs: reorder(prev.tabs, i, i - 1) }))} className="rounded-2xl bg-white/5 px-3 py-2 text-xs tap">↑</button>
-                  <button onClick={() => i < config.tabs.length - 1 && setConfig(prev => ({ ...prev, tabs: reorder(prev.tabs, i, i + 1) }))} className="rounded-2xl bg-white/5 px-3 py-2 text-xs tap">↓</button>
-                  <button onClick={() => setConfig(prev => {
-                    const next = deepClone(prev);
-                    next.tabs[i].archived = !next.tabs[i].archived;
-                    return next;
-                  })} className="rounded-2xl bg-white/5 px-3 py-2 text-xs tap">{tab.archived ? 'Restore' : 'Archive'}</button>
-                </div>
-              ))}
-              <button onClick={() => {
-                const name = prompt('New tab name');
-                if (!name) return;
-                setConfig(prev => ({ ...prev, tabs:[...prev.tabs, { id:uid(), name, archived:false }] }));
-              }} className="rounded-2xl bg-accent-500 px-4 py-2 text-sm font-semibold text-navy-950 tap">Add custom tab</button>
-            </div>
-          </Card>
-        )}
-
-        {builderSection === 'rules' && (
-          <Card title="Rule Manager">
-            <div className="space-y-4">
-              {config.today.ruleSets.map(rs => (
-                <div key={rs.id} className="rounded-3xl bg-white/5 p-4">
-                  <div className="mb-3 flex items-center justify-between">
-                    <input value={rs.name} onChange={e => setConfig(prev => {
-                      const next = deepClone(prev);
-                      next.today.ruleSets = next.today.ruleSets.map(r => r.id === rs.id ? { ...r, name:e.target.value } : r);
-                      return next;
-                    })} className="rounded-2xl border border-white/10 bg-navy-850 px-3 py-2 text-sm text-white" />
-                    <div className="flex gap-2">
-                      <button onClick={() => setConfig(prev => ({ ...prev, today:{ ...prev.today, activeRuleSetId:rs.id } }))} className={`rounded-2xl px-3 py-2 text-xs tap ${config.today.activeRuleSetId === rs.id ? 'bg-accent-500 text-navy-950' : 'bg-white/5'}`}>Active</button>
-                      <button onClick={() => {
-                        if (config.today.ruleSets.length === 1) {
-                          alert('At least one rule set is required.');
-                          return;
-                        }
-                        setConfig(prev => {
-                          const next = deepClone(prev);
-                          next.today.ruleSets = next.today.ruleSets.filter(r => r.id !== rs.id);
-                          if (next.today.activeRuleSetId === rs.id) next.today.activeRuleSetId = next.today.ruleSets[0].id;
-                          return next;
-                        });
-                      }} className="rounded-2xl bg-red-500/10 px-3 py-2 text-xs text-red-300 tap">Delete</button>
-                    </div>
-                  </div>
-
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div>
-                      <div className="mb-2 text-sm font-semibold text-teal-300">DO</div>
-                      <div className="space-y-2">
-                        {rs.doRules.map(rule => (
-                          <div key={rule.id} className="grid grid-cols-[1fr_70px_60px] gap-2">
-                            <input value={rule.text} onChange={e => editRule(rs.id, 'do', rule.id, 'text', e.target.value)} className="rounded-2xl border border-white/10 bg-navy-850 px-3 py-2 text-sm text-white" />
-                            <input value={rule.weight} type="number" onChange={e => editRule(rs.id, 'do', rule.id, 'weight', Number(e.target.value))} className="rounded-2xl border border-white/10 bg-navy-850 px-3 py-2 text-sm text-white" />
-                            <button onClick={() => setConfig(prev => {
-                              const next = deepClone(prev);
-                              const tgt = next.today.ruleSets.find(r => r.id === rs.id);
-                              tgt.doRules = tgt.doRules.filter(x => x.id !== rule.id);
-                              return next;
-                            })} className="rounded-2xl bg-red-500/10 px-3 py-2 text-xs text-red-300 tap">Del</button>
-                          </div>
-                        ))}
-                        <button onClick={() => addRule(rs.id, 'do')} className="rounded-2xl bg-white/5 px-3 py-2 text-sm tap">Add DO rule</button>
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="mb-2 text-sm font-semibold text-red-300">DON'T</div>
-                      <div className="space-y-2">
-                        {rs.dontRules.map(rule => (
-                          <div key={rule.id} className="grid grid-cols-[1fr_70px_60px] gap-2">
-                            <input value={rule.text} onChange={e => editRule(rs.id, 'dont', rule.id, 'text', e.target.value)} className="rounded-2xl border border-white/10 bg-navy-850 px-3 py-2 text-sm text-white" />
-                            <input value={rule.weight} type="number" onChange={e => editRule(rs.id, 'dont', rule.id, 'weight', Number(e.target.value))} className="rounded-2xl border border-white/10 bg-navy-850 px-3 py-2 text-sm text-white" />
-                            <button onClick={() => setConfig(prev => {
-                              const next = deepClone(prev);
-                              const tgt = next.today.ruleSets.find(r => r.id === rs.id);
-                              tgt.dontRules = tgt.dontRules.filter(x => x.id !== rule.id);
-                              return next;
-                            })} className="rounded-2xl bg-red-500/10 px-3 py-2 text-xs text-red-300 tap">Del</button>
-                          </div>
-                        ))}
-                        <button onClick={() => addRule(rs.id, 'dont')} className="rounded-2xl bg-white/5 px-3 py-2 text-sm tap">Add DON'T rule</button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-
-              <button onClick={() => {
-                const name = prompt('Rule set name');
-                if (!name) return;
-                setConfig(prev => ({
-                  ...prev,
-                  today:{ ...prev.today, ruleSets:[...prev.today.ruleSets, { id:uid(), name, doRules:[], dontRules:[] }] }
-                }));
-              }} className="rounded-2xl bg-accent-500 px-4 py-2 text-sm font-semibold text-navy-950 tap">New rule set</button>
-            </div>
-          </Card>
-        )}
-
-        {builderSection === 'workflow' && (
-          <>
-            <ArrayManager title="Legal matter types" items={config.legal.matterTypes} onChange={v => setConfig(prev => ({ ...prev, legal:{ ...prev.legal, matterTypes:v } }))} />
-            <ArrayManager title="Business stages" items={config.business.stages} onChange={v => setConfig(prev => ({ ...prev, business:{ ...prev.business, stages:v } }))} />
-            <ArrayManager title="Money categories" items={config.money.categories} onChange={v => setConfig(prev => ({ ...prev, money:{ ...prev.money, categories:v } }))} />
-            <ArrayManager title="Morning questions" items={config.today.morningQuestions} onChange={v => setConfig(prev => ({ ...prev, today:{ ...prev.today, morningQuestions:v } }))} />
-            <ArrayManager title="Evening questions" items={config.today.eveningQuestions} onChange={v => setConfig(prev => ({ ...prev, today:{ ...prev.today, eveningQuestions:v } }))} />
-          </>
-        )}
-
-        {builderSection === 'today' && (
-          <>
-            <Card title="Today modules">
-              <div className="grid gap-2">
-                {Object.keys(config.today.widgets).map(k => (
-                  <Toggle key={k} label={k} checked={!!config.today.widgets[k]} onChange={() => setConfig(prev => ({ ...prev, today:{ ...prev.today, widgets:{ ...prev.today.widgets, [k]: !prev.today.widgets[k] } } }))} />
-                ))}
-              </div>
-            </Card>
-
-            <Card title="MIT labels + score weights">
-              <div className="grid gap-3">
-                <Input label="Primary MIT label" value={config.today.mitLabels.primary} onChange={v => setConfig(prev => ({ ...prev, today:{ ...prev.today, mitLabels:{ ...prev.today.mitLabels, primary:v } } }))} />
-                <Input label="Secondary MIT label" value={config.today.mitLabels.secondary} onChange={v => setConfig(prev => ({ ...prev, today:{ ...prev.today, mitLabels:{ ...prev.today.mitLabels, secondary:v } } }))} />
-                <Input label="Deep label" value={config.today.mitLabels.deep} onChange={v => setConfig(prev => ({ ...prev, today:{ ...prev.today, mitLabels:{ ...prev.today.mitLabels, deep:v } } }))} />
-                <Input label="Admin label" value={config.today.mitLabels.admin} onChange={v => setConfig(prev => ({ ...prev, today:{ ...prev.today, mitLabels:{ ...prev.today.mitLabels, admin:v } } }))} />
-                {Object.entries(config.today.scoreWeights).map(([k, v]) => (
-                  <Input key={k} label={`Weight: ${k}`} type="number" value={v} onChange={val => setConfig(prev => ({ ...prev, today:{ ...prev.today, scoreWeights:{ ...prev.today.scoreWeights, [k]: Number(val) } } }))} />
-                ))}
-              </div>
-            </Card>
-
-            <Card title="Schedule blocks">
-              <div className="space-y-2">
-                {config.today.scheduleBlocks.map((block, i) => (
-                  <div key={block.id} className="grid grid-cols-[1fr_88px_88px_60px] gap-2">
-                    <input value={block.name} onChange={e => setConfig(prev => {
-                      const next = deepClone(prev);
-                      next.today.scheduleBlocks[i].name = e.target.value;
-                      return next;
-                    })} className="rounded-2xl border border-white/10 bg-navy-850 px-3 py-2 text-sm text-white" />
-                    <input type="time" value={block.start} onChange={e => setConfig(prev => {
-                      const next = deepClone(prev);
-                      next.today.scheduleBlocks[i].start = e.target.value;
-                      return next;
-                    })} className="rounded-2xl border border-white/10 bg-navy-850 px-3 py-2 text-sm text-white" />
-                    <input type="time" value={block.end} onChange={e => setConfig(prev => {
-                      const next = deepClone(prev);
-                      next.today.scheduleBlocks[i].end = e.target.value;
-                      return next;
-                    })} className="rounded-2xl border border-white/10 bg-navy-850 px-3 py-2 text-sm text-white" />
-                    <button onClick={() => setConfig(prev => {
-                      const next = deepClone(prev);
-                      next.today.scheduleBlocks = next.today.scheduleBlocks.filter((_, idx) => idx !== i);
-                      return next;
-                    })} className="rounded-2xl bg-red-500/10 px-3 py-2 text-xs text-red-300 tap">Del</button>
-                  </div>
-                ))}
-                <button onClick={() => setConfig(prev => ({ ...prev, today:{ ...prev.today, scheduleBlocks:[...prev.today.scheduleBlocks, { id:uid(), name:'New Block', start:'09:00', end:'10:00' }] } }))} className="rounded-2xl bg-accent-500 px-4 py-2 text-sm font-semibold text-navy-950 tap">Add block</button>
-              </div>
-            </Card>
-          </>
-        )}
-
-        {builderSection === 'ai' && (
-          <Card title="AI Settings">
-            <div className="grid gap-3">
-              <Toggle label="Enable AI" checked={!!config.ai.enabled} onChange={() => setConfig(prev => ({ ...prev, ai:{ ...prev.ai, enabled:!prev.ai.enabled } }))} />
-              <Input label="Endpoint" value={config.ai.endpoint} onChange={v => setConfig(prev => ({ ...prev, ai:{ ...prev.ai, endpoint:v } }))} />
-              <Input label="Model" value={config.ai.model} onChange={v => setConfig(prev => ({ ...prev, ai:{ ...prev.ai, model:v } }))} />
-              <Input label="API key (saved locally in this browser only)" value={config.ai.apiKey} onChange={v => setConfig(prev => ({ ...prev, ai:{ ...prev.ai, apiKey:v } }))} />
-              <Input label="Site URL (optional)" value={config.ai.siteUrl} onChange={v => setConfig(prev => ({ ...prev, ai:{ ...prev.ai, siteUrl:v } }))} />
-              <Input label="Site name" value={config.ai.siteName} onChange={v => setConfig(prev => ({ ...prev, ai:{ ...prev.ai, siteName:v } }))} />
-              <TextArea label="System mode" value={config.ai.systemMode} onChange={v => setConfig(prev => ({ ...prev, ai:{ ...prev.ai, systemMode:v } }))} rows={4} />
-              <div className="rounded-2xl border border-amber-400/20 bg-amber-500/10 p-3 text-xs text-amber-200">
-                Security note: do not commit your API key into GitHub Pages source. Save it only inside the app on your own device after deployment.
-              </div>
-            </div>
-          </Card>
-        )}
-
-        {builderSection === 'data' && (
-          <>
-            <Card title="Data Tools">
-              <div className="grid gap-3">
-                <button onClick={exportBackup} className="rounded-2xl bg-accent-500 px-4 py-3 font-semibold text-navy-950 tap">Export full backup</button>
-                <label className="rounded-2xl bg-white/5 px-4 py-3 text-sm cursor-pointer">
-                  Import backup
-                  <input type="file" accept="application/json" className="hidden" onChange={e => importBackup(e.target.files[0])} />
-                </label>
-                <button onClick={resetDemo} className="rounded-2xl bg-white/5 px-4 py-3 text-sm tap">Reset demo data only</button>
-                <button onClick={wipeAll} className="rounded-2xl bg-red-500/10 px-4 py-3 text-sm text-red-300 tap">Full wipe</button>
-              </div>
-            </Card>
-
-            <Card title="Advanced Config JSON">
-              <TextArea value={JSON.stringify(config, null, 2)} onChange={v => { try { setConfig(JSON.parse(v)); } catch {} }} rows={18} />
-              <div className="mt-2 text-xs text-slate-500">Advanced users can edit the entire config here. Invalid JSON is ignored.</div>
-            </Card>
-          </>
-        )}
-      </div>
-    );
-  }
-
-  const onboardingNeeded = !config.userSettings.setupComplete;
-
-  return (
-    <div className="mx-auto flex h-full max-w-md flex-col">
-      <div className="top-safe px-4 pb-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="text-xs uppercase tracking-[0.2em] text-slate-500">War-Room OS</div>
-            <div className="text-lg font-semibold">{currentTabName}</div>
-          </div>
-          <div className="flex gap-2">
-            <button onClick={() => setShowSearch(true)} className="rounded-2xl bg-white/5 px-3 py-2 text-sm tap">Search</button>
-            <button onClick={() => setShowQuick(true)} className="rounded-2xl bg-white/5 px-3 py-2 text-sm tap">Capture</button>
-          </div>
-        </div>
-      </div>
-
-      {!installNoteDismissed && (
-        <div className="mx-4 mb-3 rounded-2xl border border-white/10 bg-white/5 p-3 text-xs text-slate-300">
-          Host this file on GitHub Pages as <code>index.html</code>. This single-file version is app-like and persistent. For a true install prompt and offline cache, a separate manifest and service worker are normally used.
-          <button onClick={() => setInstallNoteDismissed(true)} className="ml-2 text-accent-400 tap">Hide</button>
-        </div>
-      )}
-
-      <div className="flex-1 overflow-y-auto hide-scroll px-4 content-pad">
-        {activeTab === 'today' && renderToday()}
-        {activeTab === 'legal' && renderLegal()}
-        {activeTab === 'money' && renderMoney()}
-        {activeTab === 'business' && renderBusiness()}
-        {activeTab === 'builder' && renderBuilder()}
-        {!['today','legal','money','business','builder'].includes(activeTab) && (
-          <Card title="Custom Tab">
-            <div className="text-sm text-slate-400">This custom tab exists in navigation. Add modules via Builder or repurpose it later.</div>
-          </Card>
-        )}
-      </div>
-
-      <div className="fixed bottom-0 left-0 right-0 z-40">
-        <div className="mx-auto max-w-md px-3 pb-[calc(10px+var(--safe-bottom))]">
-          <div className="glass rounded-t-3xl rounded-b-none px-2 py-2 shadow-card">
-            <div className="grid grid-cols-5 gap-1">
-              {visibleTabs.slice(0,5).map(tab => (
-                <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`rounded-2xl px-2 py-3 text-xs font-medium tap ${activeTab === tab.id ? 'bg-accent-500 text-navy-950' : 'text-slate-400'}`}>
-                  {tab.name}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {showQuick && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/55 p-3">
-          <div className="glass max-h-[92vh] w-full max-w-md overflow-y-auto rounded-3xl p-4">
-            <div className="flex items-center justify-between">
-              <div className="text-lg font-semibold">Quick Capture</div>
-              <button onClick={() => setShowQuick(false)} className="rounded-full bg-white/5 px-3 py-2 tap">×</button>
-            </div>
-            <div className="mt-3">
-              <Select label="Capture type" value={quickType} onChange={v => { setQuickType(v); setQuickValue({ date:todayKey }); }} options={config.quickCapture.types.map(t => t.id)} />
-              <div className="mt-2 text-xs text-slate-500">{quickDef?.name}</div>
-            </div>
-            <div className="mt-4">
-              <QuickForm config={config} typeDef={quickDef} value={quickValue} onChange={setQuickValue} />
-            </div>
-            <div className="mt-4 flex gap-2">
-              <button onClick={saveQuickCapture} className="flex-1 rounded-2xl bg-accent-500 px-4 py-3 font-semibold text-navy-950 tap">Save</button>
-              <button onClick={() => setShowQuick(false)} className="rounded-2xl bg-white/10 px-4 py-3 tap">Cancel</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showSearch && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/55 p-3 pt-10">
-          <div className="glass max-h-[92vh] w-full max-w-md overflow-y-auto rounded-3xl p-4">
-            <div className="flex items-center justify-between">
-              <div className="text-lg font-semibold">Global Search</div>
-              <button onClick={() => setShowSearch(false)} className="rounded-full bg-white/5 px-3 py-2 tap">×</button>
-            </div>
-            <div className="mt-3">
-              <Input value={searchQuery} onChange={setSearchQuery} placeholder="Search tasks, legal items, expenses, leads, notes…" />
-            </div>
-            <div className="mt-4 space-y-2">
-              {results.map(res => (
-                <button key={res.id} onClick={() => { setActiveTab(res.tab); setShowSearch(false); }} className="w-full rounded-2xl bg-white/5 px-3 py-3 text-left tap">
-                  <div className="flex justify-between gap-2">
-                    <div className="text-sm font-medium">{res.title}</div>
-                    <Badge>{res.type}</Badge>
-                  </div>
-                  <div className="mt-1 text-xs text-slate-400">{prettifyDate(res.date)} · open in {res.tab}</div>
-                </button>
-              ))}
-              {!results.length && searchQuery && <div className="text-sm text-slate-500">No results.</div>}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {onboardingNeeded && (
-        <div className="fixed inset-0 z-[70] flex items-start justify-center overflow-y-auto bg-black/70 p-3 pt-8">
-          <div className="glass w-full max-w-md rounded-3xl p-4">
-            <div className="text-lg font-semibold">First-Time Setup</div>
-            <div className="mt-1 text-sm text-slate-400">Set the defaults. Everything remains editable in Builder.</div>
-            <div className="mt-4 grid gap-3">
-              <Input label="Your name" value={config.userSettings.name} onChange={v => setConfig(prev => ({ ...prev, userSettings:{ ...prev.userSettings, name:v } }))} />
-              <Input label="App title" value={config.app.title} onChange={v => setConfig(prev => ({ ...prev, app:{ ...prev.app, title:v } }))} />
-              <Input label="Wake time" type="time" value={config.userSettings.wakeTime} onChange={v => setConfig(prev => ({ ...prev, userSettings:{ ...prev.userSettings, wakeTime:v } }))} />
-              <Input label="Sleep target" type="number" step="0.5" value={config.userSettings.sleepTarget} onChange={v => setConfig(prev => ({ ...prev, userSettings:{ ...prev.userSettings, sleepTarget:Number(v) } }))} />
-              <Input label="Weekly review day" value={config.userSettings.weeklyReviewDay} onChange={v => setConfig(prev => ({ ...prev, userSettings:{ ...prev.userSettings, weeklyReviewDay:v } }))} />
-              <Input label="Weekly review time" type="time" value={config.userSettings.weeklyReviewTime} onChange={v => setConfig(prev => ({ ...prev, userSettings:{ ...prev.userSettings, weeklyReviewTime:v } }))} />
-              <Input label="Emergency fund target" type="number" value={config.userSettings.emergencyFundTarget} onChange={v => setConfig(prev => ({ ...prev, userSettings:{ ...prev.userSettings, emergencyFundTarget:Number(v) } }))} />
-              <Input label="Goal name" value={config.challenge.goalName} onChange={v => setConfig(prev => ({ ...prev, challenge:{ ...prev.challenge, goalName:v } }))} />
-              <Input label="Goal days" type="number" value={config.challenge.goalDays} onChange={v => setConfig(prev => ({ ...prev, challenge:{ ...prev.challenge, goalDays:Number(v) } }))} />
-              <Toggle label="Enable AI coach" checked={!!config.userSettings.modules.aiCoach} onChange={() => setConfig(prev => ({ ...prev, userSettings:{ ...prev.userSettings, modules:{ ...prev.userSettings.modules, aiCoach:!prev.userSettings.modules.aiCoach } } }))} />
-              <Toggle label="Enable health widgets" checked={!!config.userSettings.modules.healthWidgets} onChange={() => setConfig(prev => ({ ...prev, userSettings:{ ...prev.userSettings, modules:{ ...prev.userSettings.modules, healthWidgets:!prev.userSettings.modules.healthWidgets } } }))} />
-              <Toggle label="Enable business CRM" checked={!!config.userSettings.modules.businessCRM} onChange={() => setConfig(prev => ({ ...prev, userSettings:{ ...prev.userSettings, modules:{ ...prev.userSettings.modules, businessCRM:!prev.userSettings.modules.businessCRM } } }))} />
-              <button onClick={() => setConfig(prev => ({ ...prev, userSettings:{ ...prev.userSettings, setupComplete:true } }))} className="mt-2 rounded-2xl bg-accent-500 px-4 py-3 font-semibold text-navy-950 tap">Start OS</button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+    return Object.assign({}, preview, {aiUsed:false,modelUsed:'',providerError:`AI refine failed: ${firstErr.message}`,warnings:[...(preview.warnings||[]),`AI refine failed: ${firstErr.message}`]});
+  });
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+function fromOldState(){
+  const out = defaultState();
+  const rawData = readJSON('stability_os_data_v5') || readJSON('stability_os_data_v4') || null;
+  const rawConfig = readJSON('stability_os_config_v5') || readJSON('stability_os_config_v4') || null;
+  if(!rawData && !rawConfig) return null;
+  out.migration.status='migrated';
+  out.migration.notes.push('Migrated from Stability OS v4/v5 localStorage.');
+  out._legacy = {config:rawConfig||{},data:rawData||{}};
+
+  if(rawConfig){
+    out.settings.appTitle = rawConfig.app?.title || out.settings.appTitle;
+    out.settings.activeGoalName = rawConfig.challenge?.goalName || out.settings.activeGoalName;
+    out.settings.goalLengthDays = Number(rawConfig.challenge?.goalDays || out.settings.goalLengthDays);
+    out.settings.currentDay = Number(rawConfig.challenge?.currentDay || out.settings.currentDay);
+    out.settings.goalStartDate = rawConfig.challenge?.startedAt || out.settings.goalStartDate;
+    const rs = rawConfig.today?.ruleSets?.[0] || {};
+    const doRules = asArr(rs.doRules).map(r=>({id:r.id||uid(),text:r.text||'DO rule',points:Math.max(1,Math.round(Number(r.weight||5)))}));
+    const dontRules = asArr(rs.dontRules).map(r=>({id:r.id||uid(),text:r.text||"DON'T rule",points:Math.max(1,Math.round(Math.abs(Number(r.weight||5))))}));
+    if(doRules.length) out.builder.doRules = doRules;
+    if(dontRules.length) out.builder.dontRules = dontRules;
+    if(Array.isArray(rawConfig.today?.morningQuestions)) out.builder.morningQuestions = rawConfig.today.morningQuestions;
+    if(Array.isArray(rawConfig.today?.eveningQuestions)) out.builder.eveningQuestions = rawConfig.today.eveningQuestions;
+    if(rawConfig.ai) out.settings.ai = Object.assign(out.settings.ai,{enabled:!!rawConfig.ai.enabled,endpoint:rawConfig.ai.endpoint||out.settings.ai.endpoint,model:rawConfig.ai.model||out.settings.ai.model,fallbackModel:rawConfig.ai.fallbackModel||out.settings.ai.fallbackModel,apiKey:rawConfig.ai.apiKey||'',siteUrl:rawConfig.ai.siteUrl||'',siteName:rawConfig.ai.siteName||'Stability Lite',systemPrompt:rawConfig.ai.systemMode||out.settings.ai.systemPrompt});
+  }
+  if(rawData?.today?.dailyLogs){
+    Object.entries(rawData.today.dailyLogs).forEach(([d,v])=>{
+      const day = ensureDay();
+      day.rawTodayDump = v.todayDump || '';
+      day.rawTomorrowDump = v.tomorrowDump || '';
+      day.parsePreviewToday = v.todayDumpParsed || null;
+      day.parsePreviewTomorrow = v.tomorrowDumpParsed || null;
+      day.learningBlocks = asArr(v.workBlocks).map(b=>({id:uid(),label:b.topic||'Learning',minutes:Number(b.durationMin||b.minutes||25),startTime:b.time||'',category:'learning',note:b.notes||'',completed:true}));
+      day.tasks = [];
+      if(v.primaryMit) day.tasks.push({id:uid(),title:v.primaryMit,type:'primary',completed:!!v.coreCompleted?.primary,priority:'high',dueDate:d,tag:'MIT',notes:''});
+      if(v.secondaryMit) day.tasks.push({id:uid(),title:v.secondaryMit,type:'secondary',completed:!!v.coreCompleted?.secondary,priority:'medium',dueDate:d,tag:'MIT',notes:''});
+      if(v.adminBlock) day.tasks.push({id:uid(),title:v.adminBlock,type:'admin',completed:!!v.coreCompleted?.admin,priority:'low',dueDate:d,tag:'admin',notes:''});
+      if(Array.isArray(v.tomorrowChecklist)) {
+        v.tomorrowChecklist.forEach(t=>day.tasks.push({id:uid(),title:String(t),type:'review',completed:false,priority:'medium',dueDate:'',tag:'tomorrow',notes:'',tomorrow:true}));
+      }
+      day.doChecked = v.rulesState || {};
+      day.dontChecked = {
+        sugar: !!v.sugarBreach,
+        social: !!(v.leaks||[]).find(x=>String(x).toLowerCase().includes('social'))
+      };
+      day.morningEntry = v.journalMorning || {};
+      day.eveningEntry = v.journalEvening || {};
+      day.nightEntry = {review:v.review||''};
+      day.summary = v.daySummary || '';
+      day.wins = asArr(v.wins);
+      day.weaknesses = asArr(v.weaknesses);
+      day.status = {closed:!!v.completedAt,closedAt:v.completedAt||null};
+      day.appliedFingerprints = {
+        todayDump: asArr(v.appliedFingerprints?.todayDump).map(x=>String(x)),
+        tomorrowDump: asArr(v.appliedFingerprints?.tomorrowDump).map(x=>String(x))
+      };
+      day.tomorrowBlocks = asArr(v.tomorrowBlocks).map(b=>({id:b.id||uid(),label:b.label||b.title||'Block',minutes:Number(b.minutes||25),startTime:b.startTime||b.time||'',category:b.category||'learning',note:b.note||'',completed:!!b.completed}));
+      if(v.todayDumpParsed?.workBlocks) {
+        day.learningBlocks = uniqueBy([...(day.learningBlocks||[]), ...asArr(v.todayDumpParsed.workBlocks).map(b=>({id:uid(),label:b.topic||'Learning',minutes:Number(b.durationMin||25),startTime:b.time||'',category:'learning',note:b.notes||'',completed:true}))], b=>`${String(b.label).toLowerCase()}|${Number(b.minutes)||0}|${b.startTime||''}`);
+      }
+      if(v.scoreComputed || v.scoreBreakdown) {
+        const legacy = v.scoreBreakdown || {};
+        day.score = {
+          doEarned: Number(legacy.doEarned || 0),
+          learningEarned: Number(legacy.workEarned || legacy.learningEarned || 0),
+          taskEarned: Number(legacy.taskEarned || 0),
+          journalEarned: Number(legacy.journalEarned || 0),
+          penaltyLost: Number(legacy.penaltyLost || 0),
+          final: Number(v.scoreComputed || legacy.final || 0)
+        };
+      }
+      out.days[d]=day;
+    });
+  }
+  if(rawData?.today?.history){
+    asArr(rawData.today.history).forEach(h=>{
+      if(h?.date && !out.days[h.date]) out.days[h.date]=ensureDay({summary:h.summary||'',score:h.score||ensureDay().score,status:{closed:true,closedAt:h.closedAt||null}});
+      if(h?.date && out.days[h.date]){
+        out.days[h.date].wins = asArr(h.wins || out.days[h.date].wins);
+        out.days[h.date].weaknesses = asArr(h.weaknesses || out.days[h.date].weaknesses);
+      }
+    });
+  }
+  if(Array.isArray(rawData?.legal?.tasks)){
+    out.taskBoard.backlog = uniqueBy(rawData.legal.tasks.map(t=>({id:uid(),title:t.title||'Legacy task',type:'misc',completed:!!t.completed,priority:String(t.priority||'medium').toLowerCase(),dueDate:t.dueDate||'',tag:'legacy-legal',notes:t.notes||''})), t=>`${t.title}|${t.dueDate}`);
+  }
+  if(rawData?.legal || rawData?.money || rawData?.business || rawData?.support || rawData?.kernel) out.migration.notes.push('Preserved removed modules under _legacy for safety.');
+  return out;
+}
+
+const memoryStore = {};
+function storageAvailable(){
+  try{
+    const k='__stability_probe__';
+    localStorage.setItem(k,'1'); localStorage.removeItem(k);
+    return true;
+  }catch{ return false; }
+}
+let MEMORY_MODE = !storageAvailable();
+function readJSON(k){
+  try{
+    if(MEMORY_MODE) return JSON.parse(memoryStore[k] || 'null');
+    return JSON.parse(localStorage.getItem(k)||'null');
+  }catch{return null}
+}
+function loadState(){
+  const fresh = readJSON(LS_NEW);
+  if(fresh && fresh.version) return hydrate(fresh);
+  const migrated = fromOldState();
+  return hydrate(migrated || defaultState());
+}
+function hydrate(s){
+  const d = defaultState();
+  const out = Object.assign(d,s||{});
+  out.version = APP_VERSION;
+  out.days = out.days||{};
+  out.builder = Object.assign(d.builder,out.builder||{});
+  out.settings = Object.assign(d.settings,out.settings||{});
+  out.archive = Object.assign(d.archive,out.archive||{});
+  out.builder.scoring = Object.assign(d.builder.scoring, out.builder.scoring||{});
+  out.builder.scoring.taskTypePoints = Object.assign({primary:6,secondary:4,admin:3,learning:4,review:3,misc:2}, out.builder.scoring.taskTypePoints||{});
+  out.settings.ai = Object.assign(d.settings.ai, out.settings.ai||{});
+  out.builder.doRules = asArr(out.builder.doRules).map(r=>Object.assign({mode:'binary',target:1,targetUnit:'boolean'},r));
+  Object.keys(out.days).forEach(k=>out.days[k]=ensureDay(out.days[k]));
+  if(!out.days[todayKey()]) out.days[todayKey()] = ensureDay();
+  out.settings.ui = Object.assign(d.settings.ui,out.settings.ui||{});
+  out.settings.ui.memoryMode = MEMORY_MODE;
+  return out;
+}
+
+let state = loadState();
+applyFreshRunResetIfNeeded();
+let activeTab = 'dashboard';
+let modalDay = null;
+let applyLock = false;
+let actionStatus = {};
+let deferredInstallPrompt = null;
+const buttonMeta = {};
+
+function save(){
+  try{
+    if(MEMORY_MODE) memoryStore[LS_NEW] = JSON.stringify(state);
+    else localStorage.setItem(LS_NEW, JSON.stringify(state));
+  }catch{
+    MEMORY_MODE = true;
+    state.settings.ui.memoryMode = true;
+    memoryStore[LS_NEW] = JSON.stringify(state);
+  }
+}
+function day(){ const k=todayKey(); if(!state.days[k]) state.days[k]=ensureDay(); return state.days[k]; }
+function recalcPersist(){ try{ computeScore(day()); save(); }catch{} }
+function setActionStatus(key,status,msg=''){ actionStatus[key]={status,msg,at:Date.now()}; }
+function statusText(key){ return actionStatus[key]?.msg || ''; }
+function pushToast(msg,tone='ok'){
+  const wrap = document.getElementById('toastWrap');
+  if(!wrap) return;
+  const el = document.createElement('div');
+  el.className = `toast ${tone}`;
+  el.textContent = msg;
+  wrap.appendChild(el);
+  setTimeout(()=>el.remove(), 3200);
+}
+function setBtnState(id, state='idle'){
+  const btn = document.getElementById(id); if(!btn) return;
+  if(!buttonMeta[id]) buttonMeta[id] = {text:btn.textContent, since:0};
+  btn.classList.remove('is-working','is-success','is-error');
+  if(state==='working'){
+    buttonMeta[id].since = Date.now();
+    btn.disabled = true;
+    btn.classList.add('is-working');
+    btn.innerHTML = `<span class=\"spin\"></span> Working`;
+  }
+  else if(state==='done'){
+    const elapsed = Date.now() - (buttonMeta[id].since||0);
+    const settle = Math.max(0, 1200 - elapsed);
+    setTimeout(()=>{
+      const live = document.getElementById(id); if(!live) return;
+      live.disabled = false;
+      live.classList.remove('is-working');
+      live.classList.add('is-success');
+      live.textContent = 'Done';
+      setTimeout(()=>{
+        const reset = document.getElementById(id);
+        if(reset){ reset.classList.remove('is-success'); reset.textContent = buttonMeta[id].text; }
+      }, 700);
+    }, settle);
+  }
+  else if(state==='error'){
+    const elapsed = Date.now() - (buttonMeta[id].since||0);
+    const settle = Math.max(0, 900 - elapsed);
+    setTimeout(()=>{
+      const live = document.getElementById(id); if(!live) return;
+      live.disabled = false;
+      live.classList.remove('is-working');
+      live.classList.add('is-error');
+      live.textContent = 'Error';
+      setTimeout(()=>{
+        const reset = document.getElementById(id);
+        if(reset){ reset.classList.remove('is-error'); reset.textContent = buttonMeta[id].text; }
+      }, 900);
+    }, settle);
+  }
+  else {
+    btn.disabled = false;
+    btn.textContent = buttonMeta[id].text;
+  }
+}
+function uniqueBy(arr, keyFn){
+  const seen = new Set();
+  return (arr||[]).filter(item=>{
+    const k = keyFn(item);
+    if(seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+}
+function applyFreshRunResetIfNeeded(){
+  const today = todayKey();
+  if(state.settings.ui.freshRunResetAt === today) return;
+  const priorDays = Object.keys(state.days).filter(k=>k!==today);
+  const archived = priorDays.map(k=>({
+    date:k,
+    label:'Legacy Seeded History / Previous Attempt',
+    data:deep(state.days[k]||{})
+  }));
+  if(archived.length){
+    state.archive.legacyHistory = [...archived, ...asArr(state.archive.legacyHistory)];
+  }
+  priorDays.forEach(k=>{
+    state.days[k] = ensureDay(state.days[k]);
+    state.days[k].status = Object.assign(state.days[k].status||{}, {attemptLabel:'Legacy Seeded History / Previous Attempt'});
+  });
+  state.settings.activeGoalName = 'Fresh 30-Day Run';
+  state.settings.goalLengthDays = 30;
+  state.settings.currentDay = 1;
+  state.settings.goalStartDate = today;
+  state.days[today] = ensureDay();
+  state.settings.ui.freshRunResetAt = today;
+  state.migration.notes = uniqueBy([`Fresh run reset on ${today}`, ...(state.migration.notes||[])], x=>x);
+}
+
+function computeScore(d){
+  const sc = state.builder.scoring;
+  const facts = d.parseFacts || {};
+  const getRuleProgress = (r) => {
+    if(d.doChecked[r.id]) return 1;
+    const text = String(r.text||'').toLowerCase();
+    if(text.includes('wake')) return facts.wakeTime ? 1 : 0;
+    if(text.includes('water')) return clamp((Number(facts.waterMl||0)/Number(r.target||400)),0,1);
+    if(text.includes('meditation')) return clamp((Number(facts.meditationMin||0)/Number(r.target||20)),0,1);
+    if(text.includes('visualisation') || text.includes('visualization')) return clamp((Number(facts.visualisationMin||0)/Number(r.target||5)),0,1);
+    if(text.includes('first focus')) return d.learningBlocks.some(b=>b.completed && Number(b.minutes||0)>=25) ? 1 : 0;
+    if(text.includes('total learning')) return clamp((Number(facts.learningMinutes||0)/Number(r.target||150)),0,1);
+    if(text.includes('day-end review')) return d.nightEntry?.review ? 1 : 0;
+    if(text.includes('tomorrow plan')) return (d.tomorrowPlanSummary || d.rawTomorrowDump || '').trim() ? 1 : 0;
+    return 0;
+  };
+  const doPoints = clamp(state.builder.doRules.reduce((sum,r)=>sum + (Number(r.points||0) * getRuleProgress(r)),0),0,sc.doMax);
+  const learnDone = d.learningBlocks.filter(b=>b.completed).reduce((s,b)=>s+Number(b.minutes||0),0);
+  const targetLearnMin = Number((state.builder.doRules.find(r=>String(r.text||'').toLowerCase().includes('total learning'))?.target)||150);
+  const blockBonus = d.learningBlocks.filter(b=>b.completed && (b.quality||'good')!=='low').length >= 2 ? 2 : 0;
+  const learningPoints = clamp(Math.round((learnDone/Math.max(1,targetLearnMin))*sc.learningMax) + blockBonus,0,sc.learningMax);
+  const taskPoints = clamp(d.tasks.filter(t=>t.completed).reduce((s,t)=>s+Number(sc.taskTypePoints[t.type]||2),0),0,sc.taskMax);
+  const journalFilled = (Object.values(d.morningEntry).some(Boolean)?1:0)+(Object.values(d.eveningEntry).some(Boolean)?1:0)+(d.nightEntry.review?1:0);
+  const journalPoints = clamp(Math.round((journalFilled/3)*sc.journalMax),0,sc.journalMax);
+  const clusteredDont = uniqueBy(Object.entries(d.dontChecked||{}).filter(([,v])=>v).map(([k])=>k), x=>x);
+  const penalty = clamp(clusteredDont.reduce((sum,id)=>sum+Number((state.builder.dontRules.find(r=>r.id===id)||{}).points||0),0),0,sc.dontPenaltyCap);
+  d.score = {doEarned:doPoints,learningEarned:learningPoints,taskEarned:taskPoints,journalEarned:journalPoints,penaltyLost:penalty,final:clamp(doPoints+learningPoints+taskPoints+journalPoints-penalty,0,100)};
+}
+
+function ui(){
+  try{
+    computeScore(day());
+    save();
+    document.getElementById('app').innerHTML = render();
+    renderNav();
+    bind();
+  }catch(err){
+    document.getElementById('app').innerHTML = `<div class="glass card"><h2>Recovered from UI error</h2><p class="danger">${escapeHtml(err.message)}</p><button class="btn" id="reload">Reload</button></div>`;
+    const r = document.getElementById('reload'); if(r) r.onclick=()=>location.reload();
+  }
+}
+function esc(s){return String(s??'').replace(/</g,'&lt;');}
+const escapeHtml = esc;
+
+function render(){
+  const d = day();
+  const progress = clamp((Number(state.settings.currentDay||1)/Math.max(1,Number(state.settings.goalLengthDays||30)))*100,0,100);
+  return `
+    ${state.settings.ui.memoryMode ? `<section class="banner">Temporary memory mode: browser storage unavailable in this preview. Changes may not persist.</section>` : ''}
+    <section class="glass card">
+      <div class="title">Goal Header</div>
+      <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap">
+        <div><div style="font-size:24px;font-weight:800">${esc(state.settings.appTitle)}</div><div class="muted">${esc(state.settings.activeGoalName)}</div></div>
+        <div class="pill">Day ${state.settings.currentDay} / ${state.settings.goalLengthDays}</div>
+      </div>
+      <div class="banner">Fresh 30-Day Run — Day 1</div>
+      <progress max="100" value="${progress}"></progress>
+      ${renderInstallCard()}
+    </section>
+    ${activeTab==='dashboard'?renderDashboard(d):''}
+    ${activeTab==='rules'?renderRulesTab(d):''}
+    ${activeTab==='tasks'?renderTasks(d):''}
+    ${activeTab==='journal'?renderJournal(d):''}
+    ${activeTab==='ideas'?renderIdeas():''}
+    ${activeTab==='builder'?renderBuilder():''}
+    ${modalDay?renderHistoryModal(modalDay):''}
+  `;
+}
+function renderInstallCard(){
+  if(deferredInstallPrompt) return `<div style="margin-top:8px"><button class="btn primary" id="installAppBtn">Install App</button></div>`;
+  return `<div class="muted" style="margin-top:8px">Use browser menu → Add to Home Screen.</div>`;
+}
+
+function renderDashboard(d){
+  const doTotal = state.builder.doRules.length;
+  const dontTotal = state.builder.dontRules.length;
+  return `
+  <section class="glass card hero" style="margin-top:10px">
+    <div class="title">Final Score</div>
+    <div class="big" style="font-size:58px;line-height:1">${d.score.final}</div>
+    <div class="muted">Final = DO + Learning + Tasks + Journal - Penalty</div>
+  </section>
+  <section class="row" style="margin-top:10px">
+    <div class="metric m-do"><div class="title">DO</div><div class="big">${d.score.doEarned}</div></div>
+    <div class="metric m-learning"><div class="title">Learning</div><div class="big">${d.score.learningEarned}</div></div>
+    <div class="metric m-task"><div class="title">Tasks</div><div class="big">${d.score.taskEarned}</div></div>
+    <div class="metric m-journal"><div class="title">Journal</div><div class="big">${d.score.journalEarned}</div></div>
+    <div class="metric m-penalty"><div class="title">Penalty</div><div class="big">-${d.score.penaltyLost}</div></div>
+  </section>
+  <section class="glass card" style="margin-top:10px"><div class="title">Today Summary</div>
+    <div class="row">
+      <div class="item">DO: ${Object.values(d.doChecked).filter(Boolean).length}/${doTotal}</div>
+      <div class="item">DON'T breaches: ${Object.values(d.dontChecked).filter(Boolean).length}/${dontTotal}</div>
+      <div class="item">Learning blocks done: ${d.learningBlocks.filter(b=>b.completed).length}/${d.learningBlocks.length}</div>
+      <div class="item">Tasks done: ${d.tasks.filter(t=>t.completed).length}/${d.tasks.length}</div>
+    </div>
+  </section>
+  ${renderDumpCards(d)}
+  ${renderLearningBlocks(d)}
+  ${renderCloseDay(d)}
+  `;
+}
+function renderRulesTab(d){
+  return `<section class="glass card" style="margin-top:10px"><div class="title">DO / DON'T Rules</div>${renderRules(d)}</section>`;
+}
+
+function renderDumpCards(d){
+  return `<section class="row" style="margin-top:10px">
+    <div class="glass card"><div class="title">Today Dump</div>
+      <label>Raw today dump<textarea id="rawTodayDump">${esc(d.rawTodayDump)}</textarea></label>
+      <div class="row">
+        <button class="btn" id="parseToday">Parse locally</button>
+        <button class="btn" id="aiToday">AI refine</button>
+        <button class="btn primary" id="applyToday">Apply parsed update</button>
+        <button class="btn" id="undoToday">Undo last apply</button>
+        <button class="btn warn" id="clearToday">Clear</button>
+      </div>
+      <div class="status ${actionStatus.today?.status==='ok'?'ok':actionStatus.today?.status==='err'?'err':''}">${esc(statusText('today'))}</div>
+    </div>
+    <div class="glass card"><div class="title">Tomorrow Dump</div>
+      <label>Raw tomorrow dump<textarea id="rawTomorrowDump">${esc(d.rawTomorrowDump)}</textarea></label>
+      <div class="row">
+        <button class="btn" id="parseTomorrow">Parse tomorrow</button>
+        <button class="btn" id="aiTomorrow">AI refine tomorrow</button>
+        <button class="btn primary" id="applyTomorrow">Apply tomorrow plan</button>
+        <button class="btn warn" id="clearTomorrow">Clear</button>
+      </div>
+      <div class="status ${actionStatus.tomorrow?.status==='ok'?'ok':actionStatus.tomorrow?.status==='err'?'err':''}">${esc(statusText('tomorrow'))}</div>
+    </div>
+  </section>
+  <section class="glass card" style="margin-top:10px"><div class="title">Parse Preview</div>
+    <div class="row">
+      <div class="item"><div class="k">Today analysis</div>${renderTodayPreview(d.parsePreviewToday)}</div>
+      <div class="item"><div class="k">Tomorrow analysis</div>${renderTomorrowPreview(d.parsePreviewTomorrow)}</div>
+    </div>
+  </section>`;
+}
+function renderTodayPreview(p){
+  if(!p) return '<div class="muted">No today preview yet.</div>';
+  return `
+    <div><strong>Wake:</strong> ${esc(p.facts?.wakeTime || 'Not detected')}</div>
+    <div><strong>DO detected:</strong> ${(p.suggestedDo||[]).map(x=>`<span class="pill-soft">${esc(x)}</span>`).join('') || '—'}</div>
+    <div><strong>Partial DO:</strong> ${(p.partialDo||[]).map(x=>`<span class="pill-soft">${esc(x)}</span>`).join('') || '—'}</div>
+    <div><strong>DON’T breaches:</strong> ${(p.suggestedDont||[]).map(x=>`<span class="pill-soft">${esc(x)}</span>`).join('') || '—'}</div>
+    <div><strong>Learning minutes:</strong> ${Number(p.facts?.learningMinutes||0)} (${(p.learningBlocks||[]).length} blocks)</div>
+    <div><strong>Completed actions:</strong> ${(p.completedTasks||[]).map(t=>`<span class="pill-soft">${esc(t.title||t)}</span>`).join('') || '—'}</div>
+    <div><strong>Wins:</strong> ${(p.wins||[]).slice(0,3).map(x=>`<span class="pill-soft">${esc(x)}</span>`).join('') || '—'}</div>
+    <div><strong>Weaknesses:</strong> ${(p.weaknesses||[]).slice(0,3).map(x=>`<span class="pill-soft">${esc(x)}</span>`).join('') || '—'}</div>
+    <div><strong>AI:</strong> ${p.aiUsed ? `Used (${esc(p.modelUsed||'model unknown')})` : 'Local only'} ${p.providerError?`• ${esc(p.providerError)}`:''}</div>
+    <div><strong>Confidence:</strong> ${Math.round(Number(p.confidence||0)*100)}%</div>
+    <details><summary>Debug JSON</summary><pre>${esc(JSON.stringify(p,null,2))}</pre></details>
+  `;
+}
+function renderTomorrowPreview(p){
+  if(!p) return '<div class="muted">No tomorrow preview yet.</div>';
+  const primary = (p.tomorrowTasks||[]).find(t=>t.type==='primary');
+  const secondary = (p.tomorrowTasks||[]).find(t=>t.type==='secondary');
+  return `
+    <div><strong>Primary candidate:</strong> ${esc(primary?.title || '—')}</div>
+    <div><strong>Secondary candidate:</strong> ${esc(secondary?.title || '—')}</div>
+    <div><strong>Learning/Admin/Review:</strong> ${(p.tomorrowTasks||[]).filter(t=>['learning','admin','review'].includes(t.type)).map(t=>`<span class="pill-soft">${esc(t.title)}</span>`).join('') || '—'}</div>
+    <div><strong>Estimated blocks:</strong> ${(p.learningBlocks||[]).length}</div>
+    <div><strong>Priority hints:</strong> ${(p.priorities||[]).map(x=>`<span class="pill-soft">${esc(x)}</span>`).join('') || '—'}</div>
+    <div><strong>AI plan:</strong> ${esc(p.tomorrowSummary || p.summary || '—')}</div>
+    <div><strong>AI:</strong> ${p.aiUsed ? `Used (${esc(p.modelUsed||'model unknown')})` : 'Local only'} ${p.providerError?`• ${esc(p.providerError)}`:''}</div>
+    <div><strong>Confidence:</strong> ${Math.round(Number(p.confidence||0)*100)}%</div>
+    <details><summary>Debug JSON</summary><pre>${esc(JSON.stringify(p,null,2))}</pre></details>
+  `;
+}
+
+function renderLearningBlocks(d){
+  return `<section class="glass card" style="margin-top:10px"><div class="title">Detected Work / Learning Blocks</div>
+    <div class="list">${d.learningBlocks.map((b,i)=>`<div class="item">
+      <div><input data-act="toggleBlock" data-i="${i}" type="checkbox" ${b.completed?'checked':''}/> <strong>${esc(b.label)}</strong> (${b.minutes}m ${b.startTime?('@ '+b.startTime):''})</div>
+      <div class="muted">${esc(b.category||'')} ${b.note?('• '+esc(b.note)):''}</div>
+      <div class="row"><button class="btn" data-act="editBlock" data-i="${i}">Edit</button><button class="btn warn" data-act="delBlock" data-i="${i}">Delete</button></div>
+    </div>`).join('') || '<div class="muted">No blocks yet.</div>'}</div>
+    <button class="btn" id="addBlock">Add learning block</button>
+  </section>`;
+}
+
+function renderRules(d){
+  return `<section class="row" style="margin-top:10px">
+    <div class="glass card"><div class="title">DO Rules</div>${state.builder.doRules.map(r=>`<label><input data-act="doCheck" data-id="${r.id}" type="checkbox" ${d.doChecked[r.id]?'checked':''}/> ${esc(r.text)} (+${r.points})</label>`).join('')}</div>
+    <div class="glass card"><div class="title">DON'T Rules</div>${state.builder.dontRules.map(r=>`<label><input data-act="dontCheck" data-id="${r.id}" type="checkbox" ${d.dontChecked[r.id]?'checked':''}/> ${esc(r.text)} (-${r.points})</label>`).join('')}</div>
+  </section>`;
+}
+
+function renderCloseDay(d){
+  return `<section class="glass card" style="margin-top:10px"><div class="title">Close Day</div>
+      <label>Night review<textarea id="nightReview">${esc(d.nightEntry.review||'')}</textarea></label>
+      <label>Tomorrow plan summary<textarea id="tomorrowSummary">${esc(d.tomorrowPlanSummary||'')}</textarea></label>
+      <div class="row">
+        <button class="btn primary" id="closeDay" ${d.status.closed?'disabled':''}>Close day</button>
+        <button class="btn" id="reopenDay" ${!d.status.closed?'disabled':''}>Reopen / edit day</button>
+      </div>
+      <div class="muted">Status: ${d.status.closed?('Closed at '+d.status.closedAt):'Open'}</div>
+  </section>`;
+}
+
+function renderTasks(d){
+  const sec = (title,items,scope)=>`<section class="glass card" style="margin-top:10px"><div class="title">${title}</div><div class="list">${items.map((t,i)=>taskItem(t,i,scope)).join('')||'<div class="muted">No tasks.</div>'}</div><button class="btn" data-addtask="${scope}">Add task</button></section>`;
+  const today = d.tasks.filter(t=>!t.tomorrow);
+  const tomorrow = d.tasks.filter(t=>t.tomorrow);
+  return sec('Today Tasks',today,'today')+sec('Tomorrow Tasks',tomorrow,'tomorrow')+sec('Backlog',state.taskBoard.backlog,'backlog');
+}
+function taskItem(t,i,scope){
+  return `<div class="item"><label><input data-act="taskToggle" data-scope="${scope}" data-i="${i}" type="checkbox" ${t.completed?'checked':''}/> <strong>${esc(t.title)}</strong></label>
+    <div class="muted">${esc(t.type||'misc')} • ${esc(t.priority||'medium')} ${t.dueDate?('• due '+esc(t.dueDate)):''} ${t.tag?('• '+esc(t.tag)):''}</div>
+    <div class="muted">${esc(t.notes||'')}</div>
+    <div class="row"><button class="btn" data-act="taskUp" data-scope="${scope}" data-i="${i}">↑</button><button class="btn" data-act="taskDown" data-scope="${scope}" data-i="${i}">↓</button><button class="btn" data-act="taskEdit" data-scope="${scope}" data-i="${i}">Edit</button><button class="btn warn" data-act="taskDel" data-scope="${scope}" data-i="${i}">Delete</button></div>
+  </div>`;
+}
+
+function renderJournal(d){
+  const q = (arr,entry,pfx)=>arr.map((qq,i)=>`<label>${esc(qq)}<input data-jq="${pfx}" data-idx="${i}" value="${esc(entry[i]||'')}"/></label>`).join('');
+  const history = Object.keys(state.days).sort().reverse().slice(0,60);
+  return `<section class="row" style="margin-top:10px">
+    <div class="glass card"><div class="title">Morning Entry</div>
+      <label>Wake time<input id="wakeTime" value="${esc(d.morningEntry.wakeTime||'')}" placeholder="06:00"/></label>
+      <label>Intention<input id="intention" value="${esc(d.morningEntry.intention||'')}"/></label>
+      <label>Main focus<input id="mainFocus" value="${esc(d.morningEntry.mainFocus||'')}"/></label>
+      <label>Biggest risk<input id="risk" value="${esc(d.morningEntry.biggestRisk||'')}"/></label>
+      <label>Mood<input id="mood" value="${esc(d.morningEntry.mood||'')}"/></label>
+      <label>Energy<input id="energy" value="${esc(d.morningEntry.energy||'')}"/></label>
+      ${q(state.builder.morningQuestions,d.morningEntry.answers||[],'morning')}
+    </div>
+    <div class="glass card"><div class="title">Evening Entry</div>
+      <label>What went well<textarea id="wentWell">${esc(d.eveningEntry.wentWell||'')}</textarea></label>
+      <label>What slipped<textarea id="slipped">${esc(d.eveningEntry.slipped||'')}</textarea></label>
+      <label>Lesson<textarea id="lesson">${esc(d.eveningEntry.lesson||'')}</textarea></label>
+      <label>Improve tomorrow<textarea id="improve">${esc(d.eveningEntry.improveTomorrow||'')}</textarea></label>
+      ${q(state.builder.eveningQuestions,d.eveningEntry.answers||[],'evening')}
+      <div class="title">Night Journal / Close Day Review</div>
+      <textarea id="nightJournal">${esc(d.nightEntry.review||'')}</textarea>
+      ${q(state.builder.nightQuestions,d.nightEntry.answers||[],'night')}
+    </div>
+  </section>
+  <section class="glass card" style="margin-top:10px"><div class="title">History</div>
+    <div class="list">${history.map(h=>`<button class="btn" data-act="openHistory" data-day="${h}">${h} • score ${state.days[h]?.score?.final||0} • DO ${Object.values(state.days[h]?.doChecked||{}).filter(Boolean).length}/${state.builder.doRules.length} • DON'T ${Object.values(state.days[h]?.dontChecked||{}).filter(Boolean).length} • learn ${state.days[h]?.learningBlocks?.filter?.(b=>b.completed).reduce((s,b)=>s+Number(b.minutes||0),0)||0}m • ${(state.days[h]?.summary||'').slice(0,42)}</button>`).join('')}</div>
+  </section>`;
+}
+
+function renderIdeas(){
+  const byCategory = {};
+  const byUrgency = {};
+  state.ideas.forEach(i=>{ byCategory[i.category||'uncategorized']=(byCategory[i.category||'uncategorized']||0)+1; byUrgency[i.urgency||'normal']=(byUrgency[i.urgency||'normal']||0)+1; });
+  const archivedCount = state.ideas.filter(i=>i.archived).length;
+  return `<section class="glass card" style="margin-top:10px"><div class="title">Idea Parking</div>
+    <div class="item">
+      <div><strong>By Category:</strong> ${Object.entries(byCategory).map(([k,v])=>`<span class="pill-soft">${esc(k)}:${v}</span>`).join('')||'—'}</div>
+      <div><strong>By Urgency:</strong> ${Object.entries(byUrgency).map(([k,v])=>`<span class="pill-soft">${esc(k)}:${v}</span>`).join('')||'—'}</div>
+      <div><strong>Archived:</strong> ${archivedCount}</div>
+    </div>
+    <div class="list">${state.ideas.map((it,i)=>`<div class="item"><strong>${esc(it.title)}</strong> ${it.important?'<span class="pill">Important later</span>':''}
+      <div class="muted">${esc(it.description||'')}</div><div class="muted">${esc(it.category||'uncategorized')} • ${esc(it.tag||'')} • ${esc(it.urgency||'normal')} • ${esc(it.createdAt||'')}</div>
+      <div class="row"><button class="btn" data-act="ideaEdit" data-i="${i}">Edit</button><button class="btn" data-act="ideaClassify" data-i="${i}">AI classify</button><button class="btn" data-act="ideaArchive" data-i="${i}">${it.archived?'Unarchive':'Archive'}</button><button class="btn" data-act="ideaTask" data-i="${i}">Convert to task</button><button class="btn" data-act="ideaImportant" data-i="${i}">Important later</button><button class="btn warn" data-act="ideaDel" data-i="${i}">Delete</button></div></div>`).join('') || '<div class="muted">No ideas yet.</div>'}</div>
+    <button class="btn" id="addIdea">Add idea</button>
+  </section>`;
+}
+
+function renderBuilder(){
+  const listEditor = (arr,key)=>`<div class="list">${arr.map((q,i)=>`<div class="item">${esc(q)} <button class="btn" data-act="qEdit" data-key="${key}" data-i="${i}">Edit</button> <button class="btn warn" data-act="qDel" data-key="${key}" data-i="${i}">Delete</button></div>`).join('')}</div><button class="btn" data-act="qAdd" data-key="${key}">Add</button>`;
+  return `<section class="glass card" style="margin-top:10px"><div class="title">Goal Settings</div>
+    <label>App title<input id="setAppTitle" value="${esc(state.settings.appTitle)}"/></label>
+    <label>Active goal<input id="setGoalName" value="${esc(state.settings.activeGoalName)}"/></label>
+    <label>Goal duration days<input id="setGoalDays" type="number" value="${Number(state.settings.goalLengthDays||30)}"/></label>
+    <label>Goal start date<input id="setGoalStart" type="date" value="${esc(state.settings.goalStartDate)}"/></label>
+    <label>Current day<input id="setCurrentDay" type="number" value="${Number(state.settings.currentDay||1)}"/></label>
+    <div class="row"><button class="btn warn" id="resetGoal">Reset current goal</button><button class="btn" id="newGoalTemplate">Create new goal template</button></div>
+  </section>
+  <section class="row" style="margin-top:10px">
+    <div class="glass card"><div class="title">Rule Builder - DO</div>${state.builder.doRules.map((r,i)=>ruleRow(r,i,'doRules')).join('')}<button class="btn" data-act="ruleAdd" data-key="doRules">Add DO</button></div>
+    <div class="glass card"><div class="title">Rule Builder - DON'T</div>${state.builder.dontRules.map((r,i)=>ruleRow(r,i,'dontRules')).join('')}<button class="btn" data-act="ruleAdd" data-key="dontRules">Add DON'T</button></div>
+  </section>
+  <section class="glass card" style="margin-top:10px"><div class="title">Learning Block Templates</div>
+    <div class="list">${state.builder.learningBlockTemplates.map((t,i)=>`<div class="item"><strong>${esc(t.title)}</strong> ${t.minutes}m • ${esc(t.category||'')}<div class="row"><button class="btn" data-act="tplEdit" data-i="${i}">Edit</button><button class="btn warn" data-act="tplDel" data-i="${i}">Delete</button></div></div>`).join('')}</div>
+    <button class="btn" id="addTpl">Add template</button></section>
+  <section class="glass card" style="margin-top:10px"><div class="title">Scoring Builder</div>
+    <label>DO max<input id="scDo" type="number" value="${state.builder.scoring.doMax}"/></label>
+    <label>Learning max<input id="scLearn" type="number" value="${state.builder.scoring.learningMax}"/></label>
+    <label>Task max<input id="scTask" type="number" value="${state.builder.scoring.taskMax}"/></label>
+    <label>Journal max<input id="scJournal" type="number" value="${state.builder.scoring.journalMax}"/></label>
+    <label>Penalty cap<input id="scPenalty" type="number" value="${state.builder.scoring.dontPenaltyCap}"/></label>
+    <div class="title">Task Type Points</div>
+    ${Object.entries(state.builder.scoring.taskTypePoints).map(([k,v])=>`<label>${k}<input data-tasktype="${k}" type="number" value="${v}"/></label>`).join('')}
+  </section>
+  <section class="row" style="margin-top:10px">
+    <div class="glass card"><div class="title">Morning Questions</div>${listEditor(state.builder.morningQuestions,'morningQuestions')}</div>
+    <div class="glass card"><div class="title">Evening Questions</div>${listEditor(state.builder.eveningQuestions,'eveningQuestions')}</div>
+    <div class="glass card"><div class="title">Night Questions</div>${listEditor(state.builder.nightQuestions,'nightQuestions')}</div>
+  </section>
+  <section class="glass card" style="margin-top:10px"><div class="title">AI Settings</div>
+    <label><input id="aiEnabled" type="checkbox" ${state.settings.ai.enabled?'checked':''}/> Enable AI</label>
+    <label>Endpoint<input id="aiEndpoint" value="${esc(state.settings.ai.endpoint)}"/></label>
+    <label>Model<input id="aiModel" value="${esc(state.settings.ai.model)}"/></label>
+    <label>Fallback Model<input id="aiFallbackModel" value="${esc(state.settings.ai.fallbackModel||'')}"/></label>
+    <label>API key<input id="aiKey" value="${esc(state.settings.ai.apiKey)}"/></label>
+    <label>Site URL<input id="aiSiteUrl" value="${esc(state.settings.ai.siteUrl)}"/></label>
+    <label>Site Name<input id="aiSiteName" value="${esc(state.settings.ai.siteName)}"/></label>
+    <label>System Prompt<textarea id="aiPrompt">${esc(state.settings.ai.systemPrompt)}</textarea></label>
+  </section>
+  <section class="glass card" style="margin-top:10px"><div class="title">Data Tools</div>
+    <div class="row"><button class="btn" id="exportJson">Export backup JSON</button><button class="btn" id="importJson">Import backup JSON</button><button class="btn warn" id="resetToday">Reset only today</button><button class="btn warn" id="resetGoalData">Reset only current goal</button><button class="btn warn" id="fullReset">Full reset</button></div>
+    <div class="muted">Migration status: ${esc(state.migration.status)} • ${esc((state.migration.notes||[]).join(' | '))}</div>
+    <input id="importFile" type="file" accept="application/json" class="hidden"/>
+  </section>`;
+}
+function ruleRow(r,i,key){return `<div class="item">${esc(r.text)} (${r.points}) <div class="row"><button class="btn" data-act="ruleUp" data-key="${key}" data-i="${i}">↑</button><button class="btn" data-act="ruleDown" data-key="${key}" data-i="${i}">↓</button><button class="btn" data-act="ruleEdit" data-key="${key}" data-i="${i}">Edit</button><button class="btn warn" data-act="ruleDel" data-key="${key}" data-i="${i}">Delete</button></div></div>`;}
+
+function renderHistoryModal(dayKeySel){
+  const d = state.days[dayKeySel]; if(!d) return '';
+  const doChecked = Object.entries(d.doChecked||{}).filter(([,v])=>v).length;
+  const dontChecked = Object.entries(d.dontChecked||{}).filter(([,v])=>v).length;
+  const learnMin = asArr(d.learningBlocks).filter(b=>b.completed).reduce((s,b)=>s+Number(b.minutes||0),0);
+  return `<div class="modal" id="modal"><div class="glass card modal-body"><div style="display:flex;justify-content:space-between"><h3>${dayKeySel}</h3><button class="btn" id="closeModal">Close</button></div>
+    <div class="row">
+      <div class="item"><div class="k">Final score</div><div class="big" style="font-size:30px">${Number(d.score?.final||0)}</div></div>
+      <div class="item"><div class="k">DO checked</div><div>${doChecked}</div></div>
+      <div class="item"><div class="k">DON'T triggered</div><div>${dontChecked}</div></div>
+      <div class="item"><div class="k">Learning minutes</div><div>${learnMin}</div></div>
+    </div>
+    <div class="item" style="margin-top:8px"><div class="k">Summary</div><div>${esc(d.summary||'—')}</div></div>
+    <div class="row" style="margin-top:8px">
+      <div class="item"><div class="k">Wins</div>${asArr(d.wins).map(w=>`<div>• ${esc(w)}</div>`).join('')||'<div class="muted">—</div>'}</div>
+      <div class="item"><div class="k">Weaknesses</div>${asArr(d.weaknesses).map(w=>`<div>• ${esc(w)}</div>`).join('')||'<div class="muted">—</div>'}</div>
+    </div>
+    <details style="margin-top:10px"><summary class="k">Open full raw day snapshot</summary>
+      <pre>${esc(JSON.stringify({date:dayKeySel,score:d.score,rules:{do:d.doChecked,dont:d.dontChecked},learningBlocks:d.learningBlocks,tasks:d.tasks,journal:{morning:d.morningEntry,evening:d.eveningEntry,night:d.nightEntry},raw:{today:d.rawTodayDump,tomorrow:d.rawTomorrowDump},summary:d.summary,wins:d.wins,weaknesses:d.weaknesses,reviewSnapshot:d.nightEntry?.review||''},null,2))}</pre>
+    </details>
+  </div></div>`;
+}
+
+function renderNav(){
+  const tabs = [['dashboard','Dashboard'],['rules','Rules'],['tasks','Tasks'],['journal','Journal'],['ideas','Ideas'],['builder','Builder']];
+  document.getElementById('bottomNav').innerHTML = tabs.map(([id,label])=>`<button class="tab ${activeTab===id?'active':''}" data-tab="${id}">${label}</button>`).join('');
+  document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{activeTab=b.dataset.tab;ui();});
+}
+
+function bind(){
+  const d = day();
+  const byId=(id)=>document.getElementById(id);
+  const on=(id,fn)=>{const e=byId(id); if(e) e.onclick=fn;};
+  const v=(id)=>byId(id)?.value || '';
+  document.querySelectorAll('.btn,.tab').forEach(el=>{
+    el.onpointerdown=()=>{ el.classList.add('pressed'); setTimeout(()=>el.classList.remove('pressed'),160); };
+  });
+  on('installAppBtn', async()=>{
+    if(!deferredInstallPrompt){ pushToast('Install prompt not available yet.','err'); return; }
+    try{
+      await deferredInstallPrompt.prompt();
+      await deferredInstallPrompt.userChoice;
+      pushToast('Install prompt shown.','ok');
+      deferredInstallPrompt = null;
+      ui();
+    }catch{
+      pushToast('Install prompt failed.','err');
+    }
+  });
+
+  if(byId('rawTodayDump')) byId('rawTodayDump').oninput=e=>{d.rawTodayDump=e.target.value;save();};
+  if(byId('rawTomorrowDump')) byId('rawTomorrowDump').oninput=e=>{d.rawTomorrowDump=e.target.value;save();};
+  on('parseToday',()=>{ setBtnState('parseToday','working'); d.parsePreviewToday=parseTodayDump(d.rawTodayDump); d.parsePreviewToday.aiUsed=false; setActionStatus('today','ok','Parsed locally.'); pushToast('Today dump parsed.','ok'); setBtnState('parseToday','done'); ui();});
+  on('parseTomorrow',()=>{ setBtnState('parseTomorrow','working'); d.parsePreviewTomorrow=parseTomorrowDump(d.rawTomorrowDump); d.parsePreviewTomorrow.aiUsed=false; setActionStatus('tomorrow','ok','Tomorrow dump parsed.'); pushToast('Tomorrow dump parsed.','ok'); setBtnState('parseTomorrow','done'); ui();});
+  on('aiToday',async()=>{ setBtnState('aiToday','working'); setActionStatus('today','', 'AI refine working...'); const local = parseTodayDump(d.rawTodayDump); const refined = await safeAIRefine(local, d.rawTodayDump); d.parsePreviewToday = Object.assign({}, local, refined, {aiUsed:!!refined.aiUsed, providerError: refined.providerError || (refined.aiUsed ? '' : (refined.warnings||[]).slice(-1)[0]||''), modelUsed: refined.modelUsed || ''}); d.aiMeta = {used:!!d.parsePreviewToday.aiUsed, modelUsed:d.parsePreviewToday.modelUsed||'', providerError:d.parsePreviewToday.providerError||''}; if(!d.parsePreviewToday.aiUsed) pushToast(d.parsePreviewToday.providerError || 'AI failed; local parse kept.','err'); else pushToast(`AI refine complete (today) via ${d.parsePreviewToday.modelUsed}.`,'ok'); setActionStatus('today', d.parsePreviewToday.aiUsed ? 'ok' : 'err', d.parsePreviewToday.aiUsed ? `AI refine complete via ${d.parsePreviewToday.modelUsed}.` : 'AI failed; local parse kept.'); setBtnState('aiToday','done'); ui();});
+  on('aiTomorrow',async()=>{ setBtnState('aiTomorrow','working'); setActionStatus('tomorrow','', 'AI refine working...'); const local = parseTomorrowDump(d.rawTomorrowDump); const refined = await safeAIRefine(local, d.rawTomorrowDump); d.parsePreviewTomorrow = Object.assign({}, local, refined, {aiUsed:!!refined.aiUsed, providerError: refined.providerError || (refined.aiUsed ? '' : (refined.warnings||[]).slice(-1)[0]||''), modelUsed: refined.modelUsed || ''}); if(!d.parsePreviewTomorrow.aiUsed) pushToast(d.parsePreviewTomorrow.providerError || 'AI failed; local parse kept.','err'); else pushToast(`AI refine complete (tomorrow) via ${d.parsePreviewTomorrow.modelUsed}.`,'ok'); setActionStatus('tomorrow', d.parsePreviewTomorrow.aiUsed ? 'ok' : 'err', d.parsePreviewTomorrow.aiUsed ? `AI refine tomorrow complete via ${d.parsePreviewTomorrow.modelUsed}.` : 'AI failed; local parse kept.'); setBtnState('aiTomorrow','done'); ui();});
+  on('clearToday',()=>{d.rawTodayDump=''; d.parsePreviewToday=null; setActionStatus('today','ok','Cleared today dump.'); pushToast('Today dump cleared.','ok'); ui();});
+  on('clearTomorrow',()=>{d.rawTomorrowDump=''; d.parsePreviewTomorrow=null; setActionStatus('tomorrow','ok','Cleared tomorrow dump.'); pushToast('Tomorrow dump cleared.','ok'); ui();});
+  on('applyToday',()=>{
+    if(applyLock){ pushToast('Apply already in progress.','err'); return; }
+    setBtnState('applyToday','working');
+    applyLock=true;
+    const p = d.parsePreviewToday || parseTodayDump(d.rawTodayDump);
+    const fp = hashFinger('today|'+d.rawTodayDump+'|'+JSON.stringify(p));
+    d.appliedFingerprints.todayDump = d.appliedFingerprints.todayDump || [];
+    if(d.appliedFingerprints.todayDump.includes(fp)){ setActionStatus('today','err','Duplicate apply blocked.'); pushToast('Duplicate today apply blocked.','err'); applyLock=false; setBtnState('applyToday','idle'); return; }
+    d._undoToday = deep({learningBlocks:d.learningBlocks,tasks:d.tasks,doChecked:d.doChecked,dontChecked:d.dontChecked,summary:d.summary,wins:d.wins,weaknesses:d.weaknesses});
+    d.appliedFingerprints.todayDump.push(fp);
+    d.learningBlocks = uniqueBy([...d.learningBlocks, ...asArr(p.learningBlocks)], b=>`${String(b.label||'').toLowerCase()}|${Number(b.minutes)||0}|${b.startTime||''}|${String(b.category||'').toLowerCase()}`);
+    d.tasks = uniqueBy([...d.tasks, ...asArr(p.completedTasks)], t=>`${String(t.title||'').toLowerCase()}|${t.type||''}|${t.tomorrow?'t':''}`);
+    d.parseFacts = Object.assign({}, d.parseFacts||{}, p.facts||{});
+    if((p.facts?.wakeTime) && !d.morningEntry.wakeTime) d.morningEntry.wakeTime = p.facts.wakeTime;
+    d.summary = p.summary || d.summary; d.wins = [...new Set([...(d.wins||[]),...(p.wins||[])])]; d.weaknesses=[...new Set([...(d.weaknesses||[]),...(p.weaknesses||[])])];
+    state.builder.doRules.forEach(r=>{ if((p.suggestedDo||[]).some(s=>s.toLowerCase().includes((r.text||'').toLowerCase().split(' ')[0]))) d.doChecked[r.id]=true;});
+    state.builder.dontRules.forEach(r=>{
+      const t = String(r.text||'').toLowerCase();
+      const tagHit = (p.facts?.dontTags||[]).some(tag=>t.includes(tag.split('_')[0]) || (tag==='research_drift' && t.includes('research')) || (tag==='side_project' && t.includes('side-project')));
+      if(tagHit || (p.suggestedDont||[]).some(s=>s.toLowerCase().includes(t.split(' ')[0]))) d.dontChecked[r.id]=true;
+    });
+    setActionStatus('today','ok','Applied preview to today. Undo is available.');
+    pushToast('Applied parsed update to today.','ok');
+    applyLock=false; setBtnState('applyToday','done'); ui();
+  });
+  on('undoToday',()=>{ setBtnState('undoToday','working'); if(!d._undoToday){ setBtnState('undoToday','idle'); return; } Object.assign(d,d._undoToday); d._undoToday=null; setActionStatus('today','ok','Undid last today apply.'); pushToast('Undo complete.','ok'); setBtnState('undoToday','done'); ui(); });
+  on('applyTomorrow',()=>{
+    setBtnState('applyTomorrow','working');
+    const p = d.parsePreviewTomorrow || parseTomorrowDump(d.rawTomorrowDump);
+    const fp = hashFinger('tomorrow|'+d.rawTomorrowDump+'|'+JSON.stringify(p));
+    d.appliedFingerprints.tomorrowDump = d.appliedFingerprints.tomorrowDump || [];
+    if(d.appliedFingerprints.tomorrowDump.includes(fp)){ setActionStatus('tomorrow','err','Duplicate tomorrow apply blocked.'); pushToast('Duplicate tomorrow apply blocked.','err'); setBtnState('applyTomorrow','idle'); return; }
+    d.appliedFingerprints.tomorrowDump.push(fp);
+    d.tasks = uniqueBy([...d.tasks,...asArr(p.tomorrowTasks).map(t=>Object.assign(t,{tomorrow:true,completed:false}))], t=>`${String(t.title||'').toLowerCase()}|${t.tomorrow?'t':'f'}|${t.type||''}`);
+    d.tomorrowBlocks = uniqueBy([...(d.tomorrowBlocks||[]), ...asArr(p.learningBlocks).map(b=>Object.assign({}, b, {completed:false}))], b=>`${String(b.label||'').toLowerCase()}|${Number(b.minutes)||0}|${b.startTime||''}|${String(b.category||'').toLowerCase()}`);
+    d.tomorrowPlanSummary = p.summary || d.tomorrowPlanSummary;
+    setActionStatus('tomorrow','ok','Applied tomorrow plan.');
+    pushToast('Applied tomorrow plan.','ok');
+    setBtnState('applyTomorrow','done');
+    ui();
+  });
+
+  on('addBlock',()=>{ d.learningBlocks.push({id:uid(),label:prompt('Label?','Learning')||'Learning',minutes:Number(prompt('Minutes?','45')||45),category:prompt('Category?','learning')||'learning',startTime:prompt('Start time (optional)','')||'',note:prompt('Note','')||'',completed:false}); ui(); });
+  document.querySelectorAll('[data-act]').forEach(el=>el.onclick=(e)=>handleAction(e.currentTarget.dataset));
+  document.querySelectorAll('[data-addtask]').forEach(el=>el.onclick=()=>addTask(el.dataset.addtask));
+
+  if(byId('nightReview')) byId('nightReview').oninput=e=>{d.nightEntry.review=e.target.value; recalcPersist();};
+  if(byId('tomorrowSummary')) byId('tomorrowSummary').oninput=e=>{d.tomorrowPlanSummary=e.target.value; recalcPersist();};
+  on('closeDay',()=>{
+    setBtnState('closeDay','working');
+    if(d.status.closed){ pushToast('Day is already closed.','err'); setBtnState('closeDay','idle'); return; }
+    const hasReview = !!(d.nightEntry.review||'').trim();
+    const hasTomorrow = !!(d.rawTomorrowDump||'').trim() || !!(d.tomorrowPlanSummary||'').trim() || d.tasks.some(t=>t.tomorrow) || asArr(d.tomorrowBlocks).length>0;
+    if(!hasReview){ pushToast('Cannot close day: add night review first.','err'); setBtnState('closeDay','idle'); return; }
+    if(!hasTomorrow){ pushToast('Cannot close day: add tomorrow dump/tasks/blocks first.','err'); setBtnState('closeDay','idle'); return; }
+    d.status={closed:true,closedAt:new Date().toISOString()};
+    pushToast('Day closed successfully.','ok');
+    setBtnState('closeDay','done');
+    ui();
+  });
+  on('reopenDay',()=>{d.status={closed:false,closedAt:null}; ui();});
+
+  const mapFields = ['wakeTime','intention','mainFocus','risk','mood','energy'];
+  mapFields.forEach(k=>{ const el=byId(k); if(el) el.oninput=()=>{d.morningEntry[k==='risk'?'biggestRisk':k]=el.value; recalcPersist();}; });
+  ['wentWell','slipped','lesson','improve'].forEach(k=>{ const el=byId(k); if(el) el.oninput=()=>{d.eveningEntry[k==='improve'?'improveTomorrow':k]=el.value; recalcPersist();}; });
+  if(byId('nightJournal')) byId('nightJournal').oninput=e=>{d.nightEntry.review=e.target.value; recalcPersist();};
+  document.querySelectorAll('[data-jq]').forEach(el=>el.oninput=()=>{
+    const k = el.dataset.jq;
+    const idx = Number(el.dataset.idx||0);
+    if(k==='morning'){ d.morningEntry.answers = d.morningEntry.answers || []; d.morningEntry.answers[idx]=el.value; }
+    if(k==='evening'){ d.eveningEntry.answers = d.eveningEntry.answers || []; d.eveningEntry.answers[idx]=el.value; }
+    if(k==='night'){ d.nightEntry.answers = d.nightEntry.answers || []; d.nightEntry.answers[idx]=el.value; }
+    recalcPersist();
+  });
+
+  // builder binds
+  [['setAppTitle','appTitle'],['setGoalName','activeGoalName'],['setGoalStart','goalStartDate']].forEach(([id,key])=>{const el=byId(id); if(el) el.oninput=()=>{state.settings[key]=el.value; save();};});
+  [['setGoalDays','goalLengthDays'],['setCurrentDay','currentDay']].forEach(([id,key])=>{const el=byId(id); if(el) el.oninput=()=>{state.settings[key]=Number(el.value||1); save();};});
+  on('resetGoal',()=>{if(confirm('Reset goal progress?')){state.settings.currentDay=1;state.days={};state.days[todayKey()]=ensureDay();ui();}});
+  on('newGoalTemplate',()=>{state.settings.currentDay=1; state.settings.goalStartDate=todayKey(); alert('New goal template staged. Edit fields as needed.'); save();});
+
+  ['scDo','scLearn','scTask','scJournal','scPenalty'].forEach(id=>{const el=byId(id); if(el) el.oninput=()=>{const s=state.builder.scoring; s.doMax=Number(v('scDo')||35);s.learningMax=Number(v('scLearn')||25);s.taskMax=Number(v('scTask')||20);s.journalMax=Number(v('scJournal')||20);s.dontPenaltyCap=Number(v('scPenalty')||25); save();};});
+  document.querySelectorAll('[data-tasktype]').forEach(el=>el.oninput=()=>{state.builder.scoring.taskTypePoints[el.dataset.tasktype]=Number(el.value||0); save();});
+
+  [['aiEndpoint','endpoint'],['aiModel','model'],['aiFallbackModel','fallbackModel'],['aiKey','apiKey'],['aiSiteUrl','siteUrl'],['aiSiteName','siteName'],['aiPrompt','systemPrompt']].forEach(([id,key])=>{const el=byId(id); if(el) el.oninput=()=>{state.settings.ai[key]=el.value; save();};});
+  const aiE = byId('aiEnabled'); if(aiE) aiE.onchange=()=>{state.settings.ai.enabled=aiE.checked; save();};
+
+  on('addTpl',()=>{state.builder.learningBlockTemplates.push({id:uid(),title:prompt('Title','New template')||'New template',minutes:Number(prompt('Minutes','45')||45),category:prompt('Category','learning')||'learning'}); ui();});
+  on('addIdea',()=>{state.ideas.unshift({id:uid(),title:prompt('Idea title','')||'Untitled',description:prompt('Description','')||'',category:prompt('Category','strategy')||'strategy',tag:prompt('Tag','')||'',createdAt:new Date().toISOString().slice(0,10),urgency:prompt('Urgency (low/normal/high)','normal')||'normal',note:'',archived:false,important:false}); ui();});
+
+  on('exportJson',()=>{ setBtnState('exportJson','working'); const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='stability-lite-backup.json'; a.click(); URL.revokeObjectURL(a.href); pushToast('Backup exported.','ok'); if(MEMORY_MODE) pushToast('Memory mode active: export is from temporary session state.','err'); setBtnState('exportJson','done');});
+  on('importJson',()=>{ setBtnState('importJson','working'); byId('importFile').click(); setBtnState('importJson','done');});
+  if(byId('importFile')) byId('importFile').onchange=(e)=>{const f=e.target.files?.[0]; if(!f)return; const fr=new FileReader(); fr.onload=()=>{try{state=hydrate(JSON.parse(fr.result)); state.migration.notes.push('Imported from backup JSON.'); pushToast('Backup imported.','ok'); ui();}catch{pushToast('Invalid JSON import.','err');}}; fr.readAsText(f);};
+  on('resetToday',()=>{if(confirm('Reset only today?')){setBtnState('resetToday','working');state.days[todayKey()]=ensureDay(); pushToast('Today reset complete.','ok'); setBtnState('resetToday','done'); ui();}});
+  on('resetGoalData',()=>{if(confirm('Reset only current goal data?')){setBtnState('resetGoalData','working');state.days={}; state.settings.currentDay=1; state.settings.goalStartDate=todayKey(); state.days[todayKey()]=ensureDay(); pushToast('Current goal reset complete.','ok'); setBtnState('resetGoalData','done'); ui();}});
+  on('fullReset',()=>{if(confirm('Full reset local data?')){setBtnState('fullReset','working');state=defaultState(); applyFreshRunResetIfNeeded(); pushToast('Full reset complete.','ok'); setBtnState('fullReset','done'); ui();}});
+
+  const cm = byId('closeModal'); if(cm) cm.onclick=()=>{modalDay=null; ui();};
+}
+
+function addTask(scope){
+  const t = {id:uid(),title:prompt('Task title','')||'New task',type:prompt('Type (primary/secondary/admin/learning/review/misc)','misc')||'misc',completed:false,priority:prompt('Priority (low/medium/high)','medium')||'medium',dueDate:prompt('Due date YYYY-MM-DD','')||'',tag:prompt('Tag/category','')||'',notes:prompt('Notes','')||'',tomorrow:scope==='tomorrow'};
+  if(scope==='backlog') state.taskBoard.backlog.push(t); else day().tasks.push(t); ui();
+}
+
+function handleAction(ds){
+  const d = day();
+  const i = Number(ds.i||0); const scope = ds.scope;
+  const arrForScope=()=> scope==='backlog'?state.taskBoard.backlog : d.tasks.filter(t=>scope==='tomorrow'?t.tomorrow:!t.tomorrow);
+  const replaceScope=(newArr)=>{
+    if(scope==='backlog') state.taskBoard.backlog=newArr;
+    else { const untouched=d.tasks.filter(t=>scope==='tomorrow'?!t.tomorrow:t.tomorrow); d.tasks = scope==='tomorrow'?[...untouched,...newArr]:[...newArr,...untouched]; }
+  };
+  switch(ds.act){
+    case 'toggleBlock': d.learningBlocks[i].completed=!d.learningBlocks[i].completed; break;
+    case 'editBlock': {const b=d.learningBlocks[i]; b.label=prompt('Label',b.label)||b.label; b.minutes=Number(prompt('Minutes',String(b.minutes))||b.minutes); b.startTime=prompt('Start',b.startTime)||b.startTime; b.category=prompt('Category',b.category)||b.category; b.note=prompt('Note',b.note)||b.note; } break;
+    case 'delBlock': d.learningBlocks.splice(i,1); break;
+    case 'doCheck': d.doChecked[ds.id]=!d.doChecked[ds.id]; break;
+    case 'dontCheck': d.dontChecked[ds.id]=!d.dontChecked[ds.id]; break;
+    case 'taskToggle': {const a=arrForScope(); a[i].completed=!a[i].completed; replaceScope(a);} break;
+    case 'taskUp': {const a=arrForScope(); if(i>0){[a[i-1],a[i]]=[a[i],a[i-1]];} replaceScope(a);} break;
+    case 'taskDown': {const a=arrForScope(); if(i<a.length-1){[a[i+1],a[i]]=[a[i],a[i+1]];} replaceScope(a);} break;
+    case 'taskEdit': {const a=arrForScope(); const t=a[i]; t.title=prompt('Title',t.title)||t.title; t.type=prompt('Type',t.type)||t.type; t.priority=prompt('Priority',t.priority)||t.priority; t.dueDate=prompt('Due date',t.dueDate)||t.dueDate; t.tag=prompt('Tag',t.tag)||t.tag; t.notes=prompt('Notes',t.notes)||t.notes; replaceScope(a);} break;
+    case 'taskDel': {const a=arrForScope(); a.splice(i,1); replaceScope(a);} break;
+    case 'openHistory': modalDay = ds.day; break;
+    case 'ideaEdit': {const x=state.ideas[i]; x.title=prompt('Title',x.title)||x.title; x.description=prompt('Description',x.description)||x.description; x.category=prompt('Category',x.category||'strategy')||x.category||'strategy'; x.tag=prompt('Tag',x.tag)||x.tag; x.urgency=prompt('Urgency',x.urgency)||x.urgency; x.note=prompt('Note',x.note)||x.note;} break;
+    case 'ideaClassify': {
+      const idea = state.ideas[i];
+      const local = {summary:'',wins:[],weaknesses:[],warnings:[]};
+      safeAIRefine(local, `Classify this idea: ${idea.title}\n${idea.description}\nReturn JSON with category, urgency, decision.`).then(r=>{
+        idea.category = r.category || idea.category || 'strategy';
+        idea.urgency = r.urgency || idea.urgency || 'normal';
+        idea.note = [idea.note||'', r.decision ? `AI: ${r.decision}` : ''].filter(Boolean).join(' | ');
+        pushToast(`Idea classified${r.modelUsed?` via ${r.modelUsed}`:''}.`, r.aiUsed?'ok':'err');
+        ui();
+      });
+      return;
+    }
+    case 'ideaArchive': state.ideas[i].archived=!state.ideas[i].archived; break;
+    case 'ideaTask': d.tasks.push({id:uid(),title:state.ideas[i].title,type:'misc',completed:false,priority:'medium',dueDate:'',tag:state.ideas[i].tag||'idea',notes:state.ideas[i].description||''}); break;
+    case 'ideaImportant': state.ideas[i].important=!state.ideas[i].important; break;
+    case 'ideaDel': state.ideas.splice(i,1); break;
+    case 'ruleUp': move(state.builder[ds.key],i,-1); break;
+    case 'ruleDown': move(state.builder[ds.key],i,1); break;
+    case 'ruleEdit': {const r=state.builder[ds.key][i]; r.text=prompt('Rule',r.text)||r.text; r.points=Number(prompt('Points',String(r.points))||r.points);} break;
+    case 'ruleDel': state.builder[ds.key].splice(i,1); break;
+    case 'ruleAdd': state.builder[ds.key].push({id:uid(),text:prompt('Rule text','New rule')||'New rule',points:Number(prompt('Points','5')||5)}); break;
+    case 'tplEdit': {const t=state.builder.learningBlockTemplates[i]; t.title=prompt('Title',t.title)||t.title; t.minutes=Number(prompt('Minutes',String(t.minutes))||t.minutes); t.category=prompt('Category',t.category)||t.category;} break;
+    case 'tplDel': state.builder.learningBlockTemplates.splice(i,1); break;
+    case 'qAdd': state.builder[ds.key].push(prompt('Question','New question')||'New question'); break;
+    case 'qEdit': state.builder[ds.key][i]=prompt('Question',state.builder[ds.key][i])||state.builder[ds.key][i]; break;
+    case 'qDel': state.builder[ds.key].splice(i,1); break;
+  }
+  ui();
+}
+function move(arr,i,delta){const j=i+delta;if(j<0||j>=arr.length)return; [arr[i],arr[j]]=[arr[j],arr[i]];}
+
+window.addEventListener('error',()=>{try{document.getElementById('app').insertAdjacentHTML('afterbegin','<div class="glass card danger">Recovered from runtime error.</div>')}catch{}});
+window.addEventListener('unhandledrejection',()=>{try{document.getElementById('app').insertAdjacentHTML('afterbegin','<div class="glass card danger">Recovered from async error.</div>')}catch{}});
+window.addEventListener('beforeinstallprompt',(e)=>{
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  pushToast('Install is available for this app.','ok');
+  ui();
+});
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{ navigator.serviceWorker.register('./service-worker.js').catch(()=>{}); });
+}
+
+ui();
+})();
 </script>
 </body>
 </html>
