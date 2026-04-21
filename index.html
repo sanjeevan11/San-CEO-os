@@ -105,6 +105,27 @@
     .status-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:999px;font-size:11px;background:rgba(255,255,255,.08);margin-left:6px}
     .status-chip.ok{color:var(--ok);border:1px solid rgba(108,227,157,.35)}
     .status-chip.err{color:var(--warn);border:1px solid rgba(255,127,120,.35)}
+    .os-shell{display:grid;gap:10px}
+    .ring{
+      --p:0;
+      width:118px;height:118px;border-radius:50%;
+      background:
+        radial-gradient(circle at 50% 50%, rgba(10,20,42,.95) 0 58%, transparent 59%),
+        conic-gradient(from -90deg, #45d7ff calc(var(--p) * 1%), rgba(255,255,255,.09) 0);
+      border:1px solid rgba(122,192,255,.35);
+      display:grid;place-items:center;box-shadow:0 10px 22px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.08);
+    }
+    .ring b{font-size:26px}
+    .cmd-grid{display:grid;grid-template-columns:1.3fr .9fr;gap:10px}
+    @media (max-width:840px){.cmd-grid{grid-template-columns:1fr}}
+    .timeline{display:grid;gap:8px}
+    .tl-item{padding:10px;border-radius:12px;background:rgba(8,16,34,.72);border:1px solid rgba(120,180,255,.2)}
+    .seg{display:flex;gap:8px;flex-wrap:wrap}
+    .seg .btn{flex:1 1 120px}
+    .skeleton{position:relative;overflow:hidden}
+    .skeleton::after{content:'';position:absolute;inset:0;background:linear-gradient(100deg,transparent 20%,rgba(255,255,255,.08) 40%,transparent 60%);animation:sh 1.2s linear infinite}
+    @keyframes sh{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
+    .mode-badge{display:inline-flex;padding:6px 10px;border-radius:999px;background:rgba(67,180,255,.18);border:1px solid rgba(99,197,255,.35);font-size:12px;font-weight:700}
   </style>
 </head>
 <body>
@@ -114,7 +135,7 @@
 <script>
 (()=>{
 'use strict';
-const APP_VERSION = 7;
+const APP_VERSION = 8;
 const LS_NEW = 'stability_lite_state_v1';
 const LS_OLD = ['stability_os_data_v5','stability_os_config_v5','stability_os_data_v4','stability_os_config_v4'];
 const uid = ()=>Math.random().toString(36).slice(2,9)+Date.now().toString(36).slice(-5);
@@ -127,7 +148,7 @@ const defaultState = ()=>({
   version: APP_VERSION,
   settings:{appTitle:'Stability Lite',activeGoalName:'Execution Sprint',goalLengthDays:30,currentDay:1,goalStartDate:todayKey(),
     ai:{enabled:false,endpoint:'https://openrouter.ai/api/v1/chat/completions',model:'qwen/qwen3.6-plus:free',fallbackModel:'openrouter/free',apiKey:'',siteUrl:'',siteName:'Stability Lite',systemPrompt:'Refine summaries and next actions.'},
-    ui:{themeVariant:'indigo',installNoticeDismissed:false,memoryMode:false,freshRunResetAt:''}
+    ui:{themeVariant:'indigo',installNoticeDismissed:false,memoryMode:false,freshRunResetAt:'',mode:'Focus'}
   },
   builder:{
     morningQuestions:['What matters most today?','Biggest risk?','How will I protect focus?'],
@@ -201,69 +222,95 @@ function hashFinger(text){let h=2166136261; for(const c of String(text||'')){h^=
 
 function parseDump(text, mode='today'){
   const lines = String(text||'').split(/\n+/).map(v=>v.trim()).filter(Boolean);
-  const out = {suggestedDo:[],partialDo:[],suggestedDont:[],learningBlocks:[],completedTasks:[],summary:'',wins:[],weaknesses:[],warnings:[],confidence:0.65,aiUsed:false,tomorrowTasks:[],priorities:[],facts:{wakeTime:'',waterMl:0,meditationMin:0,visualisationMin:0,learningMinutes:0,dontTags:[]}};
-  const topicMap=[
-    ['power bi','Power BI'],['t sql','SQL / T-SQL'],['tsql','SQL / T-SQL'],['sql','SQL / T-SQL'],
-    ['quiz','Quiz'],['revision','Revision'],['learning','Learning'],['meditation','Meditation'],['visualisation','Visualisation']
-  ];
-  for(const line of lines){
+  const out = {
+    wakeTime:'',wakeStatus:'unknown',snoozeDetected:false,waterMl:0,meditationMin:0,visualisationMin:0,
+    learningBlocks:[],learningMinutes:0,learningQualitySummary:'',bodyActions:[],doMatches:[],doPartial:[],dontMatches:[],
+    tasksDetected:[],completedTasks:[],summary:'',wins:[],weaknesses:[],warnings:[],confidence:0.65,aiUsed:false,
+    tomorrowTasks:[],priorities:[],signals:{sugar:false,social:false,drift:false,nap:false,aiDrift:false},
+    facts:{wakeTime:'',waterMl:0,meditationMin:0,visualisationMin:0,learningMinutes:0,dontTags:[]}
+  };
+  const topicMap=[['power bi','Power BI'],['microsoft page','Microsoft Learn'],['microsoft learn','Microsoft Learn'],['t sql','SQL / T-SQL'],['tsql','SQL / T-SQL'],['sql','SQL / T-SQL'],['dax','DAX'],['quiz','Quiz / Revision'],['revision','Quiz / Revision'],['practice','Practice'],['learning','Learning'],['study','Learning']];
+  const pushDont=(reason,tag)=>{
+    if(!out.dontMatches.includes(reason)) out.dontMatches.push(reason);
+    if(tag && !out.facts.dontTags.includes(tag)) out.facts.dontTags.push(tag);
+  };
+  for(const rawLine of lines){
+    const line = rawLine.replace(/waked up/ig,'woke up');
     const l = line.toLowerCase();
     const minutes = parseDuration(line);
-    const time = parseClockTime(line);
-    if(/done|finished|completed|achieved|wrapped|sent|submitted|closed|resolved|\[x\]|✅/.test(l)) out.completedTasks.push(line.replace(/^[-*]\s*/,''));
-    if(/win|good|focused|strong|progress|kept|disciplined|on time/.test(l)) out.wins.push(line);
-    if(/slip|weak|drift|late|miss|distract|delay|procrast|avoid|stuck/.test(l)) out.weaknesses.push(line);
-    if(/social media|reels|shorts/.test(l)){ out.suggestedDont.push(line); out.facts.dontTags.push('social'); }
-    if(/random research|tab switching|distract|started building/.test(l)){ out.suggestedDont.push(line); out.facts.dontTags.push('research_drift'); }
-    if(/grok|chatgpt|ai drift|random ai/.test(l)){ out.suggestedDont.push(line); out.facts.dontTags.push('ai_drift'); }
-    if(/dozed|nap|doze/.test(l)){ out.suggestedDont.push(line); out.facts.dontTags.push('nap'); }
-    if(/side project|building app|tracking app/.test(l)){ out.suggestedDont.push(line); out.facts.dontTags.push('side_project'); }
-    if(/sugar|biscuit|cake/.test(l)) out.suggestedDont.push(line);
-    if(/do\b|completed\b|done\b/.test(l)) out.suggestedDo.push(line);
-    if(/woke|waked up|wake up/.test(l)){
-      out.suggestedDo.push('Wake by target time');
-      const w = parseClockTime(line.replace('.',':'));
-      if(w) out.facts.wakeTime = w;
+    const time = parseClockTime(line.replace(/(\d)\.(\d{2}\s*[ap]m)/ig,'$1:$2').replace(/(\d)\.(\d{2})/g,'$1:$2'));
+    const quality = /distract|shallow|slow|drift/.test(l) ? 'low' : 'good';
+    if(/done|finished|completed|achieved|wrapped|sent|submitted|closed|resolved|\[x\]|✅/.test(l)){
+      out.completedTasks.push(line.replace(/^[-*]\s*/,''));
+      out.tasksDetected.push(line.replace(/^[-*]\s*/,''));
+    }
+    if(/win|good|focused|strong|progress|kept|disciplined|on time|improved/.test(l)) out.wins.push(line);
+    if(/slip|weak|drift|late|miss|distract|delay|procrast|avoid|stuck|relapsed|wasted/.test(l)) out.weaknesses.push(line);
+    if(/social media|reels|shorts|instagram|youtube shorts/.test(l)){ out.signals.social=true; pushDont(line,'social'); }
+    if(/random research|tab switching|unrelated|distract|tracking app|started building/.test(l)){ out.signals.drift=true; pushDont(line,'research_drift'); }
+    if(/grok|chatgpt|ai drift|random ai/.test(l)){ out.signals.aiDrift=true; pushDont(line,'ai_drift'); }
+    if(/dozed|nap|doze/.test(l)){ out.signals.nap=true; pushDont(line,'nap'); }
+    if(/side project|building app|tracking app/.test(l)){ pushDont(line,'side_project'); }
+    if(/sugar|biscuit|cake/.test(l)){ out.signals.sugar=true; pushDont(line,'sugar'); }
+    if(/woke|wake up|wake at/.test(l)){
+      out.doMatches.push('Wake by target time');
+      out.snoozeDetected = out.snoozeDetected || /snooz/.test(l);
+      const w = time || parseClockTime(line.replace('.',':'));
+      if(w){ out.wakeTime = w; out.facts.wakeTime = w; }
       if(/late/.test(l)) out.weaknesses.push(line);
     }
     if(/water/.test(l)){
       const mm = l.match(/(\d+)\s*ml/);
-      if(mm) out.facts.waterMl += Number(mm[1]||0);
-      if(/after waking|done/.test(l)) out.suggestedDo.push('Water after waking');
+      if(mm){ out.waterMl += Number(mm[1]||0); out.facts.waterMl += Number(mm[1]||0); }
+      if(/after waking|done/.test(l)) out.doMatches.push('Water after waking');
     }
     if(/meditation/.test(l)){
-      out.suggestedDo.push('Meditation completed');
+      out.doMatches.push('Meditation completed');
+      out.meditationMin += minutes || 0;
       out.facts.meditationMin += minutes || 0;
-      if(minutes>0 && minutes<20) out.partialDo.push('Meditation completed');
+      if(minutes>0 && minutes<20) out.doPartial.push('Meditation completed');
     }
-    if(/visuali[sz]ation|visualise|visualisation/.test(l)){
-      out.suggestedDo.push('Visualisation completed');
+    if(/visuali[sz]ation|visualise/.test(l)){
+      out.doMatches.push('Visualisation completed');
+      out.visualisationMin += minutes || 0;
       out.facts.visualisationMin += minutes || 0;
-      if(minutes>0 && minutes<5) out.partialDo.push('Visualisation completed');
+      if(minutes>0 && minutes<5) out.doPartial.push('Visualisation completed');
     }
-
+    if(/walk|workout|stretch|breathwork/.test(l)){
+      out.bodyActions.push(line);
+      if(!out.wins.includes(line)) out.wins.push(line);
+    }
     let topic=''; for(const [k,v] of topicMap){ if(l.includes(k)){topic=v; break;}}
-    if(topic && minutes>0) {
-      const category = /meditation|visualisation/.test(l) ? 'wellbeing' : 'learning';
-      out.learningBlocks.push({id:uid(),label:topic,minutes,startTime:time,category,note:line,completed:true,quality:/distract|shallow/.test(l)?'low':'good'});
-      if(category==='learning') out.facts.learningMinutes += minutes;
+    if(topic && minutes>0){
+      const category = /quiz|revision|practice/.test(l) ? 'revision' : 'learning';
+      out.learningBlocks.push({id:uid(),label:topic,minutes,startTime:time,category,note:line,completed:true,quality});
+      out.learningMinutes += minutes;
+      out.facts.learningMinutes += minutes;
     }
-
-    if(mode==='tomorrow' && /tomorrow|next|plan|priority|must/.test(l)){
-      const t = /primary/.test(l)?'primary':/secondary/.test(l)?'secondary':/admin/.test(l)?'admin':/review/.test(l)?'review':/learning|study|sql|power bi/.test(l)?'learning':'misc';
+    if(mode==='tomorrow' && /tomorrow|next|plan|priority|must|first block|fallback/.test(l)){
+      const t = /primary|first/.test(l)?'primary':/secondary/.test(l)?'secondary':/admin|follow up|email/.test(l)?'admin':/review/.test(l)?'review':/learning|study|sql|power bi|dax/.test(l)?'learning':'misc';
       out.tomorrowTasks.push({id:uid(),title:line.replace(/^[-*]\s*/,''),type:t,completed:false,priority:/high|urgent|must/.test(l)?'high':'medium',dueDate:'',tag:'',notes:''});
-      if(/primary|urgent|must/.test(l)) out.priorities.push(line);
+      if(/primary|urgent|must|first/.test(l)) out.priorities.push(line);
     }
   }
-  out.completedTasks = [...new Set(out.completedTasks)].map(t=>({id:uid(),title:t,type:'review',completed:true,priority:'medium',dueDate:'',tag:'',notes:''}));
-  out.suggestedDo = [...new Set(out.suggestedDo)].slice(0,8);
-  out.suggestedDont = [...new Set(out.suggestedDont)].slice(0,8);
+  out.completedTasks = uniqueBy(out.completedTasks.map(t=>({id:uid(),title:t,type:'review',completed:true,priority:'medium',dueDate:'',tag:'',notes:''})), t=>String(t.title).toLowerCase());
+  out.tasksDetected = uniqueBy(out.tasksDetected, t=>String(t).toLowerCase());
+  out.doMatches = [...new Set(out.doMatches)].slice(0,10);
+  out.doPartial = [...new Set(out.doPartial)].slice(0,8);
+  out.suggestedDo = out.doMatches;
+  out.suggestedDont = out.dontMatches;
   out.wins = [...new Set(out.wins)].slice(0,6);
   out.weaknesses = [...new Set(out.weaknesses)].slice(0,6);
-  out.facts.dontTags = [...new Set(out.facts.dontTags)];
-  out.summary = lines.slice(0,3).join(' | ') || 'No summary generated yet.';
+  out.learningBlocks = uniqueBy(out.learningBlocks, b=>`${String(b.label).toLowerCase()}|${Number(b.minutes)||0}|${b.startTime||''}|${b.category||''}`);
+  const goodBlocks = out.learningBlocks.filter(b=>b.quality!=='low').length;
+  out.learningQualitySummary = out.learningBlocks.length ? `${goodBlocks}/${out.learningBlocks.length} focused blocks` : 'No learning blocks detected';
+  out.summary = out.learningBlocks.length
+    ? `Detected ${out.learningBlocks.length} blocks (${out.learningMinutes} min). ${out.learningQualitySummary}.`
+    : (lines.slice(0,3).join(' | ') || 'No summary generated yet.');
   if(lines.length<2){ out.warnings.push('Very short dump; parser confidence reduced.'); out.confidence=0.35; }
-  if(lines.length>10) out.confidence=0.85;
+  if(lines.length>10) out.confidence=0.86;
+  if(!out.wakeTime) out.warnings.push('Wake time not confidently detected.');
+  if(!out.learningBlocks.length && mode==='today') out.warnings.push('No learning blocks detected from this dump.');
   return out;
 }
 const parseTodayDump = (text)=>parseDump(text,'today');
@@ -424,7 +471,7 @@ function hydrate(s){
 
 let state = loadState();
 applyFreshRunResetIfNeeded();
-let activeTab = 'dashboard';
+let activeTab = 'command';
 let modalDay = null;
 let applyLock = false;
 let actionStatus = {};
@@ -581,6 +628,7 @@ function render(){
   const d = day();
   const progress = clamp((Number(state.settings.currentDay||1)/Math.max(1,Number(state.settings.goalLengthDays||30)))*100,0,100);
   return `
+    <div class="os-shell fade-in">
     ${state.settings.ui.memoryMode ? `<section class="banner">Temporary memory mode: browser storage unavailable in this preview. Changes may not persist.</section>` : ''}
     <section class="glass card">
       <div class="title">Goal Header</div>
@@ -588,17 +636,19 @@ function render(){
         <div><div style="font-size:24px;font-weight:800">${esc(state.settings.appTitle)}</div><div class="muted">${esc(state.settings.activeGoalName)}</div></div>
         <div class="pill">Day ${state.settings.currentDay} / ${state.settings.goalLengthDays}</div>
       </div>
-      <div class="banner">Fresh 30-Day Run — Day 1</div>
+      <div class="banner"><span class="mode-badge">${esc(state.settings.ui.mode||'Focus')}</span> Fresh 30-Day Run — Day ${state.settings.currentDay}</div>
       <progress max="100" value="${progress}"></progress>
       ${renderInstallCard()}
     </section>
-    ${activeTab==='dashboard'?renderDashboard(d):''}
-    ${activeTab==='rules'?renderRulesTab(d):''}
+    ${activeTab==='command'?renderCommand(d):''}
+    ${activeTab==='today'?renderToday(d):''}
+    ${activeTab==='plan'?renderPlan(d):''}
     ${activeTab==='tasks'?renderTasks(d):''}
     ${activeTab==='journal'?renderJournal(d):''}
     ${activeTab==='ideas'?renderIdeas():''}
     ${activeTab==='builder'?renderBuilder():''}
     ${modalDay?renderHistoryModal(modalDay):''}
+    </div>
   `;
 }
 function renderInstallCard(){
@@ -606,23 +656,44 @@ function renderInstallCard(){
   return `<div class="muted" style="margin-top:8px">Use browser menu → Add to Home Screen.</div>`;
 }
 
-function renderDashboard(d){
+function renderCommand(d){
+  const progress = clamp((Number(state.settings.currentDay||1)/Math.max(1,Number(state.settings.goalLengthDays||30)))*100,0,100);
+  const learnMinutes = d.learningBlocks.filter(b=>b.completed).reduce((s,b)=>s+Number(b.minutes||0),0);
+  const topTask = d.tasks.find(t=>!t.completed)?.title || 'No pending task';
+  const drift = Object.values(d.dontChecked||{}).filter(Boolean).length ? 'Drift risk elevated' : 'Drift stable';
+  const recent = Object.keys(state.days).sort().reverse().slice(0,4);
   const doTotal = state.builder.doRules.length;
   const dontTotal = state.builder.dontRules.length;
   return `
-  <section class="glass card hero" style="margin-top:10px">
-    <div class="title">Final Score</div>
-    <div class="big" style="font-size:58px;line-height:1">${d.score.final}</div>
-    <div class="muted">Final = DO + Learning + Tasks + Journal - Penalty</div>
+  <section class="cmd-grid section">
+    <div class="glass card hero">
+      <div class="title">Command Score</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap">
+        <div><div class="big" style="font-size:58px;line-height:1">${d.score.final}</div><div class="muted">Final = DO + Learning + Tasks + Journal - Penalty</div></div>
+        <div class="ring" style="--p:${Math.round(progress)}"><div style="text-align:center"><b>${Math.round(progress)}%</b><div class="k">Goal</div></div></div>
+      </div>
+      <div class="seg" style="margin-top:10px">
+        <button class="btn primary" data-act="navTo" data-tab="today">Parse Today</button>
+        <button class="btn" data-act="navTo" data-tab="plan">Plan Tomorrow</button>
+        <button class="btn" data-act="navTo" data-tab="tasks">Add Task</button>
+        <button class="btn" data-act="navTo" data-tab="ideas">Add Idea</button>
+      </div>
+    </div>
+    <div class="glass card">
+      <div class="title">What Matters Now</div>
+      <div class="item"><div class="k">Next critical action</div><div>${esc(topTask)}</div></div>
+      <div class="item" style="margin-top:8px"><div class="k">Top drift alert</div><div>${esc(drift)}</div></div>
+      <div class="item" style="margin-top:8px"><div class="k">Learning progress</div><div>${learnMinutes} minutes logged today</div></div>
+    </div>
   </section>
-  <section class="row" style="margin-top:10px">
+  <section class="row section">
     <div class="metric m-do"><div class="title">DO</div><div class="big">${d.score.doEarned}</div></div>
     <div class="metric m-learning"><div class="title">Learning</div><div class="big">${d.score.learningEarned}</div></div>
     <div class="metric m-task"><div class="title">Tasks</div><div class="big">${d.score.taskEarned}</div></div>
     <div class="metric m-journal"><div class="title">Journal</div><div class="big">${d.score.journalEarned}</div></div>
     <div class="metric m-penalty"><div class="title">Penalty</div><div class="big">-${d.score.penaltyLost}</div></div>
   </section>
-  <section class="glass card" style="margin-top:10px"><div class="title">Today Summary</div>
+  <section class="glass card section"><div class="title">Quick Stats</div>
     <div class="row">
       <div class="item">DO: ${Object.values(d.doChecked).filter(Boolean).length}/${doTotal}</div>
       <div class="item">DON'T breaches: ${Object.values(d.dontChecked).filter(Boolean).length}/${dontTotal}</div>
@@ -630,18 +701,30 @@ function renderDashboard(d){
       <div class="item">Tasks done: ${d.tasks.filter(t=>t.completed).length}/${d.tasks.length}</div>
     </div>
   </section>
-  ${renderDumpCards(d)}
-  ${renderLearningBlocks(d)}
-  ${renderCloseDay(d)}
+  <section class="glass card section"><div class="title">Recent Performance</div>
+    <div class="list">${recent.map(h=>`<button class="btn" data-act="openHistory" data-day="${h}">${h} • ${state.days[h]?.score?.final||0} • ${(state.days[h]?.summary||'No summary').slice(0,56)}</button>`).join('')}</div>
+  </section>
   `;
 }
-function renderRulesTab(d){
-  return `<section class="glass card" style="margin-top:10px"><div class="title">DO / DON'T Rules</div>${renderRules(d)}</section>`;
+function renderToday(d){
+  return `${renderDumpCards(d,'today')}${renderLearningBlocks(d)}<section class="glass card section"><div class="title">Rules</div>${renderRules(d)}</section>${renderCloseDay(d)}${renderTimeline(d)}`;
+}
+function renderPlan(d){
+  const tomorrowTasks = d.tasks.filter(t=>t.tomorrow);
+  return `
+    ${renderDumpCards(d,'tomorrow')}
+    <section class="glass card section"><div class="title">Tomorrow Structured Stack</div>
+      <div class="list">${tomorrowTasks.map((t,i)=>taskItem(t,i,'tomorrow')).join('') || '<div class="muted">No tomorrow tasks yet. Parse tomorrow dump or add from Tasks tab.</div>'}</div>
+      <div class="item" style="margin-top:8px"><div class="k">First block suggestion</div><div>${esc(tomorrowTasks.find(t=>t.type==='primary')?.title || tomorrowTasks[0]?.title || 'Not set')}</div></div>
+      <div class="item" style="margin-top:8px"><div class="k">Fallback low-energy plan</div><div>${esc(d.parsePreviewTomorrow?.fallbackPlan || 'Use one 25-minute learning block + one admin closeout task.')}</div></div>
+    </section>`;
 }
 
-function renderDumpCards(d){
-  return `<section class="row" style="margin-top:10px">
-    <div class="glass card"><div class="title">Today Dump</div>
+function renderDumpCards(d, mode='today'){
+  const showToday = mode!=='tomorrow';
+  const showTomorrow = mode!=='today';
+  return `<section class="row section">
+    ${showToday?`<div class="glass card"><div class="title">Today Dump</div>
       <label>Raw today dump<textarea id="rawTodayDump">${esc(d.rawTodayDump)}</textarea></label>
       <div class="row">
         <button class="btn" id="parseToday">Parse locally</button>
@@ -651,8 +734,8 @@ function renderDumpCards(d){
         <button class="btn warn" id="clearToday">Clear</button>
       </div>
       <div class="status ${actionStatus.today?.status==='ok'?'ok':actionStatus.today?.status==='err'?'err':''}">${esc(statusText('today'))}</div>
-    </div>
-    <div class="glass card"><div class="title">Tomorrow Dump</div>
+    </div>`:''}
+    ${showTomorrow?`<div class="glass card"><div class="title">Tomorrow Dump</div>
       <label>Raw tomorrow dump<textarea id="rawTomorrowDump">${esc(d.rawTomorrowDump)}</textarea></label>
       <div class="row">
         <button class="btn" id="parseTomorrow">Parse tomorrow</button>
@@ -661,12 +744,12 @@ function renderDumpCards(d){
         <button class="btn warn" id="clearTomorrow">Clear</button>
       </div>
       <div class="status ${actionStatus.tomorrow?.status==='ok'?'ok':actionStatus.tomorrow?.status==='err'?'err':''}">${esc(statusText('tomorrow'))}</div>
-    </div>
+    </div>`:''}
   </section>
-  <section class="glass card" style="margin-top:10px"><div class="title">Parse Preview</div>
+  <section class="glass card section"><div class="title">Parse Preview</div>
     <div class="row">
-      <div class="item"><div class="k">Today analysis</div>${renderTodayPreview(d.parsePreviewToday)}</div>
-      <div class="item"><div class="k">Tomorrow analysis</div>${renderTomorrowPreview(d.parsePreviewTomorrow)}</div>
+      ${showToday?`<div class="item"><div class="k">Today analysis</div>${renderTodayPreview(d.parsePreviewToday)}</div>`:''}
+      ${showTomorrow?`<div class="item"><div class="k">Tomorrow analysis</div>${renderTomorrowPreview(d.parsePreviewTomorrow)}</div>`:''}
     </div>
   </section>`;
 }
@@ -704,7 +787,7 @@ function renderTomorrowPreview(p){
 }
 
 function renderLearningBlocks(d){
-  return `<section class="glass card" style="margin-top:10px"><div class="title">Detected Work / Learning Blocks</div>
+  return `<section class="glass card section"><div class="title">Detected Work / Learning Blocks</div>
     <div class="list">${d.learningBlocks.map((b,i)=>`<div class="item">
       <div><input data-act="toggleBlock" data-i="${i}" type="checkbox" ${b.completed?'checked':''}/> <strong>${esc(b.label)}</strong> (${b.minutes}m ${b.startTime?('@ '+b.startTime):''})</div>
       <div class="muted">${esc(b.category||'')} ${b.note?('• '+esc(b.note)):''}</div>
@@ -713,9 +796,17 @@ function renderLearningBlocks(d){
     <button class="btn" id="addBlock">Add learning block</button>
   </section>`;
 }
+function renderTimeline(d){
+  const events = [];
+  asArr(d.learningBlocks).forEach(b=>events.push({time:b.startTime||'--:--',text:`${b.label} ${b.minutes}m`,danger:b.quality==='low'}));
+  asArr(d.parsePreviewToday?.dontMatches||d.parsePreviewToday?.suggestedDont).forEach(x=>events.push({time:'',text:`Drift/Breach: ${x}`,danger:true}));
+  asArr(d.parsePreviewToday?.bodyActions).forEach(x=>events.push({time:'',text:`Recovery action: ${x}`,danger:false}));
+  if(!events.length) return '';
+  return `<section class="glass card section"><div class="title">Detected Timeline</div><div class="timeline">${events.slice(0,12).map(e=>`<div class="tl-item ${e.danger?'danger':''}"><div class="k">${esc(e.time)}</div><div>${esc(e.text)}</div></div>`).join('')}</div></section>`;
+}
 
 function renderRules(d){
-  return `<section class="row" style="margin-top:10px">
+  return `<section class="row section">
     <div class="glass card"><div class="title">DO Rules</div>${state.builder.doRules.map(r=>`<label><input data-act="doCheck" data-id="${r.id}" type="checkbox" ${d.doChecked[r.id]?'checked':''}/> ${esc(r.text)} (+${r.points})</label>`).join('')}</div>
     <div class="glass card"><div class="title">DON'T Rules</div>${state.builder.dontRules.map(r=>`<label><input data-act="dontCheck" data-id="${r.id}" type="checkbox" ${d.dontChecked[r.id]?'checked':''}/> ${esc(r.text)} (-${r.points})</label>`).join('')}</div>
   </section>`;
@@ -867,7 +958,7 @@ function renderHistoryModal(dayKeySel){
 }
 
 function renderNav(){
-  const tabs = [['dashboard','Dashboard'],['rules','Rules'],['tasks','Tasks'],['journal','Journal'],['ideas','Ideas'],['builder','Builder']];
+  const tabs = [['command','Command'],['today','Today'],['plan','Plan'],['tasks','Tasks'],['journal','Journal'],['ideas','Ideas'],['builder','Builder']];
   document.getElementById('bottomNav').innerHTML = tabs.map(([id,label])=>`<button class="tab ${activeTab===id?'active':''}" data-tab="${id}">${label}</button>`).join('');
   document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{activeTab=b.dataset.tab;ui();});
 }
@@ -1015,6 +1106,7 @@ function handleAction(ds){
     else { const untouched=d.tasks.filter(t=>scope==='tomorrow'?!t.tomorrow:t.tomorrow); d.tasks = scope==='tomorrow'?[...untouched,...newArr]:[...newArr,...untouched]; }
   };
   switch(ds.act){
+    case 'navTo': activeTab = ds.tab || 'command'; ui(); return;
     case 'toggleBlock': d.learningBlocks[i].completed=!d.learningBlocks[i].completed; break;
     case 'editBlock': {const b=d.learningBlocks[i]; b.label=prompt('Label',b.label)||b.label; b.minutes=Number(prompt('Minutes',String(b.minutes))||b.minutes); b.startTime=prompt('Start',b.startTime)||b.startTime; b.category=prompt('Category',b.category)||b.category; b.note=prompt('Note',b.note)||b.note; } break;
     case 'delBlock': d.learningBlocks.splice(i,1); break;
