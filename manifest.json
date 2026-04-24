@@ -1,20 +1,42 @@
 {
-  "name": "Stability OS",
-  "short_name": "StabilityOS",
+  "name": "LandlordPulse",
+  "short_name": "LandlordPulse",
+  "description": "Premium compliance and MTD operations hub for private landlords in Birmingham and the West Midlands.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
-  "theme_color": "#08111f",
-  "background_color": "#08111f",
-  "description": "Dump-first personal COO war-room system for daily execution, legal, money, and recovery ops.",
+  "orientation": "portrait-primary",
+  "theme_color": "#4f46e5",
+  "background_color": "#f8fafc",
   "icons": [
-    { "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
-    { "src": "./icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+    {
+      "src": "./icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
   ],
   "shortcuts": [
-    { "name": "Today", "short_name": "Today", "url": "./index.html#today" },
-    { "name": "Inbox", "short_name": "Inbox", "url": "./index.html#inbox" },
-    { "name": "Legal", "short_name": "Legal", "url": "./index.html#legal" },
-    { "name": "Command", "short_name": "Command", "url": "./index.html#command" }
+    {
+      "name": "Open Dashboard",
+      "short_name": "Dashboard",
+      "url": "./index.html#dashboard"
+    },
+    {
+      "name": "Open RRA Checklist",
+      "short_name": "RRA 2026",
+      "url": "./index.html#rra"
+    },
+    {
+      "name": "Add MTD Expense",
+      "short_name": "MTD Tax",
+      "url": "./index.html#mtd"
+    }
   ]
 }
