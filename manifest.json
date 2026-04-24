@@ -1,13 +1,13 @@
 {
-  "name": "LandlordPulse",
-  "short_name": "LandlordPulse",
-  "description": "Premium compliance and MTD operations hub for private landlords in Birmingham and the West Midlands.",
+  "name": "LandlordPulse PRO",
+  "short_name": "LP PRO",
+  "description": "The definitive 2026 UK landlord compliance and execution PWA for RRA and MTD.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait-primary",
-  "theme_color": "#4f46e5",
-  "background_color": "#f8fafc",
+  "theme_color": "#020617",
+  "background_color": "#f1f5f9",
   "icons": [
     {
       "src": "./icons/icon-192.png",
@@ -24,19 +24,19 @@
   ],
   "shortcuts": [
     {
-      "name": "Open Dashboard",
-      "short_name": "Dashboard",
-      "url": "./index.html#dashboard"
+      "name": "Home Command",
+      "short_name": "Home",
+      "url": "./index.html#home"
     },
     {
-      "name": "Open RRA Checklist",
-      "short_name": "RRA 2026",
-      "url": "./index.html#rra"
+      "name": "AI Legal Factory",
+      "short_name": "Legal",
+      "url": "./index.html#legal"
     },
     {
-      "name": "Add MTD Expense",
-      "short_name": "MTD Tax",
-      "url": "./index.html#mtd"
+      "name": "Tax Vault",
+      "short_name": "Tax",
+      "url": "./index.html#tax"
     }
   ]
 }

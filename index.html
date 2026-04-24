@@ -3,170 +3,182 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#4f46e5" />
-  <meta name="description" content="LandlordPulse helps West Midlands landlords stay compliant with RRA 2026 and MTD tax rules." />
+  <meta name="theme-color" content="#020617" />
+  <meta name="description" content="LandlordPulse PRO: 2026 UK landlord compliance and execution app for RRA and MTD mandates." />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <meta name="apple-mobile-web-app-title" content="LandlordPulse" />
-  <title>LandlordPulse</title>
+  <meta name="apple-mobile-web-app-title" content="LandlordPulse PRO" />
+  <title>LandlordPulse PRO</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="icons/icon-192.png" />
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
   <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: {
-            inter: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif']
-          }
-        }
-      }
-    }
-  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
   <link rel="stylesheet" href="style.css" />
 </head>
-<body class="font-inter bg-slate-50 text-slate-800 antialiased">
-  <div class="mx-auto min-h-screen max-w-md px-4 pb-32 pt-5">
-    <header class="mb-4">
-      <p class="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-600">LandlordPulse</p>
-      <h1 class="mt-2 text-2xl font-extrabold text-slate-900">Welcome, Birmingham Properties</h1>
-      <p class="mt-1 text-sm text-slate-500">Portfolio value <span class="font-semibold text-slate-700">£1,260,000</span></p>
+<body class="bg-slate-100 font-['Inter'] text-slate-900">
+  <div class="mx-auto min-h-screen w-full max-w-[450px] px-4 pb-32 pt-5">
+    <header class="mb-4 rounded-2xl bg-slate-950 px-4 py-3 text-white shadow-xl">
+      <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-300">Industrial Legal System</p>
+      <h1 class="mt-1 text-xl font-extrabold">LandlordPulse PRO | West Midlands</h1>
     </header>
 
     <main>
-      <section id="tab-dashboard" class="tab-panel space-y-4">
-        <article class="rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-700 p-4 text-white shadow-sm">
-          <div class="flex items-start justify-between gap-2">
-            <div>
-              <p class="text-xs uppercase tracking-wide text-indigo-100">Compliance Clock</p>
-              <p class="mt-1 text-sm font-semibold">May 1, 2026 legal transition deadline</p>
-            </div>
-            <span id="countdown-pill" class="rounded-full bg-white/20 px-3 py-1 text-xs font-bold">-- days left</span>
-          </div>
+      <section id="tab-home" class="tab-panel space-y-4">
+        <article class="card bg-red-50 border-red-200">
+          <p class="text-xs font-bold uppercase tracking-wide text-red-700">Urgency Clock</p>
+          <p id="deadline-banner" class="mt-1 text-lg font-extrabold text-red-700">6 DAYS TO RRA MAY 1 DEADLINE</p>
         </article>
 
-        <article class="rounded-xl border border-red-200 bg-red-50 p-4 shadow-sm">
-          <div class="flex items-start gap-3">
-            <div class="mt-0.5 rounded-full bg-red-100 p-2 text-red-600"><i class="fa-solid fa-triangle-exclamation"></i></div>
-            <div>
-              <h2 class="text-sm font-extrabold uppercase tracking-wide text-red-700">Urgent Compliance Alert</h2>
-              <p class="mt-1 text-sm font-medium text-red-700">⚠️ URGENT: Renters' Rights Act takes effect May 1. Section 21 “no-fault” evictions abolished.</p>
-            </div>
-          </div>
-        </article>
-
-        <div class="grid grid-cols-2 gap-3">
-          <article class="rounded-xl bg-white p-4 shadow-sm">
-            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Q1 MTD Expenses</p>
-            <p id="dashboard-expenses" class="mt-2 text-2xl font-extrabold text-slate-900">£0.00</p>
-          </article>
-          <article class="rounded-xl bg-white p-4 shadow-sm">
-            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Pending Certs</p>
-            <p class="mt-2 text-2xl font-extrabold text-amber-600">2</p>
-          </article>
-        </div>
-
-        <article class="rounded-xl bg-white p-4 shadow-sm">
-          <div class="mb-3 flex items-center justify-between">
-            <h3 class="text-sm font-bold text-slate-900">Quick Actions</h3>
-            <span class="rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700">Swiss Army Toolkit</span>
-          </div>
-          <div class="grid grid-cols-3 gap-2">
-            <button data-coming-soon="Log Maintenance" class="action-btn">
-              <i class="fa-solid fa-screwdriver-wrench text-indigo-600"></i>
-              <span>Log Maintenance</span>
-            </button>
-            <button data-coming-soon="Message Tenant" class="action-btn">
-              <i class="fa-solid fa-message text-indigo-600"></i>
-              <span>Message Tenant</span>
-            </button>
-            <button id="go-expense" class="action-btn">
-              <i class="fa-solid fa-receipt text-indigo-600"></i>
-              <span>Add Expense</span>
-            </button>
-          </div>
-        </article>
-      </section>
-
-      <section id="tab-rra" class="tab-panel hidden space-y-4">
-        <article class="rounded-xl bg-white p-4 shadow-sm">
+        <article class="card">
           <div class="mb-2 flex items-center justify-between">
-            <h2 class="text-lg font-bold text-slate-900">RRA 2026 Compliance Engine</h2>
-            <span id="risk-badge" class="rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-700">High Risk of Fines</span>
+            <p class="text-sm font-bold text-slate-800">Compliance Gauge</p>
+            <span id="risk-label" class="rounded-full bg-red-100 px-2.5 py-1 text-xs font-bold text-red-700">45% - High Risk</span>
           </div>
-          <p id="compliance-label" class="text-sm font-semibold text-slate-600">0% Compliant</p>
-          <div class="mt-2 h-3 w-full overflow-hidden rounded-full bg-slate-200">
-            <div id="compliance-progress" class="h-full bg-amber-500 transition-all duration-500" style="width:0%"></div>
+          <div class="h-3 w-full rounded-full bg-slate-200">
+            <div id="risk-progress" class="h-3 rounded-full bg-red-500 transition-all duration-500" style="width:45%"></div>
           </div>
         </article>
 
-        <article class="rounded-xl bg-white p-4 shadow-sm">
-          <h3 class="mb-3 text-sm font-bold uppercase tracking-wide text-slate-500">Legal Transition Checklist</h3>
-          <div id="rra-checklist" class="space-y-3"></div>
+        <article class="card bg-amber-50 border-amber-200">
+          <p class="text-xs font-bold uppercase tracking-wide text-amber-800">Dynamic Alerts</p>
+          <p class="mt-1 text-sm font-semibold text-amber-800">Action Required: 3 Student Tenancies (Ground 4A) require transition notices.</p>
+        </article>
+
+        <article class="card">
+          <p class="text-xs font-bold uppercase tracking-wide text-slate-500">Net Income (Monthly)</p>
+          <p id="net-income" class="mt-1 text-2xl font-extrabold text-slate-950">£0.00</p>
+          <p class="mt-1 text-xs text-slate-500">Monthly Rent (£6,200) minus current MTD expenses.</p>
         </article>
       </section>
 
-      <section id="tab-mtd" class="tab-panel hidden space-y-4">
-        <article class="rounded-xl bg-white p-4 shadow-sm">
-          <div class="mb-3 flex items-center justify-between">
-            <h2 class="text-lg font-bold text-slate-900">MTD Expense Scanner</h2>
-            <span class="rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700">Quarterly Ready</span>
+      <section id="tab-legal" class="tab-panel hidden space-y-4">
+        <article class="card space-y-3">
+          <h2 class="text-lg font-extrabold text-slate-950">AI Legal Factory</h2>
+          <div>
+            <label class="label" for="api-key">OpenRouter API Key</label>
+            <input id="api-key" class="input" placeholder="sk-or-v1-..." />
           </div>
-
-          <form id="expense-form" class="space-y-3">
-            <div>
-              <label class="mb-1 block text-sm font-medium text-slate-600" for="expense-date">Date</label>
-              <input id="expense-date" required type="date" class="input-ui" />
-            </div>
-            <div>
-              <label class="mb-1 block text-sm font-medium text-slate-600" for="expense-amount">Amount (£)</label>
-              <input id="expense-amount" required min="0.01" step="0.01" type="number" placeholder="0.00" class="input-ui" />
-            </div>
-            <div>
-              <label class="mb-1 block text-sm font-medium text-slate-600" for="expense-category">Category</label>
-              <select id="expense-category" required class="input-ui">
-                <option value="Maintenance">Maintenance</option>
-                <option value="Insurance">Insurance</option>
-                <option value="Utilities">Utilities</option>
-                <option value="Letting Agent Fees">Letting Agent Fees</option>
-                <option value="Mortgage Interest">Mortgage Interest</option>
-              </select>
-            </div>
-            <button type="submit" class="w-full rounded-lg bg-indigo-600 px-4 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-indigo-700">Save Expense</button>
-          </form>
+          <div>
+            <label class="label" for="tenant-name">Tenant Name</label>
+            <input id="tenant-name" class="input" placeholder="e.g. A. Khan" />
+          </div>
+          <div>
+            <label class="label" for="tenant-address">Property Address</label>
+            <input id="tenant-address" class="input" placeholder="e.g. Selly Oak, Birmingham" />
+          </div>
+          <div>
+            <label class="label" for="legal-instrument">Select Legal Instrument</label>
+            <select id="legal-instrument" class="input">
+              <option>2026 Information Sheet</option>
+              <option>Form 4A Rent Increase Notice</option>
+              <option>Ground 4A Student Possession Notice</option>
+              <option>Pet Request Decision</option>
+            </select>
+          </div>
+          <button id="generate-legal" class="btn-primary"><i class="fa-solid fa-gavel"></i><span>Generate with AI</span></button>
         </article>
 
-        <article class="rounded-xl bg-white p-4 shadow-sm space-y-3">
-          <div class="flex items-center justify-between gap-2">
-            <h3 class="text-sm font-bold uppercase tracking-wide text-slate-500">Expense Insights</h3>
-            <button id="export-expenses" class="rounded-lg border border-slate-300 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-600">Export JSON</button>
+        <article class="card">
+          <div class="mb-2 flex items-center justify-between">
+            <p class="text-sm font-bold text-slate-800">Draft Output</p>
+            <div class="flex gap-2">
+              <button id="copy-draft" class="btn-secondary">Copy</button>
+              <button id="wa-draft" class="btn-secondary">WhatsApp to Tenant</button>
+            </div>
           </div>
-          <span id="q1-total" class="block text-sm font-bold text-slate-800">Total Q1 Expenses: £0.00</span>
-          <div id="category-summary" class="space-y-2"></div>
+          <div id="draft-paper" class="paper">No draft yet. Generate a legal instrument to begin.</div>
+        </article>
+      </section>
+
+      <section id="tab-repairs" class="tab-panel hidden space-y-4">
+        <article class="card space-y-3">
+          <h2 class="text-lg font-extrabold text-slate-950">Smart Maintenance & Trade-Benchmark</h2>
+          <div>
+            <label class="label" for="repair-desc">Repair Description</label>
+            <input id="repair-desc" class="input" placeholder="e.g. Boiler fault" />
+          </div>
+          <div>
+            <label class="label" for="repair-priority">Priority</label>
+            <select id="repair-priority" class="input">
+              <option>🚨 Emergency</option>
+              <option>🛠️ Standard</option>
+            </select>
+          </div>
+          <div>
+            <label class="label" for="repair-postcode">Postcode</label>
+            <input id="repair-postcode" class="input" placeholder="B1 1AA" />
+          </div>
+          <div>
+            <label class="label" for="repair-photo">Photo (mock field)</label>
+            <input id="repair-photo" type="file" class="input" />
+          </div>
+          <p id="price-benchmark" class="rounded-xl bg-indigo-50 px-3 py-2 text-sm font-semibold text-indigo-700">AI Price Benchmarker: Awaiting description...</p>
+          <div class="grid grid-cols-2 gap-2">
+            <button id="save-repair" class="btn-primary"><i class="fa-solid fa-floppy-disk"></i><span>Save Repair</span></button>
+            <button id="call-trade" class="btn-secondary">Call Trade</button>
+          </div>
         </article>
 
-        <article class="rounded-xl bg-white p-4 shadow-sm">
-          <h3 class="mb-2 text-sm font-bold uppercase tracking-wide text-slate-500">Expense History</h3>
+        <article class="card">
+          <p class="mb-2 text-sm font-bold text-slate-800">Repair Log</p>
+          <ul id="repair-list" class="space-y-2"></ul>
+        </article>
+      </section>
+
+      <section id="tab-tax" class="tab-panel hidden space-y-4">
+        <article class="card space-y-3">
+          <h2 class="text-lg font-extrabold text-slate-950">MTD Tax Vault & GOV-Navigator</h2>
+          <div>
+            <label class="label" for="expense-amount">Amount (£)</label>
+            <input id="expense-amount" type="number" min="0.01" step="0.01" class="input" placeholder="0.00" />
+          </div>
+          <div>
+            <label class="label" for="expense-date">Date</label>
+            <input id="expense-date" type="date" class="input" />
+          </div>
+          <div>
+            <label class="label" for="expense-category">Category</label>
+            <select id="expense-category" class="input">
+              <option>Maintenance</option>
+              <option>Letting Fees</option>
+              <option>Mortgage Interest</option>
+            </select>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <button id="save-expense" class="btn-primary"><i class="fa-solid fa-receipt"></i><span>Save Expense</span></button>
+            <button id="export-csv" class="btn-secondary">Generate MTD CSV</button>
+          </div>
+        </article>
+
+        <article class="card space-y-2">
+          <p class="text-sm font-bold text-slate-800">Government Deep Link Navigator</p>
+          <a class="gov-link" href="https://www.gov.uk/guidance/sign-up-your-business-for-making-tax-digital-for-income-tax" target="_blank" rel="noreferrer">HMRC MTD Portal <span class="tip">You will need: UPRN, 10-digit Tax ID, and valid EPC.</span></a>
+          <a class="gov-link" href="https://www.gov.uk/guidance/private-rented-sector-database" target="_blank" rel="noreferrer">National PRS Database <span class="tip">You will need: UPRN, 10-digit Tax ID, and valid EPC.</span></a>
+          <a class="gov-link" href="https://www.birmingham.gov.uk/info/20140/private_housing/2510/selective_licensing" target="_blank" rel="noreferrer">Birmingham Selective Licensing <span class="tip">You will need: UPRN, 10-digit Tax ID, and valid EPC.</span></a>
+        </article>
+
+        <article class="card">
+          <p class="mb-2 text-sm font-bold text-slate-800">Expense History</p>
           <ul id="expense-list" class="space-y-2"></ul>
         </article>
       </section>
     </main>
   </div>
 
-  <nav class="fixed bottom-4 left-1/2 z-20 w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 rounded-2xl border border-white/50 bg-white/70 p-2 shadow-lg backdrop-blur-md">
-    <ul class="grid grid-cols-3 gap-1 text-xs font-semibold">
-      <li><button data-tab="dashboard" class="nav-btn active"><i class="fa-solid fa-chart-line"></i><span>Dashboard</span></button></li>
-      <li><button data-tab="rra" class="nav-btn"><i class="fa-solid fa-scale-balanced"></i><span>RRA 2026</span></button></li>
-      <li><button data-tab="mtd" class="nav-btn"><i class="fa-solid fa-file-invoice-pound"></i><span>MTD Tax</span></button></li>
+  <nav class="fixed bottom-3 left-1/2 z-20 w-[calc(100%-1.5rem)] max-w-[450px] -translate-x-1/2 rounded-2xl border border-white/50 bg-white/90 p-2 shadow-xl backdrop-blur">
+    <ul class="grid grid-cols-4 gap-1 text-[11px] font-semibold text-slate-600">
+      <li><button data-tab="home" class="nav-btn active"><i class="fa-solid fa-house"></i><span>Home</span></button></li>
+      <li><button data-tab="legal" class="nav-btn"><i class="fa-solid fa-scale-balanced"></i><span>Legal</span></button></li>
+      <li><button data-tab="repairs" class="nav-btn"><i class="fa-solid fa-screwdriver-wrench"></i><span>Repairs</span></button></li>
+      <li><button data-tab="tax" class="nav-btn"><i class="fa-solid fa-file-invoice-pound"></i><span>Tax</span></button></li>
     </ul>
   </nav>
 
-  <div id="toast" class="pointer-events-none fixed left-1/2 top-5 z-30 hidden -translate-x-1/2 rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-lg"></div>
+  <div id="toast" class="hidden fixed left-1/2 top-5 z-30 -translate-x-1/2 rounded-full bg-slate-950 px-4 py-2 text-xs font-semibold text-white shadow-xl"></div>
 
   <script src="script.js"></script>
 </body>

@@ -1,262 +1,293 @@
-const STORAGE_KEYS = {
-  expenses: 'landlordpulse_expenses',
-  rra: 'landlordpulse_rra_checklist'
+const STORAGE = {
+  tasks: 'lp_pro_tasks',
+  docs: 'lp_pro_docs',
+  repairs: 'lp_pro_repairs',
+  expenses: 'lp_pro_expenses',
+  apiKey: 'lp_pro_openrouter_key'
 };
 
-const DEADLINE = new Date('2026-05-01T00:00:00Z');
-
-const rraTasks = [
-  'Transition active ASTs to Assured Periodic (Rolling) Tenancies',
-  'Review Section 8 grounds for possession',
-  'Update contracts to remove rental bidding clauses',
-  'Gas Safety & EICR valid for May 1 transition'
-];
-
+const monthlyRent = 6200;
 const tabs = document.querySelectorAll('.nav-btn');
 const panels = document.querySelectorAll('.tab-panel');
 const toast = document.getElementById('toast');
-const countdownPill = document.getElementById('countdown-pill');
-const dashboardExpenses = document.getElementById('dashboard-expenses');
+const riskProgress = document.getElementById('risk-progress');
+const riskLabel = document.getElementById('risk-label');
+const deadlineBanner = document.getElementById('deadline-banner');
 
-const checklistContainer = document.getElementById('rra-checklist');
-const progressBar = document.getElementById('compliance-progress');
-const complianceLabel = document.getElementById('compliance-label');
-const riskBadge = document.getElementById('risk-badge');
+let taskState = JSON.parse(localStorage.getItem(STORAGE.tasks) || '{"rra":false,"docs":false,"repairs":false,"tax":false}');
+let docs = JSON.parse(localStorage.getItem(STORAGE.docs) || '[]');
+let repairs = JSON.parse(localStorage.getItem(STORAGE.repairs) || '[]');
+let expenses = JSON.parse(localStorage.getItem(STORAGE.expenses) || '[]');
 
-const expenseForm = document.getElementById('expense-form');
-const expenseList = document.getElementById('expense-list');
-const q1TotalEl = document.getElementById('q1-total');
-const categorySummary = document.getElementById('category-summary');
-
-const savedChecklist = JSON.parse(localStorage.getItem(STORAGE_KEYS.rra) || '{}');
-let expenses = JSON.parse(localStorage.getItem(STORAGE_KEYS.expenses) || '[]');
-
-function showToast(message) {
-  toast.textContent = message;
-  toast.classList.remove('hidden');
-  setTimeout(() => toast.classList.add('hidden'), 1800);
+function saveAll() {
+  localStorage.setItem(STORAGE.tasks, JSON.stringify(taskState));
+  localStorage.setItem(STORAGE.docs, JSON.stringify(docs));
+  localStorage.setItem(STORAGE.repairs, JSON.stringify(repairs));
+  localStorage.setItem(STORAGE.expenses, JSON.stringify(expenses));
 }
 
-function formatGBP(value) {
-  return new Intl.NumberFormat('en-GB', {
-    style: 'currency',
-    currency: 'GBP'
-  }).format(value);
+function showToast(msg) {
+  toast.textContent = msg;
+  toast.classList.remove('hidden');
+  setTimeout(() => toast.classList.add('hidden'), 1700);
 }
 
 function switchTab(tabName) {
-  tabs.forEach((tab) => {
-    tab.classList.toggle('active', tab.dataset.tab === tabName);
-  });
-
-  panels.forEach((panel) => {
-    const isTarget = panel.id === `tab-${tabName}`;
-    panel.classList.toggle('hidden', !isTarget);
-  });
+  tabs.forEach((tab) => tab.classList.toggle('active', tab.dataset.tab === tabName));
+  panels.forEach((panel) => panel.classList.toggle('hidden', panel.id !== `tab-${tabName}`));
 }
 
-function applyHashRoute() {
-  const hash = window.location.hash.replace('#', '').toLowerCase();
-  if (['dashboard', 'rra', 'mtd'].includes(hash)) {
-    switchTab(hash);
-  }
+function formatGBP(n) {
+  return new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(n);
 }
 
-function renderDeadlineCountdown() {
+function updateDeadlineBanner() {
+  const deadline = new Date('2026-05-01T00:00:00Z');
   const now = new Date();
-  const diffMs = DEADLINE.getTime() - now.getTime();
-  const days = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-
+  const days = Math.ceil((deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
   if (days > 0) {
-    countdownPill.textContent = `${days} days left`;
+    deadlineBanner.textContent = `${days} DAYS TO RRA MAY 1 DEADLINE`;
   } else if (days === 0) {
-    countdownPill.textContent = 'Deadline day';
+    deadlineBanner.textContent = 'RRA DEADLINE IS TODAY';
   } else {
-    countdownPill.textContent = `${Math.abs(days)} days since`;
+    deadlineBanner.textContent = `${Math.abs(days)} DAYS SINCE RRA MAY 1 DEADLINE`;
   }
 }
 
-function renderChecklist() {
-  checklistContainer.innerHTML = '';
+function updateRiskScore() {
+  const total = Object.keys(taskState).length;
+  const completed = Object.values(taskState).filter(Boolean).length;
+  const score = Math.round((completed / total) * 100);
+  riskProgress.style.width = `${score}%`;
 
-  rraTasks.forEach((task, index) => {
-    const id = `rra-task-${index}`;
-    const checked = Boolean(savedChecklist[id]);
-
-    const wrapper = document.createElement('label');
-    wrapper.className = 'flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3';
-    wrapper.innerHTML = `
-      <span class="text-sm font-medium text-slate-700">${task}</span>
-      <span class="relative inline-flex items-center">
-        <input id="${id}" type="checkbox" class="sr-only rra-checkbox" ${checked ? 'checked' : ''} />
-        <span class="toggle"></span>
-      </span>
-    `;
-
-    checklistContainer.appendChild(wrapper);
-  });
-
-  document.querySelectorAll('.rra-checkbox').forEach((checkbox) => {
-    checkbox.addEventListener('change', (e) => {
-      savedChecklist[e.target.id] = e.target.checked;
-      localStorage.setItem(STORAGE_KEYS.rra, JSON.stringify(savedChecklist));
-      updateCompliance();
-    });
-  });
-
-  updateCompliance();
-}
-
-function updateCompliance() {
-  const completed = Object.values(savedChecklist).filter(Boolean).length;
-  const percent = Math.round((completed / rraTasks.length) * 100);
-
-  progressBar.style.width = `${percent}%`;
-  complianceLabel.textContent = `${percent}% Compliant`;
-
-  if (percent < 50) {
-    progressBar.className = 'h-full bg-red-500 transition-all duration-500';
-    riskBadge.textContent = 'High Risk of Fines';
-    riskBadge.className = 'rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-700';
-  } else if (percent < 100) {
-    progressBar.className = 'h-full bg-amber-500 transition-all duration-500';
-    riskBadge.textContent = 'Medium Risk';
-    riskBadge.className = 'rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700';
+  if (score < 50) {
+    riskLabel.textContent = `${score}% - High Risk`;
+    riskLabel.className = 'rounded-full bg-red-100 px-2.5 py-1 text-xs font-bold text-red-700';
+    riskProgress.className = 'h-3 rounded-full bg-red-500 transition-all duration-500';
+  } else if (score < 90) {
+    riskLabel.textContent = `${score}% - Medium Risk`;
+    riskLabel.className = 'rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-700';
+    riskProgress.className = 'h-3 rounded-full bg-amber-500 transition-all duration-500';
   } else {
-    progressBar.className = 'h-full bg-emerald-500 transition-all duration-500';
-    riskBadge.textContent = 'Transition Ready';
-    riskBadge.className = 'rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700';
+    riskLabel.textContent = `${score}% - Low Risk`;
+    riskLabel.className = 'rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-700';
+    riskProgress.className = 'h-3 rounded-full bg-emerald-500 transition-all duration-500';
   }
 }
 
-function isQ1(dateString) {
-  const date = new Date(dateString);
-  const month = date.getUTCMonth() + 1;
-  return month >= 1 && month <= 3;
+function updateNetIncome() {
+  const expenseTotal = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
+  document.getElementById('net-income').textContent = formatGBP(monthlyRent - expenseTotal);
 }
 
-function totalQ1() {
-  return expenses.filter((item) => isQ1(item.date)).reduce((sum, item) => sum + item.amount, 0);
+function getInstrumentPrompt(instrument, tenantName, address) {
+  return `Act as a UK Property Solicitor. Draft a ${instrument} for ${tenantName} at ${address} considering the strict May 2026 RRA rules. Use professional, legally binding language.`;
 }
 
-function renderCategorySummary() {
-  if (!expenses.length) {
-    categorySummary.innerHTML = '<p class="text-xs text-slate-500">No category trends yet.</p>';
+async function callOpenRouter(prompt) {
+  const apiKeyInput = document.getElementById('api-key');
+  const apiKey = apiKeyInput.value.trim();
+
+  if (!apiKey) {
+    throw new Error('OpenRouter API key missing.');
+  }
+
+  localStorage.setItem(STORAGE.apiKey, apiKey);
+
+  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+      'HTTP-Referer': window.location.origin,
+      'X-Title': 'LandlordPulse PRO'
+    },
+    body: JSON.stringify({
+      model: 'openai/gpt-4o-mini',
+      messages: [
+        { role: 'system', content: 'You are a UK property-law specialist solicitor. Keep output formal and legally precise.' },
+        { role: 'user', content: prompt }
+      ]
+    })
+  });
+
+  if (!response.ok) {
+    const details = await response.text();
+    throw new Error(`OpenRouter request failed: ${details}`);
+  }
+
+  const data = await response.json();
+  return data.choices?.[0]?.message?.content || 'No draft returned.';
+}
+
+function renderRepairList() {
+  const list = document.getElementById('repair-list');
+  if (!repairs.length) {
+    list.innerHTML = '<li class="log-item">No repairs logged.</li>';
     return;
   }
-
-  const totals = expenses.reduce((acc, item) => {
-    acc[item.category] = (acc[item.category] || 0) + item.amount;
-    return acc;
-  }, {});
-
-  const max = Math.max(...Object.values(totals));
-  categorySummary.innerHTML = Object.entries(totals)
-    .sort((a, b) => b[1] - a[1])
-    .map(([category, amount]) => `
-      <div class="summary-row">
-        <div>
-          <p class="text-xs font-semibold text-slate-700">${category}</p>
-          <div class="summary-track"><div class="summary-bar" style="width:${Math.round((amount / max) * 100)}%"></div></div>
-        </div>
-        <span class="text-xs font-bold text-slate-700">${formatGBP(amount)}</span>
-      </div>
-    `)
+  list.innerHTML = repairs
+    .slice()
+    .reverse()
+    .map((r) => `<li class="log-item"><p class="font-bold">${r.desc}</p><p>${r.priority} | ${r.priceHint}</p></li>`)
     .join('');
 }
 
-function renderExpenses() {
+function renderExpenseList() {
+  const list = document.getElementById('expense-list');
   if (!expenses.length) {
-    expenseList.innerHTML = '<li class="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-3 py-5 text-center text-sm text-slate-500">No expenses logged yet.</li>';
-    q1TotalEl.textContent = 'Total Q1 Expenses: £0.00';
-    dashboardExpenses.textContent = '£0.00';
-    renderCategorySummary();
+    list.innerHTML = '<li class="log-item">No expenses logged.</li>';
     return;
   }
-
-  const sorted = [...expenses].sort((a, b) => new Date(b.date) - new Date(a.date));
-
-  expenseList.innerHTML = sorted
-    .map((item) => `
-      <li class="expense-item">
-        <div>
-          <p class="text-sm font-semibold text-slate-800">${item.category}</p>
-          <p class="text-xs text-slate-500">${item.date}</p>
-        </div>
-        <div class="flex items-center gap-2">
-          <p class="text-sm font-bold text-slate-900">${formatGBP(item.amount)}</p>
-          <button data-delete-id="${item.id}" class="expense-delete" aria-label="Delete expense"><i class="fa-solid fa-xmark"></i></button>
-        </div>
-      </li>
-    `)
+  list.innerHTML = expenses
+    .slice()
+    .reverse()
+    .map((e) => `<li class="log-item"><p class="font-bold">${e.category}</p><p>${e.date} | ${formatGBP(Number(e.amount))}</p></li>`)
     .join('');
-
-  const q1 = totalQ1();
-  q1TotalEl.textContent = `Total Q1 Expenses: ${formatGBP(q1)}`;
-  dashboardExpenses.textContent = formatGBP(q1);
-  renderCategorySummary();
-
-  document.querySelectorAll('[data-delete-id]').forEach((button) => {
-    button.addEventListener('click', () => {
-      expenses = expenses.filter((item) => item.id !== button.dataset.deleteId);
-      localStorage.setItem(STORAGE_KEYS.expenses, JSON.stringify(expenses));
-      renderExpenses();
-      showToast('Expense removed.');
-    });
-  });
 }
 
-expenseForm.addEventListener('submit', (event) => {
-  event.preventDefault();
+function estimateRepairPrice(desc) {
+  const d = desc.toLowerCase();
+  if (d.includes('boiler')) return { label: 'Boiler Repair: Birmingham Avg £90-£140', budget: 115 };
+  if (d.includes('plumb') || d.includes('leak')) return { label: 'Plumbing Callout: Birmingham Avg £70-£120', budget: 95 };
+  if (d.includes('elect')) return { label: 'Electrical Repair: Birmingham Avg £85-£160', budget: 120 };
+  return { label: 'General Repair: Birmingham Avg £60-£110', budget: 85 };
+}
 
-  const date = document.getElementById('expense-date').value;
-  const amount = Number(document.getElementById('expense-amount').value);
-  const category = document.getElementById('expense-category').value;
-
-  if (!date || !amount || amount <= 0 || !category) {
-    showToast('Please complete all expense fields.');
-    return;
-  }
-
-  expenses.push({ id: crypto.randomUUID(), date, amount, category });
-  localStorage.setItem(STORAGE_KEYS.expenses, JSON.stringify(expenses));
-  expenseForm.reset();
-  renderExpenses();
-  showToast('Expense saved to MTD log.');
-});
-
-document.getElementById('export-expenses').addEventListener('click', () => {
-  const payload = JSON.stringify(expenses, null, 2);
-  const blob = new Blob([payload], { type: 'application/json' });
+function downloadFile(filename, content, mimeType) {
+  const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `landlordpulse-expenses-${new Date().toISOString().slice(0, 10)}.json`;
+  link.download = filename;
   link.click();
   URL.revokeObjectURL(url);
-  showToast('Expense export downloaded.');
-});
-
-tabs.forEach((tab) => {
-  tab.addEventListener('click', () => switchTab(tab.dataset.tab));
-});
-
-document.querySelectorAll('[data-coming-soon]').forEach((button) => {
-  button.addEventListener('click', () => showToast(`${button.dataset.comingSoon} coming soon.`));
-});
-
-document.getElementById('go-expense').addEventListener('click', () => switchTab('mtd'));
-
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch(() => {
-      showToast('Offline mode unavailable.');
-    });
-  });
 }
 
-renderDeadlineCountdown();
-renderChecklist();
-renderExpenses();
-switchTab('dashboard');
-applyHashRoute();
+function toCsv(rows) {
+  const header = 'amount,date,category';
+  const body = rows.map((r) => `${r.amount},${r.date},${r.category}`).join('\n');
+  return `${header}\n${body}`;
+}
+
+// Tab navigation
+tabs.forEach((btn) => {
+  btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+});
+
+// AI Legal Factory
+document.getElementById('generate-legal').addEventListener('click', async () => {
+  const instrument = document.getElementById('legal-instrument').value;
+  const tenantName = document.getElementById('tenant-name').value.trim() || 'Tenant';
+  const address = document.getElementById('tenant-address').value.trim() || 'Property Address';
+  const prompt = getInstrumentPrompt(instrument, tenantName, address);
+  const paper = document.getElementById('draft-paper');
+  paper.textContent = 'Generating legal draft...';
+
+  try {
+    const draft = await callOpenRouter(prompt);
+    paper.textContent = draft;
+    docs.push({ instrument, tenantName, address, draft, createdAt: new Date().toISOString() });
+    taskState.docs = true;
+    saveAll();
+    updateRiskScore();
+    showToast('Legal draft generated and stored.');
+  } catch (err) {
+    paper.textContent = `Error: ${err.message}`;
+    showToast('Draft generation failed.');
+  }
+});
+
+document.getElementById('copy-draft').addEventListener('click', async () => {
+  const text = document.getElementById('draft-paper').textContent;
+  await navigator.clipboard.writeText(text);
+  showToast('Draft copied.');
+});
+
+document.getElementById('wa-draft').addEventListener('click', () => {
+  const tenantName = document.getElementById('tenant-name').value.trim() || 'Tenant';
+  const text = document.getElementById('draft-paper').textContent;
+  window.open(`https://wa.me/?text=${encodeURIComponent(`Hi ${tenantName}, please review this draft:\n\n${text}`)}`, '_blank');
+});
+
+// Repairs
+document.getElementById('repair-desc').addEventListener('input', (e) => {
+  const hint = estimateRepairPrice(e.target.value || '');
+  document.getElementById('price-benchmark').textContent = `AI Price Benchmarker: ${hint.label}`;
+});
+
+document.getElementById('save-repair').addEventListener('click', () => {
+  const desc = document.getElementById('repair-desc').value.trim();
+  const priority = document.getElementById('repair-priority').value;
+  if (!desc) {
+    showToast('Add a repair description.');
+    return;
+  }
+  const bench = estimateRepairPrice(desc);
+  repairs.push({ desc, priority, priceHint: bench.label, budget: bench.budget, createdAt: new Date().toISOString() });
+  taskState.repairs = true;
+  saveAll();
+  renderRepairList();
+  updateRiskScore();
+  showToast('Repair logged.');
+});
+
+document.getElementById('call-trade').addEventListener('click', () => {
+  const desc = document.getElementById('repair-desc').value.trim() || 'repair job';
+  const postcode = document.getElementById('repair-postcode').value.trim() || 'B1';
+  const bench = estimateRepairPrice(desc);
+  const text = `Hi, I'm a landlord with a ${desc} in ${postcode}. My budget is £${bench.budget}. Are you available?`;
+  window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+});
+
+// Tax
+document.getElementById('save-expense').addEventListener('click', () => {
+  const amount = Number(document.getElementById('expense-amount').value);
+  const date = document.getElementById('expense-date').value;
+  const category = document.getElementById('expense-category').value;
+
+  if (!amount || !date || !category) {
+    showToast('Complete tax fields first.');
+    return;
+  }
+
+  expenses.push({ amount, date, category });
+  taskState.tax = true;
+  saveAll();
+  renderExpenseList();
+  updateRiskScore();
+  updateNetIncome();
+  showToast('Expense saved.');
+});
+
+document.getElementById('export-csv').addEventListener('click', () => {
+  if (!expenses.length) {
+    showToast('No expenses to export.');
+    return;
+  }
+  const csv = toCsv(expenses);
+  downloadFile(`mtd-expenses-${new Date().toISOString().slice(0, 10)}.csv`, csv, 'text/csv;charset=utf-8;');
+  showToast('MTD CSV exported.');
+});
+
+// Init
+const savedApiKey = localStorage.getItem(STORAGE.apiKey);
+if (savedApiKey) document.getElementById('api-key').value = savedApiKey;
+if (docs.length) {
+  document.getElementById('draft-paper').textContent = docs[docs.length - 1].draft;
+}
+if (repairs.length) taskState.repairs = true;
+if (expenses.length) taskState.tax = true;
+if (docs.length) taskState.docs = true;
+taskState.rra = true;
+saveAll();
+updateDeadlineBanner();
+updateRiskScore();
+renderRepairList();
+renderExpenseList();
+updateNetIncome();
+switchTab('home');
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
+}
