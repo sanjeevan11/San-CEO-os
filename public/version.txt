@@ -1,3 +1,0 @@
-QuoteGate PWA v1 source version
-Expected app: Vite React static PWA
-If you see this file from GitHub Pages, deployment is using the new app source.

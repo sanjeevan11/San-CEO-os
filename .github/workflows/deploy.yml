@@ -1,4 +1,4 @@
-name: Deploy QuoteGate PWA to GitHub Pages
+name: Deploy single-file QuoteGate to GitHub Pages
 
 on:
   push:
@@ -11,90 +11,35 @@ permissions:
   contents: read
   pages: write
   id-token: write
-  actions: read
 
 concurrency:
   group: pages
   cancel-in-progress: true
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-
-      - name: Install dependencies
-        run: |
-          if [ -f package-lock.json ]; then
-            npm ci
-          else
-            npm install
-          fi
-
-      - name: Build QuoteGate PWA
-        run: npm run build
-
-      - name: Add nojekyll
-        run: touch dist/.nojekyll
-
-      - name: Add deployment proof files
-        run: |
-          echo "QuoteGate PWA LIVE" > dist/version.txt
-          echo "Deployed at: $(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> dist/version.txt
-          echo "Commit: $GITHUB_SHA" >> dist/version.txt
-          echo "Branch: $GITHUB_REF_NAME" >> dist/version.txt
-          echo "If you see LandlordPulse, old cache or old Pages source is still active." >> dist/version.txt
-
-          cat > dist/DEPLOYMENT_PROOF.html <<EOF2
-          <!doctype html>
-          <html>
-            <head>
-              <meta charset="utf-8" />
-              <meta name="viewport" content="width=device-width,initial-scale=1" />
-              <title>QuoteGate Deployment Proof</title>
-              <style>
-                body{font-family:system-ui;padding:32px;background:#0f172a;color:#fff}
-                .card{max-width:720px;margin:auto;background:#111827;padding:24px;border-radius:20px}
-                .ok{color:#22c55e;font-weight:800}
-              </style>
-            </head>
-            <body>
-              <div class="card">
-                <h1 class="ok">QuoteGate PWA LIVE</h1>
-                <p>Deployed at: $(date -u +'%Y-%m-%dT%H:%M:%SZ')</p>
-                <p>Commit: $GITHUB_SHA</p>
-                <p>Branch: $GITHUB_REF_NAME</p>
-                <p>If the homepage still shows LandlordPulse, the browser is controlled by an old service worker or Pages is still using an old source.</p>
-              </div>
-            </body>
-          </html>
-          EOF2
-
-      - name: List dist files
-        run: find dist -maxdepth 4 -type f | sort
-
-      - name: Upload GitHub Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: dist
-
   deploy:
-    needs: build
     runs-on: ubuntu-latest
-
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create deployment proof
+        run: |
+          echo "QuoteGate single-file live deploy" > version.txt
+          echo "Commit: $GITHUB_SHA" >> version.txt
+          echo "Branch: $GITHUB_REF_NAME" >> version.txt
+          echo "Deployed at: $(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> version.txt
+          touch .nojekyll
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4

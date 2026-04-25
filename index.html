@@ -1,15 +1,332 @@
 <!doctype html>
 <html lang="en-GB">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#111827" />
-    <link rel="manifest" href="./manifest.webmanifest" />
-    <link rel="icon" href="./icons/icon-192.svg" />
-    <title>QuoteGate</title>
-  </head>
-  <body class="bg-slate-50">
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QuoteGate</title>
+  <style>
+    :root { --navy:#0f172a; --slate:#f8fafc; --green:#16a34a; --amber:#d97706; --red:#dc2626; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background:#eef2f7; color:#0f172a; }
+    .app { max-width: 860px; margin: 0 auto; padding: 16px 12px 96px; }
+    .hero { background:linear-gradient(135deg,#0f172a,#1e293b); color:#fff; border-radius:16px; padding:18px; box-shadow:0 12px 28px rgba(15,23,42,.25); }
+    .warning { margin-top:10px; background:#fff7ed; color:#9a3412; border:1px solid #fdba74; border-radius:12px; padding:10px; font-size:13px; }
+    .proof { margin-top:10px; background:#dcfce7; color:#166534; border:1px solid #86efac; border-radius:12px; padding:10px; font-size:13px; }
+    .tabs { position:fixed; left:0; right:0; bottom:0; background:#fff; border-top:1px solid #cbd5e1; display:grid; grid-template-columns: repeat(6,1fr); gap:6px; padding:8px; z-index:20; }
+    .tabs button { border:1px solid #cbd5e1; border-radius:10px; background:#fff; padding:8px 4px; font-size:12px; font-weight:600; }
+    .tabs button.active { background:var(--navy); color:#fff; border-color:var(--navy); }
+    .card { background:#fff; border:1px solid #dbe1ea; border-radius:14px; padding:14px; box-shadow:0 8px 20px rgba(15,23,42,.07); margin-top:12px; }
+    .grid { display:grid; gap:10px; }
+    .grid.two { grid-template-columns: repeat(2,minmax(0,1fr)); }
+    label { font-size:12px; font-weight:700; color:#475569; display:block; margin-bottom:4px; }
+    input, select, textarea { width:100%; border:1px solid #cbd5e1; border-radius:10px; padding:10px; font-size:14px; }
+    textarea { min-height: 72px; }
+    .btn { border:0; border-radius:10px; padding:10px 12px; font-weight:700; cursor:pointer; }
+    .btn.primary { background:var(--navy); color:#fff; }
+    .btn.secondary { background:#f1f5f9; border:1px solid #cbd5e1; }
+    .btn.danger { background:#b91c1c; color:#fff; }
+    .row { display:flex; gap:8px; flex-wrap:wrap; }
+    .badge { display:inline-block; padding:3px 8px; border-radius:999px; font-size:11px; font-weight:700; }
+    .badge.hot { background:#fee2e2; color:#991b1b; }
+    .badge.warm { background:#fef3c7; color:#92400e; }
+    .badge.poor { background:#e2e8f0; color:#334155; }
+    .hidden { display:none; }
+    .small { font-size:12px; color:#64748b; }
+    .kpi { font-size:24px; font-weight:800; }
+    .bar-wrap { background:#e2e8f0; border-radius:999px; height:10px; overflow:hidden; }
+    .bar { height:10px; border-radius:999px; background:#0f172a; }
+    pre { white-space: pre-wrap; font-size:12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:10px; }
+    .lead-actions a, .lead-actions button { text-decoration:none; }
+    @media (min-width: 720px){ .tabs { max-width:860px; margin:0 auto; left:50%; transform:translateX(-50%); border:1px solid #cbd5e1; border-bottom:0; border-radius:12px 12px 0 0; } }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <section class="hero">
+      <h1 style="margin:0;font-size:30px;line-height:1.1;">Stop wasting site visits on low-budget enquiries.</h1>
+      <p style="margin:8px 0 0;opacity:.92;">QuoteGate gives homeowners an instant budget range, collects photos, checks budget and timeline, then gives you a ready-to-call lead pack.</p>
+      <div class="proof">
+        <strong>QuoteGate SINGLE-FILE LIVE BUILD</strong><br>
+        Old LandlordPulse app has been removed<br>
+        Build date: 2026-04-25<br>
+        Repo reset version
+      </div>
+      <div class="warning"><strong>Seeing LandlordPulse? Clear site data / service worker cache.</strong></div>
+    </section>
+
+    <section id="tab-home" class="tab card"></section>
+    <section id="tab-quote" class="tab card hidden"></section>
+    <section id="tab-leads" class="tab card hidden"></section>
+    <section id="tab-pricing" class="tab card hidden"></section>
+    <section id="tab-analytics" class="tab card hidden"></section>
+    <section id="tab-export" class="tab card hidden"></section>
+  </div>
+
+  <nav class="tabs">
+    <button data-tab="home" class="active">Home</button>
+    <button data-tab="quote">Quote Demo</button>
+    <button data-tab="leads">Leads</button>
+    <button data-tab="pricing">Pricing</button>
+    <button data-tab="analytics">Analytics</button>
+    <button data-tab="export">Export / Reset</button>
+  </nav>
+
+  <script>
+    const STORAGE = { leads:'qg_sf_leads', pricing:'qg_sf_pricing' };
+    const DEFAULT_PRICING = {
+      companyName:'Birmingham Driveway Pros', phone:'0121 555 1234', whatsapp:'447700900123', email:'demo@quotegate.local', postcodePrefix:'B', minJobValue:2500,
+      rules:{
+        'Resin driveway':{min:85,max:120,uMin:20,uMax:40},
+        'Block paving':{min:90,max:150,uMin:10,uMax:25},
+        'Tarmac driveway':{min:55,max:90,uMin:10,uMax:25},
+        'Patio':{min:80,max:140,uMin:15,uMax:35},
+        'Garden redesign':{min:100,max:200,uMin:25,uMax:50}
+      }
+    };
+    const SURFACE_U = {'Grass / soil':[20,40],'Old tarmac':[10,25],'Old concrete':[15,35],'Existing blocks':[10,20],'Uneven / needs excavation':[25,50]};
+
+    const getLeads = () => JSON.parse(localStorage.getItem(STORAGE.leads)||'[]');
+    const setLeads = (v) => localStorage.setItem(STORAGE.leads, JSON.stringify(v));
+    const getPricing = () => JSON.parse(localStorage.getItem(STORAGE.pricing)||'null') || DEFAULT_PRICING;
+    const setPricing = (v) => localStorage.setItem(STORAGE.pricing, JSON.stringify(v));
+
+    function seed() {
+      if (!localStorage.getItem(STORAGE.pricing)) setPricing(DEFAULT_PRICING);
+      if (!localStorage.getItem(STORAGE.leads)) {
+        const seeds = [
+          {name:'Raj Singh',phone:'07111 111111',email:'raj@mail.com',postcode:'B15 2TT',jobType:'Resin driveway',area:55,budget:'£7k+',timeline:'Urgent',min:6500,max:9100,score:'Hot',status:'Won'},
+          {name:'Emily Carter',phone:'07222 222222',email:'emily@mail.com',postcode:'B31 1HG',jobType:'Patio',area:36,budget:'£4k–£7k',timeline:'Within 30 days',min:3900,max:5900,score:'Hot',status:'Contacted'},
+          {name:'Tom Riley',phone:'07333 333333',email:'tom@mail.com',postcode:'B2 4QA',jobType:'Tarmac driveway',area:44,budget:'£2k–£4k',timeline:'Within 3 months',min:2900,max:4700,score:'Warm',status:'Quoted'},
+          {name:'Sophie Khan',phone:'07444 444444',email:'sophie@mail.com',postcode:'B18 6NN',jobType:'Block paving',area:32,budget:'£4k–£7k',timeline:'Within 3 months',min:4200,max:6800,score:'Warm',status:'New'},
+          {name:'Nina Patel',phone:'07555 555555',email:'nina@mail.com',postcode:'CV1 4AB',jobType:'Garden redesign',area:18,budget:'Under £2k',timeline:'Just browsing',min:2500,max:2500,score:'Poor fit',status:'Lost'}
+        ].map((s,i)=>({...s,id:'seed-'+i,currentSurface:'Old tarmac',access:'Easy access',notes:'',photos:[],createdAt:new Date().toISOString()}));
+        setLeads(seeds);
+      }
+    }
+
+    async function cleanOldCachesOnLoad() {
+      try {
+        if ('serviceWorker' in navigator) {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          for (const r of regs) await r.unregister();
+        }
+        if ('caches' in window) {
+          const keys = await caches.keys();
+          for (const k of keys) {
+            const lower = k.toLowerCase();
+            if (lower.includes('landlord') || lower.includes('landlordpulse') || lower.includes('vite') || lower.includes('workbox') || lower.includes('pwa') || lower.includes('old')) {
+              await caches.delete(k);
+            }
+          }
+        }
+        console.log('QuoteGate single-file app loaded. LandlordPulse removed.');
+      } catch (e) {
+        console.warn('cache cleanup warning', e);
+      }
+    }
+
+    function switchTab(tab){
+      document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
+      document.querySelectorAll('.tab').forEach(s=>s.classList.add('hidden'));
+      document.getElementById('tab-'+tab).classList.remove('hidden');
+      if (tab==='leads') renderLeads();
+      if (tab==='analytics') renderAnalytics();
+      if (tab==='pricing') renderPricing();
+    }
+
+    function scoreLead(d){
+      const inArea = (d.postcode||'').toUpperCase().startsWith(getPricing().postcodePrefix.toUpperCase());
+      if (d.budget==='Under £2k' || d.timeline==='Just browsing' || !inArea || d.min<getPricing().minJobValue) return ['Poor fit','Budget/timeline/service area not ideal for this job.'];
+      if ((d.timeline==='Urgent' || d.timeline==='Within 30 days') && inArea && d.name && d.phone && d.budget!=='Under £2k') {
+        return d.photos.length>0 ? ['Hot','Strong urgency, viable budget, in service area, and photos provided.'] : ['Warm','Good lead but no photos uploaded yet.'];
+      }
+      return ['Warm','Potentially viable lead with medium urgency.'];
+    }
+
+    function calcEstimate(v){
+      const p = getPricing();
+      const rule = p.rules[v.jobType];
+      const area = Number(v.width||0)*Number(v.length||0);
+      const sU = SURFACE_U[v.currentSurface] || [0,0];
+      const fixed = (v.access==='Narrow access' || v.access==='Steep slope' || v.access==='Skip placement issue') ? [300,1000] : [0,0];
+      let min = area*(rule.min+sU[0]) + fixed[0];
+      let max = area*(rule.max+sU[1]) + fixed[1];
+      min = Math.max(min, p.minJobValue); max = Math.max(max, p.minJobValue);
+      return { area, min:Math.round(min), max:Math.round(max) };
+    }
+
+    function renderHome(){
+      document.getElementById('tab-home').innerHTML = `
+        <h2>Home</h2>
+        <div class="row">
+          <button class="btn primary" onclick="switchTab('quote')">Try quote demo</button>
+          <button class="btn secondary" onclick="switchTab('leads')">View lead inbox</button>
+        </div>
+        <div class="card"><h3>Problem</h3><p>Tradespeople waste time on tyre-kickers, vague WhatsApp enquiries, no photos, and no budget clarity.</p></div>
+        <div class="card"><h3>How it works</h3><ol><li>Homeowner enters job details.</li><li>QuoteGate gives an indicative budget range.</li><li>QuoteGate scores the lead.</li><li>Contractor gets a ready-to-call lead pack.</li></ol></div>
+        <div class="card"><h3>Pricing</h3><p>Founding Contractor: £49/month<br>Starter: £99/month<br>Pro: £149/month</p></div>
+        <div class="card"><h3>Embed preview</h3><pre>&lt;iframe src="YOUR_GITHUB_PAGES_URL" width="100%" height="760"&gt;&lt;/iframe&gt;</pre></div>`;
+    }
+
+    function renderQuote(){
+      document.getElementById('tab-quote').innerHTML = `
+        <h2>Quote Demo</h2>
+        <div class="grid two">
+          <div><label>Job type</label><select id="qJob">${Object.keys(getPricing().rules).map(j=>`<option>${j}</option>`).join('')}</select></div>
+          <div><label>Postcode</label><input id="qPostcode" placeholder="B15 2TT"></div>
+          <div><label>Width (m)</label><input id="qWidth" type="number" step="0.1"></div>
+          <div><label>Length (m)</label><input id="qLength" type="number" step="0.1"></div>
+          <div><label>Current surface</label><select id="qSurface">${Object.keys(SURFACE_U).map(s=>`<option>${s}</option>`).join('')}</select></div>
+          <div><label>Access</label><select id="qAccess"><option>Easy access</option><option>Narrow access</option><option>Steep slope</option><option>Skip placement issue</option></select></div>
+          <div><label>Budget</label><select id="qBudget"><option>Under £2k</option><option>£2k–£4k</option><option>£4k–£7k</option><option>£7k+</option></select></div>
+          <div><label>Timeline</label><select id="qTimeline"><option>Urgent</option><option>Within 30 days</option><option>Within 3 months</option><option>Just browsing</option></select></div>
+          <div><label>Name</label><input id="qName"></div>
+          <div><label>Phone</label><input id="qPhone"></div>
+          <div><label>Email</label><input id="qEmail" type="email"></div>
+          <div><label>Optional photos</label><input id="qPhotos" type="file" accept="image/*" multiple></div>
+        </div>
+        <div class="row" style="margin-top:10px;"><button class="btn primary" id="qSubmit">Calculate & Save Lead</button></div>
+        <div id="qResult" class="card hidden"></div>`;
+
+      document.getElementById('qSubmit').onclick = () => {
+        const val = {
+          jobType: qJob.value, postcode:qPostcode.value.trim(), width:Number(qWidth.value||0), length:Number(qLength.value||0), currentSurface:qSurface.value,
+          access:qAccess.value, budget:qBudget.value, timeline:qTimeline.value, name:qName.value.trim(), phone:qPhone.value.trim(), email:qEmail.value.trim(),
+          photos:[...qPhotos.files].map(f=>f.name)
+        };
+        const est = calcEstimate(val);
+        const [score, reason] = scoreLead({...val, min:est.min});
+        const lead = { id:crypto.randomUUID(), ...val, area:est.area, min:est.min, max:est.max, score, reason, status:'New', notes:'', createdAt:new Date().toISOString() };
+        const leads = getLeads(); leads.unshift(lead); setLeads(leads);
+        const result = document.getElementById('qResult');
+        result.classList.remove('hidden');
+        result.innerHTML = `<h3>Indicative budget: £${est.min}–£${est.max}</h3><p><span class="badge ${score==='Hot'?'hot':score==='Warm'?'warm':'poor'}">${score}</span></p><p>${reason}</p><p class="small">This is an indicative budget range, not a final quote. Final pricing depends on survey, access, materials, drainage, groundwork, and site condition.</p><p style="color:var(--green);font-weight:700;">Lead saved to QuoteGate demo inbox.</p>`;
+      };
+    }
+
+    function renderLeads(){
+      const p = getPricing();
+      const leads = getLeads();
+      const container = document.getElementById('tab-leads');
+      container.innerHTML = `<h2>Leads</h2>${leads.length? '' : '<p class="small">No leads yet.</p>'}`;
+      leads.forEach((l, idx)=>{
+        const el = document.createElement('div'); el.className='card';
+        const waMsg = `Hi ${l.name}, thanks for requesting a ${l.jobType} estimate through QuoteGate. Based on your details, your indicative range is £${l.min}–£${l.max}. I can confirm properly after checking the site/photos. When is a good time to call?`;
+        el.innerHTML = `
+          <div style="display:flex;justify-content:space-between;gap:8px;"><strong>${l.name||'Unknown'}</strong><span class="badge ${l.score==='Hot'?'hot':l.score==='Warm'?'warm':'poor'}">${l.score}</span></div>
+          <p class="small">${l.jobType} · ${l.area.toFixed(1)}m² · ${l.postcode}</p>
+          <p class="small">${l.phone} · ${l.email}</p>
+          <p>Budget ${l.budget} | ${l.timeline} | £${l.min}–£${l.max}</p>
+          <div class="row lead-actions">
+            <a class="btn secondary" href="tel:${l.phone}">Call</a>
+            <a class="btn secondary" target="_blank" href="https://wa.me/${p.whatsapp}?text=${encodeURIComponent(waMsg)}">WhatsApp</a>
+            <a class="btn secondary" href="mailto:${l.email}">Email</a>
+            <button class="btn secondary" data-copy="${idx}">Copy summary</button>
+            <button class="btn danger" data-del="${idx}">Delete lead</button>
+          </div>
+          <label>Status</label><select data-status="${idx}">${['New','Contacted','Quoted','Won','Lost'].map(s=>`<option ${l.status===s?'selected':''}>${s}</option>`).join('')}</select>
+          <label>Notes</label><textarea data-notes="${idx}">${l.notes||''}</textarea>
+          ${l.photos?.length?`<p class="small">Photos: ${l.photos.join(', ')}</p>`:''}
+          <p class="small">Created: ${new Date(l.createdAt).toLocaleString('en-GB')}</p>`;
+        container.appendChild(el);
+      });
+      container.querySelectorAll('[data-copy]').forEach(b=>b.onclick=()=>{const l=getLeads()[b.dataset.copy]; navigator.clipboard.writeText(`${l.name}|${l.phone}|${l.postcode}|${l.jobType}|£${l.min}-£${l.max}`);});
+      container.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{const leads=getLeads(); leads.splice(Number(b.dataset.del),1); setLeads(leads); renderLeads();});
+      container.querySelectorAll('[data-status]').forEach(s=>s.onchange=(e)=>{const leads=getLeads(); leads[e.target.dataset.status].status=e.target.value; setLeads(leads);});
+      container.querySelectorAll('[data-notes]').forEach(t=>t.onchange=(e)=>{const leads=getLeads(); leads[e.target.dataset.notes].notes=e.target.value; setLeads(leads);});
+    }
+
+    function renderPricing(){
+      const p = getPricing();
+      const c = document.getElementById('tab-pricing');
+      c.innerHTML = `<h2>Pricing</h2>
+      <div class="grid two">
+        <div><label>Company</label><input id="pCompany" value="${p.companyName}"></div>
+        <div><label>Phone</label><input id="pPhone" value="${p.phone}"></div>
+        <div><label>WhatsApp</label><input id="pWa" value="${p.whatsapp}"></div>
+        <div><label>Email</label><input id="pEmail" value="${p.email}"></div>
+        <div><label>Service postcode prefix</label><input id="pPrefix" value="${p.postcodePrefix}"></div>
+        <div><label>Minimum job value</label><input id="pMinJob" type="number" value="${p.minJobValue}"></div>
+      </div>`;
+      Object.entries(p.rules).forEach(([job,v])=>{
+        const card = document.createElement('div'); card.className='card';
+        card.innerHTML = `<h4>${job}</h4><div class="grid two"><input data-key="${job}" data-f="min" type="number" value="${v.min}"><input data-key="${job}" data-f="max" type="number" value="${v.max}"></div>`;
+        c.appendChild(card);
+      });
+      const actions=document.createElement('div'); actions.className='row';
+      actions.innerHTML = `<button class="btn primary" id="savePricing">Save pricing</button><button class="btn secondary" id="resetPricing">Reset pricing</button>`;
+      c.appendChild(actions);
+      document.getElementById('savePricing').onclick=()=>{
+        const np={...p,companyName:pCompany.value,phone:pPhone.value,whatsapp:pWa.value,email:pEmail.value,postcodePrefix:pPrefix.value,minJobValue:Number(pMinJob.value)};
+        c.querySelectorAll('[data-key]').forEach(i=>np.rules[i.dataset.key][i.dataset.f]=Number(i.value));
+        setPricing(np); alert('Pricing saved.');
+      };
+      document.getElementById('resetPricing').onclick=()=>{setPricing(DEFAULT_PRICING); renderPricing();};
+    }
+
+    function renderAnalytics(){
+      const leads=getLeads();
+      const total=leads.length, hot=leads.filter(l=>l.score==='Hot').length, warm=leads.filter(l=>l.score==='Warm').length, poor=leads.filter(l=>l.score==='Poor fit').length;
+      const won=leads.filter(l=>l.status==='Won').length, lost=leads.filter(l=>l.status==='Lost').length;
+      const pipeline=leads.reduce((n,l)=>n+l.max,0), conv=total?Math.round((won/total)*100):0;
+      document.getElementById('tab-analytics').innerHTML = `<h2>Analytics</h2>
+        <div class="grid two">
+          <div class="card"><p>Total leads</p><div class="kpi">${total}</div></div>
+          <div class="card"><p>Hot leads</p><div class="kpi">${hot}</div></div>
+          <div class="card"><p>Warm leads</p><div class="kpi">${warm}</div></div>
+          <div class="card"><p>Poor fit leads</p><div class="kpi">${poor}</div></div>
+          <div class="card"><p>Estimated pipeline</p><div class="kpi">£${pipeline}</div></div>
+          <div class="card"><p>Won jobs</p><div class="kpi">${won}</div></div>
+          <div class="card"><p>Lost jobs</p><div class="kpi">${lost}</div></div>
+          <div class="card"><p>Conversion rate</p><div class="kpi">${conv}%</div></div>
+        </div>
+        <div class="card"><p>Lead mix</p>
+          <p class="small">Hot</p><div class="bar-wrap"><div class="bar" style="width:${total?hot/total*100:0}%"></div></div>
+          <p class="small">Warm</p><div class="bar-wrap"><div class="bar" style="width:${total?warm/total*100:0}%;background:#d97706"></div></div>
+          <p class="small">Poor fit</p><div class="bar-wrap"><div class="bar" style="width:${total?poor/total*100:0}%;background:#dc2626"></div></div>
+        </div>`;
+    }
+
+    function csvExport(){
+      const leads=getLeads();
+      const head='name,phone,email,postcode,jobType,area,budget,timeline,min,max,score,status,createdAt';
+      const rows=leads.map(l=>[l.name,l.phone,l.email,l.postcode,l.jobType,l.area,l.budget,l.timeline,l.min,l.max,l.score,l.status,l.createdAt].join(','));
+      const blob=new Blob([[head,...rows].join('\n')],{type:'text/csv'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='quotegate-leads.csv'; a.click(); URL.revokeObjectURL(a.href);
+    }
+
+    async function clearOldCaches(){
+      if ('serviceWorker' in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map(r=>r.unregister()));
+      }
+      if ('caches' in window) {
+        const keys=await caches.keys();
+        await Promise.all(keys.map(k=>caches.delete(k)));
+      }
+      alert('Old service workers and caches cleared. Reload the page.');
+    }
+
+    function renderExport(){
+      const c=document.getElementById('tab-export');
+      c.innerHTML=`<h2>Export / Reset</h2><div class="row">
+        <button class="btn secondary" id="expCsv">Export leads CSV</button>
+        <button class="btn secondary" id="expJson">Export all data JSON</button>
+        <input id="impJson" type="file" accept="application/json" class="input" />
+        <button class="btn secondary" id="clearLeads">Clear leads</button>
+        <button class="btn danger" id="factoryReset">Factory reset demo</button>
+        <button class="btn primary" id="clearCaches">Clear old browser caches</button>
+      </div>`;
+      expCsv.onclick=csvExport;
+      expJson.onclick=()=>{const blob=new Blob([JSON.stringify({leads:getLeads(),pricing:getPricing()},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='quotegate-data.json';a.click();URL.revokeObjectURL(a.href);};
+      impJson.onchange=(e)=>{const f=e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{const data=JSON.parse(r.result); if(data.leads) setLeads(data.leads); if(data.pricing) setPricing(data.pricing); alert('Imported.');}; r.readAsText(f);};
+      clearLeads.onclick=()=>{if(confirm('Clear all leads?')) {setLeads([]); renderLeads();}};
+      factoryReset.onclick=()=>{if(confirm('Factory reset demo data?')){localStorage.removeItem(STORAGE.leads);localStorage.removeItem(STORAGE.pricing);seed();renderLeads();renderPricing();renderAnalytics();alert('Factory reset complete.');}};
+      clearCaches.onclick=clearOldCaches;
+    }
+
+    document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>switchTab(b.dataset.tab));
+    seed(); cleanOldCachesOnLoad();
+    renderHome(); renderQuote(); renderLeads(); renderPricing(); renderAnalytics(); renderExport();
+  </script>
+</body>
 </html>
